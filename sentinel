@@ -1,0 +1,16 @@
+#!/bin/bash
+# Sentinel Pro — global launcher
+# Usage: sentinel [args]
+
+# Symlink resolve karke actual directory nikalo
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+cd "$SCRIPT_DIR"
+source "$SCRIPT_DIR/venv/bin/activate" 2>/dev/null
+exec python3 "$SCRIPT_DIR/main.py" "$@"

@@ -8,10 +8,17 @@ from PIL import Image, ExifTags
 from PIL.ExifTags import TAGS
 import numpy as np
 from typing import Dict, List, Tuple, Any, Optional
-import cv2
 import time
 from urllib.parse import urlparse
 import mimetypes
+
+# Optional OpenCV import
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    CV2_AVAILABLE = False
+    print("[WARNING] OpenCV (cv2) not available. Media validation will be limited.")
 
 class MediaValidator:
     def __init__(self, evidence_dir: str = "evidence/media"):

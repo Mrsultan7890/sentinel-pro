@@ -7,24 +7,36 @@ import subprocess
 import json
 import os
 import re
+import logging
+import warnings
 from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urljoin, urlparse
 import time
 import random
 from .enhanced_profile_extractor import EnhancedProfileExtractor
-# from fake_useragent import UserAgent
+
+# Disable SSL warnings
+warnings.filterwarnings('ignore', message='Unverified HTTPS request')
+requests.packages.urllib3.disable_warnings()
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class AdvancedFootprintCollector:
     def __init__(self):
         self.scraped_data = []
         self.extracted_entities = {}
         self.user_agents = [
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         ]
         self.stealth_mode = False
         self.enhanced_extractor = EnhancedProfileExtractor()
+        self.request_count = 0
+        self.max_requests_per_minute = 10
         
     def collect_surface_data(self, target):
         """Enhanced surface web collection with multiple sources"""
@@ -47,77 +59,137 @@ class AdvancedFootprintCollector:
         return combined_data
     
     def collect_social_data(self, target):
-        """Enhanced social media profile collection with more platforms"""
+        """Enhanced social media profile collection with 40+ platforms"""
         clean_target = target.replace('@', '').replace(' ', '')
         
         social_platforms = {
-            'github': f"https://github.com/{clean_target}",
-            'reddit': f"https://www.reddit.com/user/{clean_target}",
-            'twitter': f"https://twitter.com/{clean_target}",
-            'instagram': f"https://www.instagram.com/{clean_target}",
-            'linkedin': f"https://www.linkedin.com/in/{clean_target}",
+            # Major Social Media
             'facebook': f"https://www.facebook.com/{clean_target}",
+            'instagram': f"https://www.instagram.com/{clean_target}",
+            'twitter': f"https://twitter.com/{clean_target}",
+            'linkedin': f"https://www.linkedin.com/in/{clean_target}",
             'tiktok': f"https://www.tiktok.com/@{clean_target}",
-            'youtube': f"https://www.youtube.com/@{clean_target}",
-            'discord_search': f"https://discord.com/users/{clean_target}",
-            'telegram': f"https://t.me/{clean_target}",
             'snapchat': f"https://www.snapchat.com/add/{clean_target}",
-            'pinterest': f"https://www.pinterest.com/{clean_target}",
-            'tumblr': f"https://{clean_target}.tumblr.com",
-            'medium': f"https://medium.com/@{clean_target}",
-            'devto': f"https://dev.to/{clean_target}",
+            'youtube': f"https://www.youtube.com/@{clean_target}",
+            
+            # Professional Networks
+            'github': f"https://github.com/{clean_target}",
+            'gitlab': f"https://gitlab.com/{clean_target}",
+            'bitbucket': f"https://bitbucket.org/{clean_target}",
             'stackoverflow': f"https://stackoverflow.com/users/{clean_target}",
+            'behance': f"https://www.behance.net/{clean_target}",
+            'dribbble': f"https://dribbble.com/{clean_target}",
+            'devto': f"https://dev.to/{clean_target}",
+            
+            # Content Platforms
+            'medium': f"https://medium.com/@{clean_target}",
+            'substack': f"https://{clean_target}.substack.com",
+            'wordpress': f"https://{clean_target}.wordpress.com",
+            'blogger': f"https://{clean_target}.blogspot.com",
+            'tumblr': f"https://{clean_target}.tumblr.com",
+            
+            # Communication
+            'telegram': f"https://t.me/{clean_target}",
+            'discord': f"https://discord.com/users/{clean_target}",
+            'whatsapp': f"https://wa.me/{clean_target}",
+            'signal': f"https://signal.me/#p/{clean_target}",
+            'skype': f"https://join.skype.com/invite/{clean_target}",
+            
+            # Media & Entertainment
             'twitch': f"https://www.twitch.tv/{clean_target}",
-            'steam': f"https://steamcommunity.com/id/{clean_target}",
             'spotify': f"https://open.spotify.com/user/{clean_target}",
-            'soundcloud': f"https://soundcloud.com/{clean_target}"
+            'soundcloud': f"https://soundcloud.com/{clean_target}",
+            'vimeo': f"https://vimeo.com/{clean_target}",
+            'dailymotion': f"https://www.dailymotion.com/{clean_target}",
+            
+            # Gaming
+            'steam': f"https://steamcommunity.com/id/{clean_target}",
+            'xbox': f"https://account.xbox.com/en-us/profile?gamertag={clean_target}",
+            'playstation': f"https://psnprofiles.com/{clean_target}",
+            'twitch': f"https://www.twitch.tv/{clean_target}",
+            'roblox': f"https://www.roblox.com/users/profile?username={clean_target}",
+            
+            # Forums & Communities
+            'reddit': f"https://www.reddit.com/user/{clean_target}",
+            'quora': f"https://www.quora.com/profile/{clean_target}",
+            'hackernews': f"https://news.ycombinator.com/user?id={clean_target}",
+            'producthunt': f"https://www.producthunt.com/@{clean_target}",
+            
+            # Visual Platforms
+            'pinterest': f"https://www.pinterest.com/{clean_target}",
+            'flickr': f"https://www.flickr.com/people/{clean_target}",
+            '500px': f"https://500px.com/p/{clean_target}",
+            'unsplash': f"https://unsplash.com/@{clean_target}",
+            
+            # Dating & Adult (for fake profile detection)
+            'onlyfans': f"https://onlyfans.com/{clean_target}",
+            'patreon': f"https://www.patreon.com/{clean_target}",
+            
+            # Other
+            'linktree': f"https://linktr.ee/{clean_target}",
+            'about_me': f"https://about.me/{clean_target}",
+            'carrd': f"https://{clean_target}.carrd.co",
         }
         
         social_data = []
         
         for platform, url in social_platforms.items():
             try:
-                session = self._get_stealth_session()
-                response = session.get(url, timeout=10)
+                # Rate limiting
+                self._apply_rate_limit()
                 
+                session = self._get_stealth_session()
+                response = session.get(url, timeout=10, allow_redirects=True, verify=True)
+                
+                # Only process successful responses
                 if response.status_code == 200:
                     try:
-                        # Direct extraction with fallback to enhanced extractor
                         profile_info = self._extract_profile_info_direct(response.text, platform, url)
                         bio_data = self._extract_bio_direct(response.text, platform)
                         posts_data = self._extract_posts_direct(response.text, platform)
                         contact_info = self._extract_contact_direct(response.text)
                         
-                        social_data.append({
-                            'platform': platform,
-                            'url': url,
-                            'profile_info': profile_info,
-                            'bio_data': bio_data,
-                            'posts_data': posts_data,
-                            'tags_data': self._extract_tags_and_hashtags(response.text, platform),
-                            'contact_info': contact_info,
-                            'content': response.text[:5000],
-                            'status': 'success'
-                        })
+                        # CRITICAL: Only add if we have REAL data
+                        has_real_data = (
+                            profile_info.get('display_name') or 
+                            profile_info.get('username') or 
+                            bio_data.get('bio') or 
+                            posts_data.get('posts')
+                        )
                         
-                        # Debug print for successful extractions
-                        if profile_info.get('display_name') or profile_info.get('follower_count'):
-                            print(f"[DEBUG] {platform}: Found profile - {profile_info.get('display_name', 'N/A')} | Followers: {profile_info.get('follower_count', 'N/A')}")
-                            if bio_data.get('bio'):
-                                print(f"[DEBUG] {platform}: Bio found - {bio_data['bio'][:50]}...")
-                            if posts_data.get('posts'):
-                                print(f"[DEBUG] {platform}: {len(posts_data['posts'])} posts collected")
+                        if has_real_data:
+                            social_data.append({
+                                'platform': platform,
+                                'url': url,
+                                'profile_info': profile_info,
+                                'bio_data': bio_data,
+                                'posts_data': posts_data,
+                                'tags_data': self._extract_tags_and_hashtags(response.text, platform),
+                                'contact_info': contact_info,
+                                'content': response.text[:5000],
+                                'status': 'success',
+                                'verified': True
+                            })
+                            logger.info(f"{platform}: Real profile data collected - {profile_info.get('display_name', 'N/A')}")
+                        else:
+                            logger.debug(f"{platform}: No real data found, skipping")
                     
                     except Exception as parse_error:
-                        print(f"[DEBUG] {platform}: Parse error - {str(parse_error)}")
-                        # Don't add fake data - skip if parsing fails
+                        logger.error(f"{platform}: Parse error - {str(parse_error)}", exc_info=True)
                         continue
+                else:
+                    logger.warning(f"{platform}: HTTP {response.status_code} - skipping")
                 
-                time.sleep(random.uniform(1, 3))  # Rate limiting
+                time.sleep(random.uniform(2, 4))  # Human-like delay
                 
+            except requests.exceptions.Timeout:
+                logger.error(f"{platform}: Request timeout")
+                continue
+            except requests.exceptions.RequestException as e:
+                logger.error(f"{platform}: Connection error - {str(e)}")
+                continue
             except Exception as e:
-                print(f"[DEBUG] {platform}: Connection error - {str(e)}")
-                # Don't add error entries to avoid fake data
+                logger.error(f"{platform}: Unexpected error - {str(e)}", exc_info=True)
                 continue
         
         return social_data
@@ -261,22 +333,36 @@ class AdvancedFootprintCollector:
         return code_data
     
     def _get_stealth_session(self):
-        """Get stealth-configured session"""
+        """Get stealth-configured session with proper security"""
         session = requests.Session()
         
-        # Random user agent
-        import random
+        # Random user agent rotation
         session.headers.update({
             'User-Agent': random.choice(self.user_agents),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
-            'Cache-Control': 'max-age=0'
+            'Cache-Control': 'max-age=0',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'DNT': '1'
         })
         
+        # SSL verification enabled by default
+        session.verify = True
+        
         return session
+    
+    def _apply_rate_limit(self):
+        """Apply rate limiting to avoid detection and bans"""
+        self.request_count += 1
+        if self.request_count >= self.max_requests_per_minute:
+            logger.info("Rate limit reached, waiting 60 seconds...")
+            time.sleep(60)
+            self.request_count = 0
     
 
     

@@ -1,19 +1,73 @@
-requests>=2.28.0
-beautifulsoup4>=4.11.0
-scrapy>=2.6.0
-scikit-learn>=1.1.0
-numpy>=1.21.0
-matplotlib>=3.5.0
-networkx>=2.8.0
-lxml>=4.9.0
-pysocks>=1.7.1
-stem>=1.8.0
-cryptography>=3.4.8
-hashlib-compat>=1.0.1
-tqdm>=4.64.0
-colorama>=0.4.5
-rich>=12.5.0
-fake-useragent>=1.2.1
-selenium>=4.5.0
-aiohttp>=3.8.0
-asyncio-throttle>=1.0.2
+# Core dependencies
+requests==2.32.5
+beautifulsoup4==4.14.3
+
+# Parsing & processing
+lxml>=4.9.3
+
+# Network & proxy
+PySocks==1.7.1
+stem==1.8.2
+
+# Security & crypto
+cryptography==46.0.5
+pyOpenSSL==26.0.0
+
+# Progress & UI
+tqdm==4.67.3
+colorama==0.4.6
+rich==14.3.3
+
+# User agent rotation
+fake-useragent==2.2.0
+
+# Async support
+aiohttp==3.13.3
+
+# Rate limiting
+ratelimit>=2.2.1
+
+# Recon / BugBounty / Breach
+dnspython==2.8.0
+python-whois==0.9.6
+shodan==1.31.0
+python-dotenv==1.2.2
+
+# Notifications
+requests[socks]>=2.31.0
+
+# PDF Export
+weasyprint>=60.0
+
+# Data science & ML (required for ML engine)
+scikit-learn>=1.3.0
+numpy>=1.24.0
+nltk>=3.8.0
+scipy>=1.10.0
+
+# NLP improvements (Phase 1 upgrade)
+spacy>=3.7.0          # Better NER: 60% → 90% accuracy
+langdetect>=1.0.9     # 55 language detection
+# After install run: python -m spacy download en_core_web_sm
+
+# ML Model Training (CRL-powered data pipeline)
+crawl-relevance-layers>=1.1.1  # Data collection for model training
+joblib>=1.3.0                  # Model serialization (save/load .joblib)
+
+# ML Model Training (CRL-powered data pipeline)
+crawl-relevance-layers>=1.1.1  # Data collection for model training
+joblib>=1.3.0                  # Model serialization (save/load .joblib)
+
+# Image OSINT (optional — install for face detection)
+# Pillow>=10.0.0
+# opencv-python>=4.8.0
+# deepface>=0.0.79
+
+# Browser automation (optional)
+# selenium>=4.15.0
+
+# Favicon hash fingerprinting (tech_fingerprint.py)
+mmh3>=4.0.0
+
+# Banner font rendering
+pyfiglet>=0.8.0

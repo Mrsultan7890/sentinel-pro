@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  tor:
+    image: dperson/torproxy:latest
+    restart: unless-stopped
+    ports:
+      - "9050:9050"
+      - "9051:9051"
+    environment:
+      - TOR_MaxCircuitDirtiness=60
+    networks:
+      - sentinel
+
+  sentinel:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - tor
+    volumes:
+      - ./reports:/app/reports
+      - ./investigations:/app/investigations
+      - ./evidence:/app/evidence
+      - ./logs:/app/logs
+      - ./screenshots:/app/screenshots
+      - ./.env:/app/.env:ro
+    environment:
+      - TOR_PROXY=socks5h://tor:9050
+      - TOR_CONTROL_PORT=9051
+      - OSINT_LOG_LEVEL=INFO
+    networks:
+      - sentinel
+    stdin_open: true
+    tty: true
+    command: python3 main.py
+
+networks:
+  sentinel:
+    driver: bridge

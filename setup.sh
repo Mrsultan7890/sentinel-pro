@@ -1,154 +1,194 @@
 #!/bin/bash
+set -e
 
-echo "🛡️  Setting up The Sentinel Pro - Enhanced Threat Intelligence Platform"
-echo "======================================================================="
+echo "🛡️  The Sentinel Pro v2.1 — Setup"
+echo "==================================="
 
-# Check if running on Kali Linux
+# ── OS check ──────────────────────────────────────────────────────────────────
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
     if [[ $ID == "kali" ]]; then
-        echo "✓ Kali Linux detected - Optimal environment"
+        echo "✓ Kali Linux detected"
     else
-        echo "⚠️  Warning: Not running on Kali Linux. Some features may not work optimally."
+        echo "⚠  Not Kali Linux — some features may behave differently"
     fi
 fi
 
-# Install enhanced Python dependencies
-echo "📦 Installing enhanced Python dependencies..."
-sudo apt update
-sudo apt install -y python3-requests python3-bs4 python3-sklearn python3-numpy python3-matplotlib python3-networkx python3-lxml python3-cryptography python3-socks
+# ── System packages ───────────────────────────────────────────────────────────
+echo ""
+echo "📦 Installing system packages..."
+sudo apt-get update -qq
+sudo apt-get install -y \
+    python3 python3-pip python3-venv \
+    golang-go \
+    chromium \
+    tor \
+    libssl-dev \
+    2>/dev/null || true
 
-# Install additional dependencies via pip (with system packages fallback)
-pip3 install --break-system-packages rich tqdm colorama fake-useragent stem aiohttp asyncio-throttle 2>/dev/null || echo "Using system packages for Python dependencies"
-
-# Install Go if not present
-if ! command -v go &> /dev/null; then
-    echo "📦 Installing Go..."
-    sudo apt install -y golang-go
-else
-    echo "✓ Go already installed ($(go version))"
-fi
-
-# Install Rust if not present
-if ! command -v cargo &> /dev/null; then
+# ── Rust ──────────────────────────────────────────────────────────────────────
+if ! command -v cargo &>/dev/null; then
     echo "📦 Installing Rust..."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-    source ~/.cargo/env
+    source "$HOME/.cargo/env"
 else
-    echo "✓ Rust already installed ($(cargo --version))"
+    echo "✓ Rust $(cargo --version)"
 fi
 
-# Install Tor for dark web capabilities
-if ! command -v tor &> /dev/null; then
-    echo "📦 Installing Tor for dark web access..."
-    sudo apt install -y tor
+# ── Python venv ───────────────────────────────────────────────────────────────
+echo ""
+echo "🐍 Setting up Python virtual environment..."
+python3 -m venv venv
+source venv/bin/activate
+pip install --upgrade pip -q
+pip install -r requirements.txt -q
+echo "✓ Python dependencies installed"
+
+# ── NLTK Data Download ────────────────────────────────────────────────────────
+echo ""
+echo "🧠 Downloading NLTK data for ML engine..."
+python3 -c "
+import nltk
+pkgs = ['punkt', 'punkt_tab', 'stopwords', 'averaged_perceptron_tagger',
+        'averaged_perceptron_tagger_eng', 'maxent_ne_chunker',
+        'maxent_ne_chunker_tab', 'words']
+for p in pkgs:
+    nltk.download(p, quiet=True)
+    print(f'  ✓ nltk:{p}')
+" 2>/dev/null || echo "  ⚠ NLTK download failed — run manually: python3 -c \"import nltk; nltk.download('all')\""
+
+# ── spaCy Model Download ──────────────────────────────────────────────────────
+echo ""
+echo "🧠 Downloading spaCy model (better NER accuracy)..."
+python3 -m spacy download en_core_web_sm 2>/dev/null && echo "  ✓ spaCy en_core_web_sm" || echo "  ⚠ spaCy model download failed — NER will use NLTK fallback"
+
+# ── .env file ─────────────────────────────────────────────────────────────────
+if [[ ! -f .env ]]; then
+    cp .env.example .env
+    echo "✓ Created .env from .env.example — edit it to add your API keys"
 else
-    echo "✓ Tor already installed"
+    echo "✓ .env already exists"
 fi
 
-# Build enhanced Go components
-echo "🔨 Building enhanced Go scraper..."
-cd scraper && go build -o scraper main.go && cd ..
+# ── Go binaries ───────────────────────────────────────────────────────────────
+echo ""
+echo "🔨 Building Go binaries..."
 
-echo "🔨 Building Go predictor..."
-cd predictor && go build -o predictor main.go && cd ..
+build_go() {
+    local dir=$1
+    if [[ -d "$dir" && -f "$dir/main.go" ]]; then
+        (cd "$dir" && go build -o "$(basename $dir)" main.go) && echo "  ✓ $dir" || echo "  ✗ $dir (build failed)"
+    else
+        echo "  - $dir (skipped — not found)"
+    fi
+}
 
-echo "🔨 Building stealth proxy manager..."
-cd stealth_proxy && go build -o stealth_proxy main.go && cd ..
+build_go scraper
+build_go predictor
+build_go stealth_proxy
+build_go network_mapper
+build_go smuggler
+build_go dirbuster
 
-echo "🔨 Building legal predictor..."
-cd legal_predictor && go build -o legal_predictor main.go && cd ..
+# ── Rust binaries ─────────────────────────────────────────────────────────────
+echo ""
+echo "🔨 Building Rust binaries..."
 
-echo "🔨 Building topic modeler..."
-cd topic_modeler && go build -o topic_modeler main.go && cd ..
+build_rust() {
+    local dir=$1
+    if [[ -d "$dir" && -f "$dir/Cargo.toml" ]]; then
+        (cd "$dir" && cargo build --release -q) && echo "  ✓ $dir" || echo "  ✗ $dir (build failed)"
+    else
+        echo "  - $dir (skipped — not found)"
+    fi
+}
 
-echo "🔨 Building network mapper..."
-cd network_mapper && go build -o network_mapper main.go && cd ..
+build_rust analyzer
+build_rust media_analyzer
+build_rust fuzzer
 
-# Build enhanced Rust analyzer
-echo "🔨 Building enhanced Rust analyzer..."
-cd analyzer && cargo build --release && cd ..
+# ── Chromium check ────────────────────────────────────────────────────────────
+echo ""
+CHROMIUM_BIN=$(command -v chromium || command -v chromium-browser || echo "")
+if [[ -n "$CHROMIUM_BIN" ]]; then
+    echo "✓ Chromium found: $CHROMIUM_BIN"
+else
+    echo "⚠  Chromium not found — screenshot feature will be disabled"
+    echo "   Install with: sudo apt install chromium"
+fi
 
-echo "🔨 Building Rust media analyzer..."
-cd media_analyzer && cargo build --release && cd ..
+# ── Directory structure ───────────────────────────────────────────────────────
+echo ""
+echo "📁 Creating directories..."
+mkdir -p reports screenshots investigations evidence logs models models/ml_engine config
+chmod +x main.py setup.sh 2>/dev/null || true
 
-# Create enhanced directory structure
-echo "📁 Creating enhanced directory structure..."
-mkdir -p reports models evidence logs
+# ── Global sentinel command ──────────────────────────────────────────────────────
+echo ""
+echo "🔗 Setting up 'sentinel' command..."
+mkdir -p "$HOME/.local/bin"
+ln -sf "$(pwd)/sentinel" "$HOME/.local/bin/sentinel"
+if ! grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+fi
+if ! grep -q '.local/bin' "$HOME/.zshrc" 2>/dev/null; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc" 2>/dev/null || true
+fi
+echo "  ✓ 'sentinel' command installed"
+echo "  Run: source ~/.bashrc  (or open new terminal)"
 
-# Set executable permissions
-chmod +x main.py setup.sh
-chmod +x scraper/scraper predictor/predictor stealth_proxy/stealth_proxy legal_predictor/legal_predictor 2>/dev/null
-chmod +x topic_modeler/topic_modeler network_mapper/network_mapper 2>/dev/null
-
-# Configure Tor (basic configuration)
-echo "⚙️  Configuring Tor for dark web access..."
-sudo systemctl enable tor 2>/dev/null || echo "Tor service configuration skipped"
-
-# Create configuration files
-echo "📝 Creating configuration files..."
-
-# Create stealth configuration
-cat > config/stealth_config.json << EOF
+# ── Config files ──────────────────────────────────────────────────────────────
+cat > config/stealth_config.json << 'EOF'
 {
   "proxy_rotation_interval": 5,
   "user_agent_randomization": true,
   "tor_integration": true,
   "anti_detection_mode": true,
-  "request_delays": {
-    "min": 1,
-    "max": 5
-  }
+  "request_delays": {"min": 1, "max": 5}
 }
 EOF
 
-# Create legal compliance configuration
-cat > config/legal_config.json << EOF
+cat > config/legal_config.json << 'EOF'
 {
   "evidence_standards": ["ISO 27037", "NIST SP 800-86", "RFC 3227"],
   "chain_of_custody_required": true,
   "cryptographic_integrity": true,
   "legal_admissibility_mode": true,
-  "jurisdiction": "international",
-  "compliance_frameworks": ["GDPR", "CCPA", "SOX"]
+  "jurisdiction": "international"
 }
 EOF
 
-mkdir -p config 2>/dev/null
+# ── Tor ───────────────────────────────────────────────────────────────────────
+sudo systemctl enable tor 2>/dev/null || true
 
+# ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
-echo "🎉 The Sentinel Pro setup complete!"
+echo "╔══════════════════════════════════════════════════════╗"
+echo "║  ✅  The Sentinel Pro — Setup Complete               ║"
+echo "╚══════════════════════════════════════════════════════╝"
 echo ""
-echo "🚀 ENHANCED FEATURES AVAILABLE:"
-echo "   ✓ Professional CLI with real-time progress indicators"
-echo "   ✓ Advanced stealth & anti-detection capabilities"
-echo "   ✓ Dark web integration with Tor support"
-echo "   ✓ AI-powered predictive threat analysis"
-echo "   ✓ Legal-grade evidence management"
-echo "   ✓ Court-admissible reporting with chain of custody"
-echo "   ✓ Multi-language architecture (Python/Go/Rust)"
-echo ""
-echo "📋 USAGE:"
+echo "🚀 Quick Start:"
+echo "   source venv/bin/activate"
 echo "   python3 main.py"
 echo ""
-echo "🔧 ENHANCED COMMANDS:"
-echo "   sentinel-pro> collect <target>     # Advanced multi-source collection"
-echo "   sentinel-pro> darkweb <target>     # Dark web investigation"
-echo "   sentinel-pro> analyze              # AI-powered threat prediction"
-echo "   sentinel-pro> semantic             # AI semantic analysis of content"
-echo "   sentinel-pro> media                # Media integrity & deepfake detection"
-echo "   sentinel-pro> financial            # Financial trail & crypto analysis"
-echo "   sentinel-pro> network              # Influence network mapping"
-echo "   sentinel-pro> stealth              # Configure stealth settings"
-echo "   sentinel-pro> evidence             # Manage legal evidence"
-echo "   sentinel-pro> report               # Generate court-ready reports"
+echo "⚡ Direct CLI:"
+echo "   python3 main.py --bugbounty example.com"
+echo "   python3 main.py --recon example.com"
+echo "   python3 main.py --breach user@example.com"
+echo "   python3 main.py --email user@example.com"
+echo "   python3 main.py --scan-all example.com"
+echo "   python3 main.py --help"
 echo ""
-echo "⚖️  LEGAL COMPLIANCE:"
-echo "   ✓ ISO 27037 Digital Evidence Standards"
-echo "   ✓ NIST SP 800-86 Forensic Guidelines"
-echo "   ✓ RFC 3227 Evidence Collection Standards"
-echo "   ✓ Cryptographic integrity verification"
-echo "   ✓ Unbroken chain of custody"
+echo "🔑 API Keys (optional — edit .env):"
+echo "   SHODAN_API_KEY        → Shodan host intelligence"
+echo "   GITHUB_TOKEN          → GitHub code dorking"
+echo "   SERPAPI_KEY           → Google dork auto-execute"
+echo "   SECURITYTRAILS_API_KEY → DNS history"
+echo "   NVD_API_KEY           → CVE lookup (higher rate limit)"
 echo ""
-echo "🛡️  The Sentinel Pro is ready for professional threat intelligence operations!"
+echo "🧠 ML Engine (no API key needed):"
+echo "   person <name>         → Entity matching + DBSCAN clustering"
+echo "   nlp <text>            → NLP profiling + writing fingerprint"
+echo "   nlp session           → Analyze collected session data"
 echo ""
+echo "📄 See README.md for full documentation"

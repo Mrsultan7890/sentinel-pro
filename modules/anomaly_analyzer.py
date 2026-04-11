@@ -568,20 +568,31 @@ class PredictiveAnalyzer:
         return style
     
     def _generate_sample_training_data(self):
-        """Generate sample training data for models"""
-        # Create sample feature vectors for training
-        np.random.seed(42)
-        
-        # Normal behavior samples
-        normal_samples = np.random.normal(5, 2, (50, 6))  # 6 features
-        
-        # Anomalous behavior samples
-        anomaly_samples = np.random.normal(15, 5, (10, 6))
-        
-        # Combine samples
-        training_data = np.vstack([normal_samples, anomaly_samples])
-        
-        return training_data
+        """Build training data from known normal/anomalous feature profiles.
+        Features: [surface_count, social_count, total_text_len, avg_text_len, keyword_count, platform_count]
+        """
+        # Normal profiles: low-medium counts, short-medium text, no suspicious keywords
+        normal = np.array([
+            [2, 3, 1200, 200, 0, 2],
+            [1, 5, 3000, 300, 0, 4],
+            [3, 4, 2000, 250, 0, 3],
+            [0, 6, 4000, 400, 0, 5],
+            [2, 2,  800, 200, 0, 2],
+            [1, 3, 1500, 250, 0, 3],
+            [4, 5, 2500, 300, 0, 4],
+            [2, 4, 1800, 225, 0, 3],
+            [3, 3, 2200, 275, 0, 3],
+            [1, 7, 5000, 500, 0, 6],
+        ], dtype=float)
+
+        # Anomalous profiles: very high counts, long text, suspicious keywords, many platforms
+        anomalous = np.array([
+            [20, 30, 80000, 2000, 15, 12],
+            [15, 25, 60000, 1500, 10, 10],
+            [18, 28, 70000, 1800, 12, 11],
+        ], dtype=float)
+
+        return np.vstack([normal, anomalous])
     
     def _identify_anomaly_indicators(self, collected_data):
         """Identify specific indicators that triggered anomaly detection"""

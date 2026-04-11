@@ -546,7 +546,7 @@ ensuring admissibility in legal proceedings under international cybercrime statu
     def _create_enhanced_network_graph(self, session_data, report_id):
         """Create enhanced network visualization"""
         try:
-            plt.figure(figsize=(15, 10))
+            fig = plt.figure(figsize=(15, 10))
             G = nx.Graph()
             
             # Add nodes from collected data
@@ -589,12 +589,16 @@ ensuring admissibility in legal proceedings under international cybercrime statu
             # Save graph
             graph_path = os.path.join(self.report_dir, f"{report_id}_enhanced_network.png")
             plt.savefig(graph_path, dpi=300, bbox_inches='tight', facecolor='white')
-            plt.close()
+            
+            # CRITICAL: Close figure to prevent memory leak
+            plt.close(fig)
             
             return graph_path
             
         except Exception as e:
             print(f"[!] Enhanced graph generation failed: {e}")
+            # Ensure figure is closed even on error
+            plt.close('all')
             return None
     
     def _create_forensic_timeline(self, session_data, report_id):
@@ -626,12 +630,15 @@ ensuring admissibility in legal proceedings under international cybercrime statu
             # Save timeline
             timeline_path = os.path.join(self.report_dir, f"{report_id}_timeline.png")
             plt.savefig(timeline_path, dpi=300, bbox_inches='tight', facecolor='white')
-            plt.close()
+            
+            # CRITICAL: Close figure to prevent memory leak
+            plt.close(fig)
             
             return timeline_path
             
         except Exception as e:
             print(f"[!] Timeline generation failed: {e}")
+            plt.close('all')
             return None
     
     def _create_threat_heatmap(self, session_data, report_id):
@@ -673,12 +680,15 @@ ensuring admissibility in legal proceedings under international cybercrime statu
             # Save heatmap
             heatmap_path = os.path.join(self.report_dir, f"{report_id}_threat_heatmap.png")
             plt.savefig(heatmap_path, dpi=300, bbox_inches='tight', facecolor='white')
-            plt.close()
+            
+            # CRITICAL: Close figure to prevent memory leak
+            plt.close(fig)
             
             return heatmap_path
             
         except Exception as e:
             print(f"[!] Heatmap generation failed: {e}")
+            plt.close('all')
             return None
     
     def _generate_legal_html_report(self, legal_report, report_id):
@@ -876,19 +886,27 @@ ensuring admissibility in legal proceedings under international cybercrime statu
         return html_path
     
     def _generate_pdf_report(self, legal_report, report_id):
-        """Generate PDF report for legal proceedings"""
-        # Placeholder for PDF generation
-        # In production, use libraries like weasyprint or reportlab
+        """Generate PDF report for legal proceedings using WeasyPrint."""
         pdf_path = os.path.join(self.report_dir, f"{report_id}_legal_report.pdf")
-        
-        # Create a simple text-based PDF placeholder
-        with open(pdf_path.replace('.pdf', '_text.txt'), 'w') as f:
-            f.write(f"LEGAL INTELLIGENCE REPORT - {report_id}\n")
-            f.write("="*50 + "\n\n")
-            f.write("This is a placeholder for PDF generation.\n")
-            f.write("In production, implement proper PDF generation using weasyprint or reportlab.\n")
-        
-        return pdf_path.replace('.pdf', '_text.txt')
+        html_path = os.path.join(self.report_dir, f"{report_id}_legal_report.html")
+
+        try:
+            from weasyprint import HTML
+            if os.path.exists(html_path):
+                HTML(filename=html_path).write_pdf(pdf_path)
+            else:
+                # Generate HTML inline if file not yet written
+                html_content = self._generate_legal_html_report(legal_report, report_id)
+                HTML(filename=html_path).write_pdf(pdf_path)
+            print(f'[+] PDF report saved: {pdf_path}')
+        except ImportError:
+            print('[!] WeasyPrint not installed. Run: pip install weasyprint')
+            pdf_path = None
+        except Exception as e:
+            print(f'[!] PDF generation failed: {e}')
+            pdf_path = None
+
+        return pdf_path
     
     def _create_evidence_package(self, legal_report, report_hash, report_id):
         """Create complete evidence package for legal proceedings"""

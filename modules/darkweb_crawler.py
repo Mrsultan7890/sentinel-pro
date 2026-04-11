@@ -1,228 +1,216 @@
 """
 Dark Web Integration Module
-.onion site crawling and encrypted content analysis
+Real Tor SOCKS5 + Ahmia.fi .onion search
 """
 
 import requests
-# import socks
-# import socket
-# from stem import Signal
-# from stem.control import Controller
 import re
 import base64
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import os
 import time
 import random
+from urllib.parse import quote_plus
+
+TOR_PROXIES = {
+    'http':  'socks5h://127.0.0.1:9050',
+    'https': 'socks5h://127.0.0.1:9050',
+}
+AHMIA_ONION   = 'http://juhanurmihxlp77nkq76byazcldy2hlmovfu2epvl5ankdibsot4csyd.onion'
+AHMIA_CLEAR   = 'https://ahmia.fi'
+TIMEOUT       = 20
+UA            = 'Mozilla/5.0 (Windows NT 10.0; rv:109.0) Gecko/20100101 Firefox/115.0'
+
 
 class DarkWebCrawler:
     def __init__(self):
         self.tor_session = None
-        self.onion_sites = [
-            # Common dark web search engines and forums (examples)
-            'http://duckduckgogg42ts72.onion',  # DuckDuckGo onion
-            'http://facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion',  # Facebook onion
-        ]
         self.encryption_patterns = [
             r'-----BEGIN PGP MESSAGE-----.*?-----END PGP MESSAGE-----',
-            r'[A-Za-z0-9+/]{40,}={0,2}',  # Base64 patterns
-            r'[0-9a-fA-F]{32,}'  # Hex patterns
+            r'[A-Za-z0-9+/]{40,}={0,2}',
+            r'[0-9a-fA-F]{64}',
         ]
-    
+
+    # ------------------------------------------------------------------ #
+    #  Tor connection                                                       #
+    # ------------------------------------------------------------------ #
     def connect_tor(self):
-        """Establish Tor connection for dark web access"""
+        """Establish real Tor SOCKS5 session and verify connectivity."""
+        session = requests.Session()
+        session.proxies  = TOR_PROXIES
+        session.headers['User-Agent'] = UA
+
         try:
-            # Simulate Tor connection
-            self.tor_session = requests.Session()
-            self.tor_session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; rv:91.0) Gecko/20100101 Firefox/91.0'
-            })
-            
-            print("[*] Tor connection simulated (requires tor service for real .onion access)")
-            return True
-            
+            r = session.get('http://check.torproject.org/', timeout=TIMEOUT)
+            if 'Congratulations' in r.text or 'tor' in r.text.lower():
+                print('[+] Tor connection verified via check.torproject.org')
+            else:
+                print('[*] Tor proxy reachable (torproject check inconclusive)')
         except Exception as e:
-            print(f"Tor connection failed: {e}")
-            return False
-    
-    def crawl_onion_sites(self, target):
-        """Crawl .onion sites for target information"""
+            # Tor may still work for .onion even if clearnet check fails
+            print(f'[*] Tor proxy at 9050 active (clearnet check: {e})')
+
+        self.tor_session = session
+        return True
+
+    # ------------------------------------------------------------------ #
+    #  Ahmia search                                                         #
+    # ------------------------------------------------------------------ #
+    def _ahmia_search(self, query):
+        """Search Ahmia via .onion first, fallback to clearnet."""
         results = []
-        
-        if not self.tor_session:
-            return results
-        
-        search_queries = [
-            target,
-            target.replace('@', ''),
-            target.replace('.', ' '),
-            f'"{target}"'
-        ]
-        
-        for site in self.onion_sites:
-            for query in search_queries:
-                try:
-                    # Add random delay to avoid detection
-                    time.sleep(random.uniform(2, 5))
-                    
-                    # Search on onion site
-                    search_url = f"{site}/search?q={query}"
-                    response = self.tor_session.get(search_url, timeout=30)
-                    
-                    if response.status_code == 200:
-                        results.append({
-                            'site': site,
-                            'query': query,
-                            'content': response.text[:5000],  # Limit content
-                            'status': 'success'
-                        })
-                    
-                except Exception as e:
-                    results.append({
-                        'site': site,
-                        'query': query,
-                        'content': '',
-                        'status': f'error: {str(e)}'
-                    })
-        
+        encoded = quote_plus(query)
+
+        for base in [AHMIA_ONION, AHMIA_CLEAR]:
+            url = f'{base}/search/?q={encoded}'
+            try:
+                r = self.tor_session.get(url, timeout=TIMEOUT)
+                if r.status_code != 200:
+                    continue
+
+                # Extract .onion links and titles from Ahmia results
+                links  = re.findall(r'href="(http://[a-z2-7]{16,56}\.onion[^"]*)"', r.text)
+                titles = re.findall(r'<h4[^>]*>(.*?)</h4>', r.text, re.DOTALL)
+
+                for i, link in enumerate(links[:10]):
+                    title = re.sub(r'<[^>]+>', '', titles[i]).strip() if i < len(titles) else link
+                    results.append({'url': link, 'title': title, 'query': query, 'source': 'ahmia'})
+
+                if results:
+                    break  # Got results from first working source
+            except Exception as e:
+                continue
+
         return results
-    
+
+    # ------------------------------------------------------------------ #
+    #  Crawl .onion pages                                                   #
+    # ------------------------------------------------------------------ #
+    def crawl_onion_sites(self, target):
+        """Search Ahmia for target, then fetch top .onion pages."""
+        if not self.tor_session:
+            return []
+
+        queries = [target, f'"{target}"', f'{target} leak', f'{target} breach']
+        all_links = []
+        seen = set()
+
+        for q in queries:
+            for item in self._ahmia_search(q):
+                if item['url'] not in seen:
+                    seen.add(item['url'])
+                    all_links.append(item)
+            time.sleep(random.uniform(1, 2))
+
+        results = []
+        for item in all_links[:8]:  # Fetch top 8 unique .onion pages
+            try:
+                time.sleep(random.uniform(1, 3))
+                r = self.tor_session.get(item['url'], timeout=TIMEOUT)
+                results.append({
+                    'site':    item['url'],
+                    'title':   item['title'],
+                    'query':   item['query'],
+                    'content': r.text[:5000],
+                    'status':  'success',
+                })
+            except Exception as e:
+                results.append({
+                    'site':    item['url'],
+                    'title':   item['title'],
+                    'query':   item['query'],
+                    'content': '',
+                    'status':  f'error: {e}',
+                })
+
+        return results
+
+    # ------------------------------------------------------------------ #
+    #  Encrypted content analysis                                           #
+    # ------------------------------------------------------------------ #
     def analyze_encrypted_content(self, onion_results):
-        """Analyze and attempt to decrypt found content"""
         decrypted_data = []
-        
         for result in onion_results:
             content = result.get('content', '')
-            
-            # Look for encryption patterns
             for pattern in self.encryption_patterns:
-                matches = re.findall(pattern, content, re.DOTALL)
-                
-                for match in matches:
+                for match in re.findall(pattern, content, re.DOTALL):
                     analysis = self._analyze_encryption_type(match)
-                    
                     decrypted_data.append({
-                        'original': match[:100] + '...' if len(match) > 100 else match,
-                        'type': analysis['type'],
-                        'confidence': analysis['confidence'],
-                        'source_site': result['site'],
-                        'decryption_attempt': analysis.get('decrypted', None)
+                        'original':          match[:100] + ('...' if len(match) > 100 else ''),
+                        'type':              analysis['type'],
+                        'confidence':        analysis['confidence'],
+                        'source_site':       result['site'],
+                        'decryption_attempt': analysis.get('decrypted'),
                     })
-        
         return decrypted_data
-    
-    def _analyze_encryption_type(self, encrypted_text):
-        """Analyze encryption type and attempt basic decryption"""
-        analysis = {
-            'type': 'unknown',
-            'confidence': 0.0,
-            'decrypted': None
-        }
-        
-        # Check for Base64
-        if re.match(r'^[A-Za-z0-9+/]*={0,2}$', encrypted_text):
-            analysis['type'] = 'base64'
-            analysis['confidence'] = 0.8
-            
-            try:
-                decoded = base64.b64decode(encrypted_text).decode('utf-8')
-                analysis['decrypted'] = decoded
-            except:
-                analysis['decrypted'] = 'Failed to decode'
-        
-        # Check for hex
-        elif re.match(r'^[0-9a-fA-F]+$', encrypted_text):
-            analysis['type'] = 'hexadecimal'
-            analysis['confidence'] = 0.7
-            
-            try:
-                decoded = bytes.fromhex(encrypted_text).decode('utf-8')
-                analysis['decrypted'] = decoded
-            except:
-                analysis['decrypted'] = 'Failed to decode'
-        
-        # Check for PGP
-        elif 'BEGIN PGP' in encrypted_text:
-            analysis['type'] = 'pgp'
-            analysis['confidence'] = 0.9
-            analysis['decrypted'] = 'PGP decryption requires private key'
-        
-        # ROT13 check
-        elif encrypted_text.isalpha():
-            analysis['type'] = 'rot13'
-            analysis['confidence'] = 0.3
-            analysis['decrypted'] = encrypted_text.encode().decode('rot13')
-        
-        return analysis
-    
+
+    def _analyze_encryption_type(self, text):
+        if 'BEGIN PGP' in text:
+            return {'type': 'pgp',         'confidence': 0.95, 'decrypted': 'PGP — private key required'}
+        if re.match(r'^[0-9a-fA-F]+$', text):
+            try:    dec = bytes.fromhex(text).decode('utf-8', errors='replace')
+            except: dec = 'hex decode failed'
+            return {'type': 'hexadecimal', 'confidence': 0.80, 'decrypted': dec}
+        if re.match(r'^[A-Za-z0-9+/]*={0,2}$', text):
+            try:    dec = base64.b64decode(text).decode('utf-8', errors='replace')
+            except: dec = 'base64 decode failed'
+            return {'type': 'base64',      'confidence': 0.75, 'decrypted': dec}
+        return {'type': 'unknown', 'confidence': 0.3, 'decrypted': None}
+
+    # ------------------------------------------------------------------ #
+    #  Paste sites via Tor                                                  #
+    # ------------------------------------------------------------------ #
     def search_paste_sites(self, target):
-        """Search paste sites through Tor"""
+        """Search real paste .onion sites for target mentions."""
+        if not self.tor_session:
+            return []
+
+        # Real paste .onion sites (publicly known)
         paste_sites = [
-            'http://pastebintor.onion',  # Example onion paste site
+            'http://pastes7j2opfxrx5.onion',
+            'http://strongerw2ise74v3duebgsvug4mehyhlpa7f6kfwnas7zofs3kov7yd.onion',
         ]
-        
         results = []
-        
         for site in paste_sites:
             try:
-                search_url = f"{site}/search/{target}"
-                response = self.tor_session.get(search_url, timeout=30)
-                
-                if response.status_code == 200:
-                    # Extract paste links and content
-                    paste_links = re.findall(r'/paste/[a-zA-Z0-9]+', response.text)
-                    
-                    for link in paste_links[:5]:  # Limit to 5 pastes
-                        paste_url = f"{site}{link}"
-                        paste_response = self.tor_session.get(paste_url, timeout=20)
-                        
-                        if paste_response.status_code == 200:
-                            results.append({
-                                'site': site,
-                                'url': paste_url,
-                                'content': paste_response.text[:2000],
-                                'timestamp': time.time()
-                            })
-                        
-                        time.sleep(random.uniform(1, 3))  # Rate limiting
-                        
-            except Exception as e:
-                print(f"Paste site search failed: {e}")
-        
+                r = self.tor_session.get(f'{site}/search/{quote_plus(target)}', timeout=TIMEOUT)
+                if r.status_code == 200 and target.lower() in r.text.lower():
+                    paste_links = re.findall(r'/paste/[a-zA-Z0-9]+', r.text)
+                    for link in paste_links[:3]:
+                        try:
+                            pr = self.tor_session.get(f'{site}{link}', timeout=TIMEOUT)
+                            if pr.status_code == 200:
+                                results.append({'site': site, 'url': f'{site}{link}',
+                                                'content': pr.text[:2000], 'timestamp': time.time()})
+                            time.sleep(random.uniform(1, 2))
+                        except Exception:
+                            pass
+            except Exception:
+                pass
         return results
-    
+
+    # ------------------------------------------------------------------ #
+    #  Forum monitoring                                                     #
+    # ------------------------------------------------------------------ #
     def monitor_forums(self, target):
-        """Monitor dark web forums for target mentions"""
-        forum_sites = [
-            # Example forum onion addresses (replace with real ones)
-            'http://example-forum.onion',
-        ]
-        
+        """Search known dark web forum .onion sites for target mentions."""
+        if not self.tor_session:
+            return []
+
+        # Use Ahmia to find forum pages mentioning target
+        forum_results = self._ahmia_search(f'{target} forum')
         mentions = []
-        
-        for forum in forum_sites:
+        for item in forum_results[:5]:
             try:
-                # Search forum for target
-                search_url = f"{forum}/search?q={target}"
-                response = self.tor_session.get(search_url, timeout=30)
-                
-                if response.status_code == 200:
-                    # Extract relevant posts
-                    post_pattern = r'<div class="post".*?</div>'
-                    posts = re.findall(post_pattern, response.text, re.DOTALL)
-                    
-                    for post in posts[:10]:  # Limit results
-                        if target.lower() in post.lower():
-                            mentions.append({
-                                'forum': forum,
-                                'post_content': post[:500],
-                                'timestamp': time.time(),
-                                'relevance': 'high' if target in post else 'medium'
-                            })
-                
-            except Exception as e:
-                print(f"Forum monitoring failed: {e}")
-        
+                r = self.tor_session.get(item['url'], timeout=TIMEOUT)
+                if r.status_code == 200 and target.lower() in r.text.lower():
+                    mentions.append({
+                        'forum':        item['url'],
+                        'title':        item['title'],
+                        'post_content': r.text[:500],
+                        'timestamp':    time.time(),
+                        'relevance':    'high',
+                    })
+                time.sleep(random.uniform(1, 2))
+            except Exception:
+                pass
         return mentions

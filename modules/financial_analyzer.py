@@ -3,7 +3,6 @@
 import re
 import json
 import requests
-import hashlib
 from typing import Dict, List, Tuple, Any, Optional
 import time
 from urllib.parse import urlparse
@@ -218,54 +217,90 @@ class FinancialAnalyzer:
         return analysis
     
     def _analyze_single_address(self, address: str, crypto_type: str) -> Dict[str, Any]:
-        """Analyze a single cryptocurrency address"""
-        
-        # This is a simplified analysis - in a real implementation,
-        # you would query blockchain APIs or maintain a database of known addresses
-        
+        """Analyze a single cryptocurrency address via real blockchain APIs."""
         analysis = {
             'address': address,
             'crypto_type': crypto_type,
             'risk_score': 0.0,
             'risk_reasons': [],
-            'estimated_balance': 'unknown',
+            'balance': 'unknown',
             'transaction_count': 'unknown',
             'first_seen': 'unknown',
             'last_activity': 'unknown',
-            'associated_services': []
+            'associated_services': [],
+            'api_source': 'none',
         }
-        
-        # Simple heuristic-based risk assessment
-        address_hash = hashlib.sha256(address.encode()).hexdigest()
-        
-        # Check address characteristics
-        if len(address) < 26:  # Unusually short address
-            analysis['risk_score'] += 0.2
-            analysis['risk_reasons'].append('Unusually short address format')
-        
-        # Check for patterns that might indicate mixing services
-        if address_hash[:2] in ['00', '11', '22', '33', '44', '55', '66', '77', '88', '99', 'aa', 'bb', 'cc', 'dd', 'ee', 'ff']:
-            analysis['risk_score'] += 0.3
-            analysis['risk_reasons'].append('Address pattern suggests potential mixing service')
-        
-        # Simulate some risk factors based on address hash
-        hash_int = int(address_hash[:8], 16)
-        
-        if hash_int % 100 < 10:  # 10% chance
-            analysis['risk_score'] += 0.4
-            analysis['risk_reasons'].append('Address associated with high-risk transactions')
-        
-        if hash_int % 100 < 5:   # 5% chance
-            analysis['risk_score'] += 0.3
-            analysis['risk_reasons'].append('Address linked to known suspicious services')
-        
-        if hash_int % 100 < 2:   # 2% chance
-            analysis['risk_score'] += 0.5
-            analysis['risk_reasons'].append('Address flagged in law enforcement databases')
-        
-        analysis['risk_score'] = min(analysis['risk_score'], 1.0)
-        
+
+        try:
+            if crypto_type == 'ethereum':
+                self._blockchair_eth(address, analysis)
+            elif crypto_type == 'bitcoin':
+                self._blockchair_btc(address, analysis)
+            else:
+                self._blockchair_generic(address, crypto_type, analysis)
+        except Exception as e:
+            analysis['api_error'] = str(e)[:80]
+
         return analysis
+
+    # Blockchair — free, no key needed (rate limit: ~30 req/min)
+    _BLOCKCHAIR_COIN = {
+        'bitcoin': 'bitcoin', 'ethereum': 'ethereum',
+        'litecoin': 'litecoin', 'dogecoin': 'dogecoin',
+        'ripple': 'ripple',
+    }
+
+    def _blockchair_btc(self, address: str, analysis: dict):
+        url = f'https://api.blockchair.com/bitcoin/dashboards/address/{address}'
+        r = requests.get(url, timeout=10, headers={'User-Agent': 'SentinelPro/2.1'})
+        if r.status_code != 200:
+            analysis['api_error'] = f'Blockchair HTTP {r.status_code}'
+            return
+        data = r.json().get('data', {}).get(address, {}).get('address', {})
+        analysis['api_source']        = 'blockchair'
+        analysis['balance']           = str(data.get('balance', 'unknown'))
+        analysis['transaction_count'] = data.get('transaction_count', 'unknown')
+        analysis['first_seen']        = data.get('first_seen_receiving', 'unknown')
+        analysis['last_activity']     = data.get('last_seen_receiving', 'unknown')
+        tx_count = data.get('transaction_count', 0) or 0
+        if tx_count > 1000:
+            analysis['risk_score'] += 0.3
+            analysis['risk_reasons'].append(f'High transaction volume: {tx_count} txs')
+        if data.get('balance', 0) == 0 and tx_count > 50:
+            analysis['risk_score'] += 0.2
+            analysis['risk_reasons'].append('Zero balance with high tx count — possible mixer/tumbler')
+
+    def _blockchair_eth(self, address: str, analysis: dict):
+        url = f'https://api.blockchair.com/ethereum/dashboards/address/{address}'
+        r = requests.get(url, timeout=10, headers={'User-Agent': 'SentinelPro/2.1'})
+        if r.status_code != 200:
+            analysis['api_error'] = f'Blockchair HTTP {r.status_code}'
+            return
+        data = r.json().get('data', {}).get(address.lower(), {}).get('address', {})
+        analysis['api_source']        = 'blockchair'
+        analysis['balance']           = str(data.get('balance', 'unknown'))
+        analysis['transaction_count'] = data.get('transaction_count', 'unknown')
+        analysis['first_seen']        = data.get('first_seen_receiving', 'unknown')
+        analysis['last_activity']     = data.get('last_seen_receiving', 'unknown')
+        call_count = data.get('call_count', 0) or 0
+        if call_count > 500:
+            analysis['risk_score'] += 0.25
+            analysis['risk_reasons'].append(f'High contract interaction count: {call_count}')
+
+    def _blockchair_generic(self, address: str, crypto_type: str, analysis: dict):
+        coin = self._BLOCKCHAIR_COIN.get(crypto_type)
+        if not coin:
+            analysis['api_error'] = f'No Blockchair support for {crypto_type}'
+            return
+        url = f'https://api.blockchair.com/{coin}/dashboards/address/{address}'
+        r = requests.get(url, timeout=10, headers={'User-Agent': 'SentinelPro/2.1'})
+        if r.status_code != 200:
+            analysis['api_error'] = f'Blockchair HTTP {r.status_code}'
+            return
+        data = r.json().get('data', {}).get(address, {}).get('address', {})
+        analysis['api_source']        = 'blockchair'
+        analysis['balance']           = str(data.get('balance', 'unknown'))
+        analysis['transaction_count'] = data.get('transaction_count', 'unknown')
     
     def _detect_money_flow_patterns(self, content: str) -> List[Dict[str, Any]]:
         """Detect patterns indicating money flow and financial networks"""
