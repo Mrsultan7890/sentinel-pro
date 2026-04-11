@@ -3,8 +3,20 @@ scraper/scraper
 predictor/predictor
 analyzer/target/
 
-# Reports
+# Reports & investigations (user data)
 reports/
+investigations/
+screenshots/
+evidence/
+
+# ML training data & cache (large files)
+models/ml_engine/training_data/
+models/ml_engine/*.joblib
+models/ml_engine/metadata.json
+
+# Logs
+logs/
+*.log
 
 # Python
 __pycache__/
@@ -17,7 +29,16 @@ venv/
 
 # Rust
 analyzer/target/
+fuzzer/target/
+media_analyzer/target/
 Cargo.lock
+
+# Environment
+.env
+
+# Cache
+.crl_cache
+*.cache
 
 # Go
 *.exe
