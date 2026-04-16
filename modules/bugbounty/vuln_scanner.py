@@ -7,6 +7,7 @@ POST form auto-detection included
 import logging
 import requests
 import urllib.parse
+from modules.utils import tor_session
 import re
 import time
 import warnings
@@ -74,6 +75,10 @@ BLIND_TIMEOUT = 12  # must be > sleep duration
 
 class VulnScanner:
 
+    def __init__(self):
+        self.session = tor_session(pool_size=30)
+        self.session.verify = False
+        self.session.headers['User-Agent'] = 'Mozilla/5.0'
     def run(self, domain: str, endpoints: list = None) -> dict:
         result = {
             'domain':      domain,
@@ -169,7 +174,7 @@ class VulnScanner:
 
         for page_url in pages_to_check:
             try:
-                resp = requests.get(page_url, timeout=TIMEOUT, verify=False,
+                resp = self.session.get(page_url, timeout=TIMEOUT,
                                     headers={'User-Agent': 'Mozilla/5.0'})
                 soup = BeautifulSoup(resp.text, 'html.parser')
                 for form in soup.find_all('form'):
@@ -203,7 +208,7 @@ class VulnScanner:
                 test_params = {**params, param: payload}
                 test_url = base_url + '?' + urllib.parse.urlencode(test_params)
                 try:
-                    resp = requests.get(test_url, timeout=TIMEOUT, verify=False,
+                    resp = self.session.get(test_url, timeout=TIMEOUT,
                                         allow_redirects=True,
                                         headers={'User-Agent': 'Mozilla/5.0'})
                     body = resp.text.lower()
@@ -233,7 +238,7 @@ class VulnScanner:
         # Baseline response time
         try:
             t0 = time.time()
-            requests.get(url, timeout=TIMEOUT, verify=False,
+            self.session.get(url, timeout=TIMEOUT,
                          headers={'User-Agent': 'Mozilla/5.0'})
             baseline = time.time() - t0
         except Exception:
@@ -245,7 +250,7 @@ class VulnScanner:
                 test_url = base_url + '?' + urllib.parse.urlencode(test_params)
                 try:
                     t0 = time.time()
-                    requests.get(test_url, timeout=BLIND_TIMEOUT, verify=False,
+                    self.session.get(test_url, timeout=BLIND_TIMEOUT,
                                  headers={'User-Agent': 'Mozilla/5.0'})
                     elapsed = time.time() - t0
                     if elapsed >= (sleep_sec - 0.5) and elapsed > (baseline + 2.0):
@@ -285,7 +290,7 @@ class VulnScanner:
                 test_params = {**params, param: payload}
                 test_url = base_url + '?' + urllib.parse.urlencode(test_params)
                 try:
-                    resp = requests.get(test_url, timeout=TIMEOUT, verify=False,
+                    resp = self.session.get(test_url, timeout=TIMEOUT,
                                         headers={'User-Agent': 'Mozilla/5.0'})
                     if XSS_REFLECTED.search(resp.text):
                         findings.append({
@@ -319,7 +324,7 @@ class VulnScanner:
         findings = []
         base_url = url.split('?')[0]
         try:
-            resp = requests.get(base_url, timeout=TIMEOUT, verify=False,
+            resp = self.session.get(base_url, timeout=TIMEOUT,
                                 headers={'User-Agent': 'Mozilla/5.0'})
             body = resp.text
 
@@ -360,7 +365,7 @@ class VulnScanner:
                 if not js_url.startswith('http'):
                     js_url = base_url.rstrip('/') + '/' + js_url.lstrip('/')
                 try:
-                    jr = requests.get(js_url, timeout=TIMEOUT, verify=False,
+                    jr = self.session.get(js_url, timeout=TIMEOUT,
                                       headers={'User-Agent': 'Mozilla/5.0'})
                     js_body = jr.text
                     sources = [m.start() for m in self._DOM_SOURCES.finditer(js_body)]
@@ -406,7 +411,7 @@ class VulnScanner:
                 test_params = {**params, param: payload}
                 test_url = base_url + '?' + urllib.parse.urlencode(test_params)
                 try:
-                    resp = requests.get(test_url, timeout=TIMEOUT, verify=False,
+                    resp = self.session.get(test_url, timeout=TIMEOUT,
                                         allow_redirects=False,
                                         headers={'User-Agent': 'Mozilla/5.0'})
                     if any(kw in resp.text for kw in
@@ -433,10 +438,10 @@ class VulnScanner:
                 data = {**form['fields'], field: payload}
                 try:
                     if form['method'] == 'post':
-                        resp = requests.post(form['action'], data=data, timeout=TIMEOUT,
+                        resp = self.session.post(form['action'], data=data, timeout=TIMEOUT,
                                              verify=False, headers={'User-Agent': 'Mozilla/5.0'})
                     else:
-                        resp = requests.get(form['action'], params=data, timeout=TIMEOUT,
+                        resp = self.session.get(form['action'], params=data, timeout=TIMEOUT,
                                             verify=False, headers={'User-Agent': 'Mozilla/5.0'})
                     body = resp.text.lower()
                     for pattern in SQLI_ERRORS:
@@ -462,10 +467,10 @@ class VulnScanner:
             data = {**form['fields'], field: payload}
             try:
                 if form['method'] == 'post':
-                    resp = requests.post(form['action'], data=data, timeout=TIMEOUT,
+                    resp = self.session.post(form['action'], data=data, timeout=TIMEOUT,
                                          verify=False, headers={'User-Agent': 'Mozilla/5.0'})
                 else:
-                    resp = requests.get(form['action'], params=data, timeout=TIMEOUT,
+                    resp = self.session.get(form['action'], params=data, timeout=TIMEOUT,
                                         verify=False, headers={'User-Agent': 'Mozilla/5.0'})
                 if XSS_REFLECTED.search(resp.text):
                     findings.append({
@@ -492,7 +497,7 @@ class VulnScanner:
         }
         for header, value in test_headers.items():
             try:
-                resp = requests.get(base_url, timeout=TIMEOUT, verify=False,
+                resp = self.session.get(base_url, timeout=TIMEOUT,
                                     headers={'User-Agent': 'Mozilla/5.0', header: value},
                                     allow_redirects=False)
                 # X-Forwarded-Host reflected in Location or body

@@ -111,8 +111,13 @@ class LFIScanner:
                     jobs.append((f"{target_url}{sep}{param}={payload}", param, payload))
         # Also probe the param-seeded targets (already have ?param=index)
         for target_url in targets[1:]:
-            for payload in self.FAST_PAYLOADS:
-                jobs.append((f"{target_url.rsplit('=',1)[0]}={payload}", target_url.split('?')[1].split('=')[0], payload))
+            try:
+                base_url = target_url.rsplit('=', 1)[0]
+                param_name = target_url.split('?')[1].split('=')[0] if '?' in target_url and '=' in target_url else 'file'
+                for payload in self.FAST_PAYLOADS:
+                    jobs.append((f"{base_url}={payload}", param_name, payload))
+            except (IndexError, ValueError):
+                continue
 
         # Run all in parallel
         with ThreadPoolExecutor(max_workers=self.MAX_WORKERS) as ex:

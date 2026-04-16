@@ -151,10 +151,28 @@ class SubdomainEnum:
     def _dns_brute(self, domain: str) -> list:
         results = []
 
+        # Wildcard detection — agar random subdomain resolve ho to wildcard hai
+        import random, string
+        rand_sub  = ''.join(random.choices(string.ascii_lowercase, k=12))
+        wildcard_ips = set()
+        try:
+            wc_ip = socket.gethostbyname(f"{rand_sub}.{domain}")
+            wildcard_ips.add(wc_ip)
+            # Second check
+            rand_sub2 = ''.join(random.choices(string.ascii_lowercase, k=10))
+            wc_ip2 = socket.gethostbyname(f"{rand_sub2}.{domain}")
+            wildcard_ips.add(wc_ip2)
+            logger.info(f"Wildcard DNS detected for {domain}: {wildcard_ips} — filtering")
+        except socket.gaierror:
+            pass  # No wildcard
+
         def resolve(sub):
             fqdn = f"{sub}.{domain}"
             try:
                 ip = socket.gethostbyname(fqdn)
+                # Wildcard IP se match karta hai to skip karo
+                if ip in wildcard_ips:
+                    return None
                 return {'subdomain': fqdn, 'ip': ip, 'source': 'dns_brute', 'alive': True}
             except socket.gaierror:
                 return None

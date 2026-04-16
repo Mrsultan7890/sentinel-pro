@@ -6,6 +6,7 @@ Tests endpoints for dangerous Access-Control-Allow-Origin policies.
 import logging
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from modules.utils import tor_session
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,10 @@ class CORSScanner:
 
     TIMEOUT = 8
 
+    def __init__(self):
+        self.session = tor_session(pool_size=20)
+        self.session.verify = False
+        self.session.headers['User-Agent'] = 'Mozilla/5.0'
     def run(self, domain: str, endpoints: list = None) -> dict:
         result = {
             'domain':     domain,
@@ -71,8 +76,8 @@ class CORSScanner:
 
         for origin in TEST_ORIGINS:
             try:
-                resp = requests.get(
-                    url, timeout=self.TIMEOUT, verify=False,
+                resp = self.session.get(
+                    url, timeout=self.TIMEOUT,
                     headers={**HEADERS, 'Origin': origin},
                     allow_redirects=True
                 )

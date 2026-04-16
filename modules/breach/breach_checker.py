@@ -74,22 +74,44 @@ class BreachChecker:
     # ------------------------------------------------------------------ #
 
     def _check_breachdirectory(self, target: str, result: dict):
+        """BreachDirectory — Cloudflare protected, browser-like headers use karo."""
         try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://breachdirectory.org/',
+                'Origin': 'https://breachdirectory.org',
+                'sec-ch-ua': '"Chromium";v="120", "Google Chrome";v="120"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Linux"',
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin',
+            }
             resp = self.session.get(
                 f"https://breachdirectory.org/api?func=auto&term={target}",
-                timeout=10, verify=False
+                headers=headers, timeout=15, verify=False
             )
             if resp.status_code == 200:
-                data = resp.json()
-                result['sources']['breachdirectory'] = 'ok'
-                for item in data.get('result', []):
-                    result['breaches'].append({
-                        'name':          item.get('sources', ['Unknown'])[0] if item.get('sources') else 'Unknown',
-                        'source':        'breachdirectory',
-                        'password_hint': item.get('password', ''),
-                        'sha1':          item.get('sha1', ''),
-                        'has_password':  item.get('has_password', False)
-                    })
+                try:
+                    data = resp.json()
+                    result['sources']['breachdirectory'] = 'ok'
+                    for item in data.get('result', []):
+                        result['breaches'].append({
+                            'name':          item.get('sources', ['Unknown'])[0] if item.get('sources') else 'Unknown',
+                            'source':        'breachdirectory',
+                            'password_hint': item.get('password', ''),
+                            'sha1':          item.get('sha1', ''),
+                            'has_password':  item.get('has_password', False)
+                        })
+                except Exception:
+                    result['sources']['breachdirectory'] = 'parse_error'
+            elif resp.status_code == 403:
+                # Cloudflare block — bot protection, skip gracefully
+                result['sources']['breachdirectory'] = 'cloudflare_blocked'
+                logger.debug("BreachDirectory: Cloudflare bot protection active")
             else:
                 result['sources']['breachdirectory'] = f"http_{resp.status_code}"
         except Exception as e:
@@ -169,14 +191,29 @@ class BreachChecker:
     # ------------------------------------------------------------------ #
 
     def _check_intelx_public(self, target: str, result: dict):
+        """IntelX — public API ab 403 deta hai, API key required. Gracefully skip."""
+        api_key = getattr(config, 'INTELX_API_KEY', '') or ''
         try:
-            resp = self.session.post(
-                "https://2.intelx.io/intelligent/search",
-                json={"term": target, "buckets": [], "lookuplevel": 0,
-                      "maxresults": 10, "timeout": 0, "datefrom": "",
-                      "dateto": "", "sort": 4, "media": 0, "terminate": []},
-                timeout=10, verify=False
-            )
+            if api_key:
+                # Authenticated request
+                resp = self.session.post(
+                    "https://2.intelx.io/intelligent/search",
+                    json={"term": target, "buckets": [], "lookuplevel": 0,
+                          "maxresults": 10, "timeout": 0, "datefrom": "",
+                          "dateto": "", "sort": 4, "media": 0, "terminate": []},
+                    headers={'x-key': api_key},
+                    timeout=10, verify=False
+                )
+            else:
+                # No key — try public endpoint
+                resp = self.session.post(
+                    "https://2.intelx.io/intelligent/search",
+                    json={"term": target, "buckets": [], "lookuplevel": 0,
+                          "maxresults": 10, "timeout": 0, "datefrom": "",
+                          "dateto": "", "sort": 4, "media": 0, "terminate": []},
+                    timeout=10, verify=False
+                )
+
             if resp.status_code == 200:
                 data = resp.json()
                 search_id = data.get('id')
@@ -184,6 +221,7 @@ class BreachChecker:
                 if search_id:
                     res_resp = self.session.get(
                         f"https://2.intelx.io/intelligent/search/result?id={search_id}&limit=10",
+                        headers={'x-key': api_key} if api_key else {},
                         timeout=10, verify=False
                     )
                     if res_resp.status_code == 200:
@@ -195,6 +233,9 @@ class BreachChecker:
                                 'bucket': record.get('bucket', ''),
                                 'size':   record.get('size', 0)
                             })
+            elif resp.status_code == 403:
+                result['sources']['intelx'] = 'api_key_required'
+                logger.debug("IntelX: public API requires key now — set INTELX_API_KEY in .env")
             else:
                 result['sources']['intelx'] = f"http_{resp.status_code}"
         except Exception as e:

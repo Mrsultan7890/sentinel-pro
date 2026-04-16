@@ -11,6 +11,7 @@ import logging
 import warnings
 from bs4 import BeautifulSoup
 import requests
+from modules.utils import tor_session
 from urllib.parse import urljoin, urlparse
 import time
 import random
@@ -334,7 +335,7 @@ class AdvancedFootprintCollector:
     
     def _get_stealth_session(self):
         """Get stealth-configured session with proper security"""
-        session = requests.Session()
+        session = tor_session()
         
         # Random user agent rotation
         session.headers.update({

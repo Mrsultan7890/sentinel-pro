@@ -17,13 +17,26 @@ class TelegramNotifier:
         self.enabled = bool(token and chat_id)
         self._base   = f"https://api.telegram.org/bot{token}"
 
+    @staticmethod
+    def _clean(text: str) -> str:
+        import re
+        # HTML tags hatao
+        text = re.sub(r'<[^>]+>', '', text)
+        # SSTI/code payloads sanitize karo
+        text = re.sub(r'\{\{.*?\}\}', '[SSTI payload]', text)
+        text = re.sub(r'\$\{.*?\}', '[SSTI payload]', text)
+        text = re.sub(r'#\{.*?\}', '[SSTI payload]', text)
+        text = re.sub(r'<%.*?%>', '[SSTI payload]', text)
+        text = re.sub(r'\{[0-9*+\-/]+\}', '[SSTI payload]', text)
+        return text.strip()
+
     def _send(self, text: str) -> bool:
         if not self.enabled:
             return False
         try:
             r = requests.post(
                 f"{self._base}/sendMessage",
-                json={"chat_id": self.chat_id, "text": text, "parse_mode": "HTML"},
+                json={"chat_id": self.chat_id, "text": self._clean(text)},
                 timeout=10
             )
             return r.status_code == 200
@@ -33,30 +46,62 @@ class TelegramNotifier:
 
     # ── public helpers ──────────────────────────────────────────────────────
 
-    def alert_bugbounty(self, domain: str, data: dict):
-        """Send CRITICAL/HIGH summary after a bug bounty scan."""
+    def alert_bugbounty(self, domain: str, data: dict) -> bool:
         if not self.enabled:
-            return
-        lines = [f"🐛 <b>Bug Bounty — {domain}</b>", f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}"]
+            return False
         criticals = self._extract_bugbounty_criticals(data)
-        if not criticals:
-            return  # only alert when there's something worth alerting
-        lines.append(f"\n🚨 <b>{len(criticals)} CRITICAL/HIGH finding(s):</b>")
-        for item in criticals[:15]:
-            lines.append(f"• {item}")
-        self._send("\n".join(lines))
+        # Also alert if fuzzer found sensitive files (even if main risk shows MEDIUM)
+        fuzz_count = data.get('fuzzer', {}).get('total_findings', 0)
+        smug_count = len(data.get('smuggling', {}).get('findings', []))
+        lfi_count  = data.get('lfi', {}).get('total', 0)
+        if not criticals and not fuzz_count and not smug_count and not lfi_count:
+            return False
+        # Deduplicate by type
+        seen_types, unique = set(), []
+        for c in criticals:
+            t = c.split(']')[0].replace('[','').strip()
+            if t not in seen_types:
+                seen_types.add(t)
+                unique.append(c)
+        lines = [
+            f"🚨 BUG BOUNTY ALERT",
+            f"Target : {domain}",
+            f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"Found  : {len(criticals)} critical/high issues",
+            f"",
+            f"TOP FINDINGS:",
+        ]
+        for item in unique[:8]:
+            # Clean brackets and make readable
+            import re
+            sev  = re.search(r'\[([A-Z]+)\]', item)
+            rest = re.sub(r'\[[A-Z]+\]\s*', '', item).strip()
+            icon = '🔴' if sev and sev.group(1) == 'CRITICAL' else '🟠'
+            lines.append(f"{icon} {rest[:80]}")
+        lines.append(f"")
+        lines.append(f"Sentinel Pro — @who_is_the_black_hat")
+        return self._send('\n'.join(lines))
 
-    def alert_recon(self, domain: str, data: dict):
+    def alert_recon(self, domain: str, data: dict) -> bool:
         if not self.enabled:
-            return
-        lines = [f"🔍 <b>Recon — {domain}</b>", f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}"]
+            return False
         criticals = self._extract_recon_criticals(data)
         if not criticals:
-            return
-        lines.append(f"\n🚨 <b>{len(criticals)} CRITICAL/HIGH finding(s):</b>")
-        for item in criticals[:15]:
-            lines.append(f"• {item}")
-        self._send("\n".join(lines))
+            return False
+        lines = [
+            f"🔍 RECON ALERT",
+            f"Target : {domain}",
+            f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"",
+            f"FINDINGS:",
+        ]
+        for item in criticals[:8]:
+            import re
+            rest = re.sub(r'\[[A-Z]+\]\s*', '', item).strip()
+            lines.append(f"⚠️  {rest[:80]}")
+        lines.append(f"")
+        lines.append(f"Sentinel Pro — @who_is_the_black_hat")
+        return self._send('\n'.join(lines))
 
     def alert_breach(self, target: str, data: dict):
         if not self.enabled:
@@ -72,6 +117,10 @@ class TelegramNotifier:
             f"🦠 Stealer logs: {data.get('total_stealer_logs', 0)}",
         ]
         self._send("\n".join(lines))
+
+    def send(self, text: str) -> bool:
+        """Public send — agent aur autonomous loop use karte hain"""
+        return self._send(text)
 
     def test(self) -> bool:
         return self._send("✅ <b>Sentinel Pro</b> — Telegram alerts connected!")
@@ -116,6 +165,20 @@ class TelegramNotifier:
         _add("XXE",       data.get('xxe', {}).get('findings', []),        msg_key='evidence')
         _add("SSTI",      data.get('ssti', {}).get('findings', []),       msg_key='payload')
         _add("ProtoPollu",data.get('proto_pollution', {}).get('findings',[]), msg_key='evidence')
+        _add("OAuth",     data.get('oauth', {}).get('findings', []),      msg_key='evidence')
+        _add("Clickjack", data.get('clickjacking', {}).get('findings', []), msg_key='detail')
+
+        # Fuzzer — sensitive files exposed
+        for r in data.get('fuzzer', {}).get('findings', []):
+            if r.get('risk') in _sev:
+                fname = r.get('url', '').split('/')[-1] or r.get('url', '')
+                items.append(f"[{r['risk']}] Sensitive file exposed: {fname}")
+
+        # URL Override / header injection
+        for v in (data.get('vulns', {}).get('header_inj', []) +
+                  data.get('vulns', {}).get('url_override', [])):
+            if v.get('severity', '').upper() in _sev:
+                items.append(f"[{v['severity'].upper()}] {v['type']}: {str(v.get('evidence',''))[:60]}")
 
         # JS secrets
         for s in data.get('js', {}).get('secrets', []):

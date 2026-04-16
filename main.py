@@ -7,6 +7,7 @@ Enhanced CLI Interface with Real-Time Progress
 import os
 import sys
 import time
+import threading
 import subprocess
 import json
 import re
@@ -89,6 +90,7 @@ from modules.recon.person_report import PersonReport
 from modules.ml_engine.nlp_analyzer import NLPProfileAnalyzer
 from modules.ml_engine.timeline_analyzer import TimelineAnalyzer
 from modules.ml_engine.writing_fingerprinter import WritingFingerprinter
+from modules.ml_engine.autonomous_loop import AutonomousLearningLoop
 from modules.breach.breach_checker import BreachChecker
 from modules.breach.report import BreachReport
 from modules.notifications import TelegramNotifier
@@ -182,7 +184,15 @@ class TheSentinelPro:
         self.notifier    = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
         self.pdf         = PDFExporter()
         self.session_data = {}
-        
+
+        # Autonomous ML learning loop — background daemon
+        self._autonomous_loop = AutonomousLearningLoop()
+        self._autonomous_loop.start()
+
+        # Decision Engine — model ka brain
+        from modules.ml_engine.decision_engine import DecisionEngine
+        self._decision_engine = DecisionEngine()
+
         # Validate binaries on startup
         self._validate_environment()
         
@@ -299,6 +309,18 @@ class TheSentinelPro:
                     self._handle_network_mapping()
                 elif command.startswith('fakecheck'):
                     self._handle_fake_profile_detection()
+                elif command.startswith('rl'):
+                    self._handle_rl(command)
+                elif command.startswith('brain'):
+                    self._handle_brain(command)
+                elif command.startswith('monitor'):
+                    self._handle_monitor(command)
+                elif command.startswith('agent'):
+                    self._handle_agent(command)
+                elif command.startswith('auto') or command.startswith('autonomous'):
+                    self._handle_autonomous(command)
+                elif command.startswith('attackchain') or command.startswith('attack chain'):
+                    self._handle_attack_chain(command)
                 elif command.startswith('bugbounty'):
                     self._handle_bugbounty(command)
                 elif command.startswith('recon'):
@@ -387,6 +409,15 @@ class TheSentinelPro:
 [green]stealth[/green]              - Configure stealth & proxy settings
 
 [bold cyan]BUG BOUNTY & RECON COMMANDS[/bold cyan]  [bold yellow]🆕[/bold yellow]
+[green]brain <task>[/green]         - 🧠 Autonomous brain: ReAct loop, full Kali control
+[green]monitor add <target>[/green]   - 🔔 24/7 monitoring add karo
+[green]monitor status[/green]         - Monitor status
+[green]monitor stop[/green]           - Monitor band karo
+[green]agent <task>[/green]         - 🤖 ReAct Agent: SentinelNet decides + executes tools autonomously
+[green]agent <task> --auto[/green]  - 🤖 Fully autonomous agent (no confirmation)
+[green]auto <target>[/green]        - ⚡ Autonomous mode: model decides everything
+[green]auto <target> --auto[/green] - ⚡ Fully autonomous (no confirmation)
+[green]attackchain <domain>[/green] - 🔗 Full chain: recon→analyze→exploit→fix→report
 [green]bugbounty <domain>[/green]   - Full bug bounty scan (SSL + ports + endpoints + Shodan + CVE + JS)
 [green]recon <domain>[/green]       - Passive recon (WHOIS + subdomains + Wayback + DNS history + dorks)
 [green]breach <email>[/green]       - Check email/username in data breach databases
@@ -418,6 +449,7 @@ class TheSentinelPro:
 [green]telegram test[/green]       - Send test Telegram alert
 [green]telegram status[/green]     - Show Telegram config status
 [green]train status[/green]        - ML model training status
+[green]train github[/green]        - GitHub GHSA + security repos se training data collect karo
 [green]train collect[/green]       - CRL se training data crawl karo
 [green]train run[/green]           - Models train karo (collect ke baad)
 [green]train save[/green]          - Trained models save karo
@@ -884,17 +916,18 @@ class TheSentinelPro:
         import subprocess as _sp
 
         if command == 'tor on':
-            # Verify Tor is reachable first
             try:
-                import requests as _req
-                r = _req.get('https://httpbin.org/ip',
-                             proxies={'http': config.TOR_PROXY, 'https': config.TOR_PROXY},
-                             timeout=15)
+                from modules.utils import tor_session as _tor_session
+                import config as _cfg
+                # Temporarily enable tor to test
+                _cfg.tor_on()
+                _sess = _tor_session()
+                r = _sess.get('https://httpbin.org/ip', timeout=15)
                 exit_ip = r.json().get('origin', '?')
-                config.tor_on()
                 self.console.print(f"[bold green]\U0001f9c5 Tor ENABLED[/bold green] \u2014 Exit IP: [cyan]{exit_ip}[/cyan]")
                 self.console.print("[dim]All HTTP requests now routed through Tor[/dim]")
             except Exception as e:
+                config.tor_off()  # revert agar fail hua
                 self.console.print(f"[red]\u2717 Tor unreachable: {e}[/red]")
                 self.console.print("[dim]Make sure Tor is running: sudo systemctl start tor[/dim]")
 
@@ -906,10 +939,9 @@ class TheSentinelPro:
             active = config.is_tor_active()
             if active:
                 try:
-                    import requests as _req
-                    r = _req.get('https://httpbin.org/ip',
-                                 proxies={'http': config.TOR_PROXY, 'https': config.TOR_PROXY},
-                                 timeout=15)
+                    from modules.utils import tor_session as _tor_session
+                    _sess = _tor_session()
+                    r = _sess.get('https://httpbin.org/ip', timeout=15)
                     ip = r.json().get('origin', '?')
                     self.console.print(f"[green]\U0001f9c5 Tor ACTIVE \u2014 Exit IP: {ip}[/green]")
                 except Exception:
@@ -946,10 +978,9 @@ class TheSentinelPro:
                     if '250' in resp:
                         self.console.print("[green]🔄 New Tor circuit requested — waiting 3s...[/green]")
                         import time as _t; _t.sleep(3)
-                        import requests as _req
-                        r = _req.get('https://httpbin.org/ip',
-                                     proxies={'http': config.TOR_PROXY, 'https': config.TOR_PROXY},
-                                     timeout=15)
+                        from modules.utils import tor_session as _tor_session
+                        _sess = _tor_session()
+                        r = _sess.get('https://httpbin.org/ip', timeout=15)
                         new_ip = r.json().get('origin', '?')
                         self.console.print(f"[cyan]New Exit IP: {new_ip}[/cyan]")
                     else:
@@ -1456,6 +1487,111 @@ Anti-Detection: [green]ACTIVE[/green]
         # Continuous learning
         self._feed_to_ml('fakecheck', fake_analysis)
 
+    def _handle_agent(self, command: str):
+        """
+        SentinelNet ReAct Agent — full autonomous Linux control.
+        Usage:
+          agent <task>           # confirm each step
+          agent <task> --auto    # fully autonomous
+        """
+        parts = command.split(' ', 1)
+        if len(parts) < 2:
+            self.console.print("[red]Usage: agent <task> [--auto][/red]")
+            self.console.print("  agent investigate example.com")
+            self.console.print("  agent scan example.com --auto")
+            self.console.print("  agent run `nmap -sV example.com`")
+            self.console.print("  agent check breach user@example.com")
+            return
+
+        task = parts[1]
+        auto = '--auto' in task
+        task = task.replace('--auto', '').strip()
+
+        self.console.print(f"[bold red]\n🤖 SENTINEL AGENT — {task}[/bold red]")
+        self.console.print(f"[dim]Auto: {auto} | Model: {'SentinelNet v4.0' if True else 'heuristic'}[/dim]\n")
+
+        try:
+            from modules.agent_core import SentinelAgent
+            agent  = SentinelAgent(
+                sentinel=self,
+                console=self.console.print,
+                auto=auto
+            )
+            result = agent.run(task)
+            self.session_data['agent'] = result
+
+            # Feed to ML
+            self._feed_to_ml('agent', result)
+
+            # Summary
+            self.console.print(f"\n[bold green]Agent Complete[/bold green]")
+            self.console.print(f"  Steps     : {result['steps']}")
+            self.console.print(f"  DB Scans  : {result['db_stats']['scans']}")
+            self.console.print(f"  DB IOCs   : {result['db_stats']['iocs']}")
+            self.console.print(f"  Findings  : {result['db_stats']['findings']}")
+
+        except Exception as e:
+            self.console.print(f"[red]Agent error: {e}[/red]")
+            logger.exception("Agent error")
+
+    def _handle_autonomous(self, command: str):
+        """Autonomous agent — model decides everything"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: auto <target> [--auto][/red]")
+            self.console.print("  auto example.com          # confirm before each step")
+            self.console.print("  auto example.com --auto   # fully autonomous")
+            return
+        target = parts[1]
+        auto   = '--auto' in parts
+        self.console.print(f"[bold red]\n⚡ AUTONOMOUS MODE — {target}[/bold red]")
+        try:
+            from modules.autonomous import AutonomousAgent
+            agent  = AutonomousAgent(target, sentinel=self, auto=auto,
+                                     console=self.console.print)
+            result = agent.run()
+            self.session_data['autonomous'] = result
+            self._feed_to_ml('autonomous', result)
+        except Exception as e:
+            self.console.print(f"[red]Autonomous error: {e}[/red]")
+            logger.exception("Autonomous error")
+
+    def _handle_attack_chain(self, command: str):
+        """AttackChain — recon → analyze → exploit → fix → report"""
+        parts = command.split()
+        # Usage: attackchain <target> [--auto] [--mode full|recon_only|vuln_only]
+        if len(parts) < 2:
+            self.console.print("[red]Usage: attackchain <target> [--auto] [--mode full|recon_only|vuln_only][/red]")
+            self.console.print("  attackchain example.com")
+            self.console.print("  attackchain example.com --auto")
+            self.console.print("  attackchain example.com --mode recon_only")
+            return
+
+        target = parts[1]
+        auto   = '--auto' in parts
+        mode   = 'full'
+        if '--mode' in parts:
+            idx = parts.index('--mode')
+            if idx + 1 < len(parts):
+                mode = parts[idx + 1]
+
+        self.console.print(f"[bold red]\n⛓  ATTACK CHAIN — {target}[/bold red]")
+        self.console.print(f"[dim]Mode: {mode} | Auto: {auto}[/dim]\n")
+
+        try:
+            from modules.attack_chain import AttackChain
+            chain = AttackChain(target, mode=mode, auto=auto)
+            result = chain.run(console=self.console.print)
+
+            # Feed to ML
+            self._feed_to_ml('attackchain', result)
+
+            # Save to session
+            self.session_data['attackchain'] = result
+
+        except Exception as e:
+            self.console.print(f"[red]AttackChain error: {e}[/red]")
+            logger.exception("AttackChain error")
 
     def _handle_bulk(self, command: str):
         """Bulk scan — read targets from file, run chosen scan mode on each."""
@@ -1576,7 +1712,12 @@ Anti-Detection: [green]ACTIVE[/green]
             return
         target = parts[1].strip()
 
+        # http:// / https:// prefix strip karo — scanners khud add karte hain
+        import re as _re
+        target = _re.sub(r'^https?://', '', target).rstrip('/')
+
         report_data = {'target': target, 'timestamp': datetime.now().isoformat()}
+        user_folder = self.session_data.get('user_folder', str(config.BASE_DIR / 'reports'))
 
         with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
                       BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
@@ -1847,7 +1988,7 @@ Anti-Detection: [green]ACTIVE[/green]
             self.console.print(f"\n  [bold red][Nuclei][/bold red] [{nuc_color}]{nuc['risk_level']}[/{nuc_color}] | Total: {nuc['total']} | Critical: {nuc['critical']} High: {nuc['high']} Medium: {nuc['medium']}")
             for f in nuc.get('findings', [])[:8]:
                 fc = 'red' if f['severity'] in ('critical','CRITICAL') else 'yellow' if f['severity'] in ('high','HIGH') else 'dim'
-                cve = f' [{f["cve_id"][0]}]' if f.get('cve_id') else ''
+                cve = f' [{f["cve_id"][0]}]' if f.get('cve_id') and len(f['cve_id']) > 0 else ''
                 self.console.print(f"    [{fc}][{f['severity'].upper()}][/{fc}]{cve} {f['name']}")
                 self.console.print(f"      [dim]{f['url'][:70]}[/dim]")
         elif nuc and nuc.get('error'):
@@ -2026,6 +2167,8 @@ Anti-Detection: [green]ACTIVE[/green]
             self.console.print("[red]Usage: recon <domain>[/red]")
             return
         target = parts[1].strip()
+        import re as _re
+        target = _re.sub(r'^https?://', '', target).rstrip('/')
 
         report_data = {'target': target, 'timestamp': datetime.now().isoformat()}
 
@@ -2033,40 +2176,40 @@ Anti-Detection: [green]ACTIVE[/green]
                       BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
             task = progress.add_task("[cyan]Running recon...", total=100)
 
-            progress.update(task, advance=30, description="[cyan]WHOIS + DNS records...")
+            progress.update(task, advance=8, description="[cyan]WHOIS + DNS records...")
             report_data['whois'] = self.whois.run(target)
 
-            progress.update(task, advance=40, description="[cyan]Enumerating subdomains (4 sources)...")
+            progress.update(task, advance=15, description="[cyan]Enumerating subdomains (4 sources)...")
             report_data['subdomains'] = self.subdomain.run(target)
 
-            progress.update(task, advance=20, description="[cyan][Go] Deep scraping domain...")
+            progress.update(task, advance=10, description="[cyan][Go] Deep scraping domain...")
             report_data['go_scraper'] = self.go_scraper.run(target)
 
-            progress.update(task, advance=15, description="[cyan]Wayback Machine URLs...")
+            progress.update(task, advance=10, description="[cyan]Wayback Machine URLs...")
             report_data['wayback'] = self.wayback.run(target)
 
-            progress.update(task, advance=10, description="[cyan]DNS history...")
+            progress.update(task, advance=8, description="[cyan]DNS history...")
             report_data['dns_history'] = self.dns_history.run(target)
 
-            progress.update(task, advance=10, description="[cyan]Google dorking...")
+            progress.update(task, advance=8, description="[cyan]Google dorking...")
             report_data['google_dorks'] = self.goog_dorker.run(target)
 
-            progress.update(task, advance=5, description="[cyan]GitHub dorking...")
+            progress.update(task, advance=8, description="[cyan]GitHub dorking...")
             report_data['github_dorks'] = self.gh_dorker.run(target)
 
-            progress.update(task, advance=4, description="[cyan]ASN/IP range mapping...")
+            progress.update(task, advance=8, description="[cyan]ASN/IP range mapping...")
             report_data['asn'] = self.asn_mapper.run(target)
 
-            progress.update(task, advance=4, description="[cyan]Cloud asset discovery...")
+            progress.update(task, advance=8, description="[cyan]Cloud asset discovery...")
             report_data['cloud_assets'] = self.cloud_assets.run(target)
 
-            progress.update(task, advance=4, description="[cyan]Certificate transparency...")
+            progress.update(task, advance=8, description="[cyan]Certificate transparency...")
             report_data['cert_transparency'] = self.cert_ct.run(target)
 
-            progress.update(task, advance=4, description="[cyan]Job posting OSINT...")
+            progress.update(task, advance=5, description="[cyan]Job posting OSINT...")
             report_data['job_osint'] = self.job_osint.run(target)
 
-            progress.update(task, advance=5, description="[cyan]Saving report...")
+            progress.update(task, advance=4, description="[cyan]Saving report...")
             user_folder = self.session_data.get('user_folder', str(config.BASE_DIR / 'reports'))
             reporter = ReconReport(output_dir=user_folder)
             paths = reporter.save(target, report_data)
@@ -2345,8 +2488,13 @@ Anti-Detection: [green]ACTIVE[/green]
 
         self.console.print("\n  [bold]Sources checked:[/bold]")
         for src, status in result.get('sources', {}).items():
-            icon = '[green]✓[/green]' if status == 'ok' else '[red]✗[/red]'
-            self.console.print(f"    {icon} {src}: {status}")
+            icon = '[green]✓[/green]' if status == 'ok' else '[yellow]~[/yellow]' if status in ('cloudflare_blocked','api_key_required','no_api_key') else '[red]✗[/red]'
+            display_status = {
+                'cloudflare_blocked': 'blocked (Cloudflare)',
+                'api_key_required':   'needs API key',
+                'no_api_key':         'no API key',
+            }.get(status, status)
+            self.console.print(f"    {icon} {src}: {display_status}")
 
         if result['stealer_logs']:
             self.console.print("\n  [bold red]⚠ Infostealer Logs Found:[/bold red]")
@@ -2743,6 +2891,61 @@ Anti-Detection: [green]ACTIVE[/green]
                 c = 'red' if rf['severity'] in ('CRITICAL', 'HIGH') else 'yellow' if rf['severity'] == 'MEDIUM' else 'blue'
                 self.console.print(f"    [{c}][{rf['severity']}][/{c}] {rf['flag']}: {rf['detail']}")
 
+        # ── ML Engine Results ──────────────────────────────────────────────
+        nlp = result.get('ml_nlp', {})
+        if nlp:
+            risk_c = 'red' if nlp.get('risk_level') in ('CRITICAL','HIGH') else 'yellow' if nlp.get('risk_level') == 'MEDIUM' else 'green'
+            self.console.print(f"\n  [bold cyan]\U0001f9e0 ML NLP Analysis[/bold cyan] — Risk: [{risk_c}]{nlp.get('risk_level','LOW')}[/{risk_c}]")
+            if nlp.get('ml_threat') and nlp['ml_threat'].get('label'):
+                mt = nlp['ml_threat']
+                tc = 'red' if mt['label'] in ('CRITICAL','HIGH') else 'yellow'
+                self.console.print(f"    ThreatClassifier : [{tc}]{mt['label']}[/{tc}] (confidence: {mt.get('confidence',0):.0%})")
+            if nlp.get('professions'):
+                profs = ', '.join(f"{p['profession']} ({p['confidence']:.0%})" for p in nlp['professions'][:3])
+                self.console.print(f"    Professions      : [cyan]{profs}[/cyan]")
+            if nlp.get('interests'):
+                ints = ', '.join(i['interest'] for i in nlp['interests'][:5])
+                self.console.print(f"    Interests        : [dim]{ints}[/dim]")
+            if nlp.get('personality'):
+                traits = ', '.join(f"{p['trait']} ({p['confidence']:.0%})" for p in nlp['personality'][:3])
+                pc = 'red' if any(p['trait'] in ('aggressive','paranoid') for p in nlp['personality']) else 'yellow'
+                self.console.print(f"    Personality      : [{pc}]{traits}[/{pc}]")
+            if nlp.get('languages', {}).get('likely_language'):
+                self.console.print(f"    Language         : [dim]{nlp['languages']['likely_language']}[/dim]")
+            if nlp.get('key_topics'):
+                topics = ', '.join(t['topic'] for t in nlp['key_topics'][:6])
+                self.console.print(f"    Key Topics       : [dim]{topics}[/dim]")
+            ws = nlp.get('writing_style', {})
+            if ws.get('style_label'):
+                self.console.print(f"    Writing Style    : [dim]{ws['style_label']} | formality: {ws.get('formality_score',0):.0%} | vocab: {ws.get('vocabulary_richness',0):.0%}[/dim]")
+            for flag in nlp.get('osint_flags', [])[:3]:
+                fc = 'red' if flag['severity'] in ('CRITICAL','HIGH') else 'yellow'
+                self.console.print(f"    [{fc}][{flag['severity']}][/{fc}] {flag['flag']}: {flag['detail']}")
+
+        fake_scores = result.get('ml_fake_scores', [])
+        if fake_scores:
+            avg = result.get('ml_fake_avg', 0)
+            avg_c = 'red' if avg >= 0.6 else 'yellow' if avg >= 0.4 else 'green'
+            self.console.print(f"\n  [bold cyan]\U0001f916 ML Fake Detection[/bold cyan] — Avg: [{avg_c}]{avg:.0%}[/{avg_c}]")
+            for s in fake_scores:
+                sc = 'red' if s['fake_probability'] >= 0.6 else 'yellow' if s['fake_probability'] >= 0.4 else 'green'
+                icon = '\U0001f534' if s['is_fake'] else '\U0001f7e2'
+                self.console.print(f"    {icon} {s['platform']:12} @{s['username']:20} fake=[{sc}]{s['fake_probability']:.0%}[/{sc}]")
+
+        clusters = result.get('ml_username_clusters', {})
+        if clusters and clusters.get('total_clusters', 0) > 0:
+            self.console.print(f"\n  [bold cyan]\U0001f517 ML Username Clusters[/bold cyan] — {clusters['total_clusters']} cluster(s)")
+            for cl in clusters.get('clusters', []):
+                self.console.print(f"    [{cl['confidence']:.0%}] {', '.join(cl['usernames'])} → [cyan]{cl['canonical']}[/cyan]")
+                self.console.print(f"      [dim]{cl.get('reason','')}[/dim]")
+
+        identity = result.get('ml_identity', {})
+        if identity and identity.get('evidence_count', 0) > 0:
+            ic = 'red' if identity.get('confidence',0) >= 0.75 else 'yellow' if identity.get('confidence',0) >= 0.5 else 'green'
+            self.console.print(f"\n  [bold cyan]\U0001f9ec ML Identity Score[/bold cyan] — [{ic}]{identity.get('label','N/A')}[/{ic}] ({identity.get('confidence_pct',0)}%)")
+            for ev in identity.get('strongest_evidence', [])[:3]:
+                self.console.print(f"    [dim]\u2022 {ev.get('type','')} — {ev.get('details','')}[/dim]")
+
         self.console.print(f"\n[green]📄 Report saved:[/green]")
         self.console.print(f"  JSON   : {paths['json']}")
         self.console.print(f"  Summary: {paths['summary']}")
@@ -2848,21 +3051,167 @@ Anti-Detection: [green]ACTIVE[/green]
                 self.console.print(f"    [{c}][{rf['severity']}][/{c}] {rf['flag']}: {rf['detail']}")
 
     def _feed_to_ml(self, scan_type: str, result: dict):
-        """Scan result ko ML training pool mein feed karo. Auto-retrain agar threshold reach ho."""
+        """Scan result ko ML training pool mein feed karo aur decisions lo."""
+        def _task():
+            try:
+                from modules.ml_engine.trainer import ModelTrainer
+                added = ModelTrainer.scan_result_to_training_data(scan_type, result)
+                if added > 0:
+                    pending = ModelTrainer.pending_samples()
+                    logger.debug(f"ML feed: +{added} samples ({pending}/50 pending retrain)")
+                    ModelTrainer.auto_retrain_background()
+
+                # Decision Engine — next actions decide karo
+                target = (result.get('target') or result.get('domain') or
+                          result.get('email') or '')
+                if target and hasattr(self, '_decision_engine'):
+                    actions = self._decision_engine.decide(scan_type, result, target)
+                    auto_actions    = [a for a in actions if a.get('auto')]
+                    pending_actions = [a for a in actions if not a.get('auto')]
+
+                    # Auto actions execute karo
+                    for action in auto_actions:
+                        if action.get('action') == 'alert':
+                            self.notifier.send(f"[AUTO] {action['reason']}")
+                            logger.info(f"AUTO ACTION: alert — {action['reason']}")
+
+                    # Pending actions suggest karo
+                    if pending_actions:
+                        self.console.print(f"\n[bold cyan]\U0001f9e0 Intelligence Suggestions:[/bold cyan]")
+                        for a in pending_actions:
+                            color = 'red' if a['priority'] == 'CRITICAL' else 'yellow' if a['priority'] == 'HIGH' else 'cyan'
+                            self.console.print(f"  [{color}][{a['priority']}][/{color}] {a['action'].upper()} {a['target']} — {a['reason']}")
+                            self.console.print(f"  [dim]  Run: {a['action']} {a['target']}[/dim]")
+
+            except Exception as e:
+                logger.debug(f"ML feed error: {e}")
+        threading.Thread(target=_task, daemon=True, name='sentinel-ml-feed').start()
+
+    def _handle_rl(self, command: str):
+        """RL Agent — train or run"""
+        parts = command.split()
+        sub   = parts[1] if len(parts) > 1 else 'status'
+
+        from sentinel_brain.rl_agent import RLAgent
+        from sentinel_brain.kali_controller import KaliController
+        from modules.ml_engine.autonomous_loop import set_busy
+
+        if not hasattr(self, '_rl_agent'):
+            self._rl_agent = RLAgent()
+
+        if sub == 'train':
+            set_busy(True)
+            try:
+                targets = [
+                    'neurodev.netlify.app',
+                    'learnshadowcode.netlify.app',
+                    'downloadanything.jo3.org',
+                ]
+                episodes = int(parts[2]) if len(parts) > 2 else 30
+                kali = KaliController()
+                self.console.print(f"[bold cyan]RL Training — {episodes} episodes[/bold cyan]")
+                self.console.print(f"[dim]Targets: {targets}[/dim]\n")
+                self._rl_agent.train(
+                    targets=targets,
+                    kali=kali,
+                    episodes=episodes,
+                    print_fn=self.console.print
+                )
+                s = self._rl_agent.stats()
+                self.console.print(f"\n[green]States learned: {s['states_learned']}[/green]")
+                self.console.print(f"[green]Avg reward    : {s['avg_reward']}[/green]")
+                self.console.print(f"[green]Epsilon       : {s['epsilon']}[/green]")
+            finally:
+                set_busy(False)
+
+        elif sub == 'run' and len(parts) >= 3:
+            target = parts[2]
+            kali   = KaliController()
+            self.console.print(f"[bold cyan]RL Autonomous Scan: {target}[/bold cyan]\n")
+            result = self._rl_agent.run(target, kali, print_fn=self.console.print)
+            self.console.print(f"\n[bold]Result:[/bold]")
+            self.console.print(f"  Risk     : [{'red' if result['risk'] == 'CRITICAL' else 'yellow'}]{result['risk']}[/{'red' if result['risk'] == 'CRITICAL' else 'yellow'}]")
+            self.console.print(f"  Findings : {len(result['findings'])}")
+            self.console.print(f"  Tools    : {', '.join(result['tools_used'])}")
+            for f in result['findings'][:5]:
+                icon = '🔴' if f['severity'] == 'CRITICAL' else '🟠'
+                self.console.print(f"  {icon} [{f['severity']}] {f['title']}")
+
+        else:
+            s = self._rl_agent.stats()
+            self.console.print(f"[bold cyan]RL Agent Status[/bold cyan]")
+            self.console.print(f"  States learned : {s['states_learned']}")
+            self.console.print(f"  Episodes done  : {s['episodes_done']}")
+            self.console.print(f"  Epsilon        : {s['epsilon']} (0=exploit, 1=explore)")
+            self.console.print(f"  Avg reward     : {s['avg_reward']}")
+            self.console.print("[dim]Commands: rl train [episodes] | rl run <target> | rl status[/dim]")
+
+    def _handle_brain(self, command: str):
+        """Autonomous brain — ReAct loop, full Kali control"""
+        parts = command.split(' ', 1)
+        if len(parts) < 2:
+            self.console.print("[red]Usage: brain <task>[/red]")
+            return
+        task = parts[1].strip()
+        from modules.ml_engine.autonomous_loop import set_busy
+        set_busy(True)
         try:
-            from modules.ml_engine.trainer import ModelTrainer
-            added = ModelTrainer.scan_result_to_training_data(scan_type, result)
-            if added > 0:
-                pending = ModelTrainer.pending_samples()
-                logger.debug(f"ML feed: +{added} samples ({pending}/{50} pending retrain)")
-                # Auto-retrain silently agar threshold reach ho
-                if ModelTrainer.should_retrain():
-                    self.console.print(f"[dim]🧠 ML auto-retrain triggered ({pending} new samples)...[/dim]")
-                    trainer = ModelTrainer()
-                    trainer.auto_retrain_if_needed()
-                    self.console.print("[dim]✓ Models updated with real scan data[/dim]")
+            from sentinel_brain.brain import SentinelBrain
+            if not hasattr(self, '_brain'):
+                self._brain = SentinelBrain(sentinel=self, console=self.console.print)
+            result = self._brain.run(task)
+            self.session_data['brain'] = result
         except Exception as e:
-            logger.debug(f"ML feed error: {e}")
+            self.console.print(f"[red]Brain error: {e}[/red]")
+            logger.exception("Brain error")
+        finally:
+            set_busy(False)
+
+    def _handle_monitor(self, command: str):
+        """24/7 autonomous monitoring"""
+        parts = command.split()
+        sub   = parts[1] if len(parts) > 1 else 'status'
+
+        if sub == 'add' and len(parts) >= 3:
+            target = parts[2]
+            mode   = parts[3] if len(parts) > 3 else 'full'
+            self._get_monitor().add_target(target, mode)
+            if not self._get_monitor().is_running():
+                self._get_monitor().start()
+            self.console.print(f"[green]✓ Monitoring: {target} (mode={mode})[/green]")
+
+        elif sub == 'remove' and len(parts) >= 3:
+            self._get_monitor().remove_target(parts[2])
+            self.console.print(f"[yellow]Removed: {parts[2]}[/yellow]")
+
+        elif sub == 'start':
+            self._get_monitor().start()
+            self.console.print("[green]✓ Monitor started[/green]")
+
+        elif sub == 'stop':
+            self._get_monitor().stop()
+            self.console.print("[yellow]Monitor stopped[/yellow]")
+
+        elif sub == 'interval' and len(parts) >= 3:
+            self._get_monitor().interval = int(parts[2])
+            self.console.print(f"[green]Interval set: {parts[2]}s[/green]")
+
+        else:  # status
+            s = self._get_monitor().status()
+            st = '[green]RUNNING[/green]' if s['running'] else '[red]STOPPED[/red]'
+            self.console.print(f"Monitor : {st}")
+            self.console.print(f"Targets : {', '.join(s['targets']) or 'none'}")
+            self.console.print(f"Interval: {s['interval']}s ({s['interval']//60} min)")
+            self.console.print("[dim]Commands: monitor add <target> | monitor remove <target> | monitor start | monitor stop | monitor interval <seconds>[/dim]")
+
+    def _get_monitor(self):
+        if not hasattr(self, '_monitor'):
+            from sentinel_brain.brain import SentinelBrain
+            from sentinel_brain.monitor import SentinelMonitor
+            if not hasattr(self, '_brain'):
+                self._brain = SentinelBrain(sentinel=self, console=self.console.print)
+            self._monitor = SentinelMonitor(self._brain)
+        return self._monitor
 
     def _handle_train(self, command: str):
         """CRL se ML models train karo."""
@@ -2872,7 +3221,7 @@ Anti-Detection: [green]ACTIVE[/green]
         if subcmd == 'status':
             from modules.ml_engine.trainer import ModelTrainer
             status = ModelTrainer.status()
-            pending = ModelTrainer.pending_samples()
+            pending = status.get('pending_samples', ModelTrainer.pending_samples())
             self.console.print("\n[bold cyan]ML Model Status[/bold cyan]")
             if status.get('models'):
                 self.console.print(f"  [green]Trained models:[/green] {', '.join(status['models'])}")
@@ -2884,28 +3233,98 @@ Anti-Detection: [green]ACTIVE[/green]
                 self.console.print("  [dim]Run: train collect → train run → train save[/dim]")
             color = 'yellow' if pending >= 25 else 'dim'
             self.console.print(f"  [{color}]Pending new samples: {pending}/{50} (auto-retrain at {50})[/{color}]")
+
+            # Autonomous loop status
+            loop_status = "[green]RUNNING ✓[/green]" if self._autonomous_loop.is_running() else "[red]STOPPED[/red]"
+            self.console.print(f"  Autonomous loop: {loop_status}")
+
+            # Drift detection
+            drift = status.get('drift', {})
+            if drift.get('drift_detected'):
+                self.console.print(f"\n  [bold red]⚠ Model Drift Detected![/bold red]")
+                for flag in drift.get('flags', []):
+                    self.console.print(f"    [red]{flag['model']}[/red]: F1 dropped {flag['f1_drop']:.2%} | history: {flag['history']}")
+                self.console.print("  [dim]Run 'train collect' then 'train run' to fix drift[/dim]")
+            elif drift.get('reason') != 'insufficient_history':
+                self.console.print("  [green]No drift detected ✓[/green]")
+
+            # Performance history (last 3)
+            history = ModelTrainer.performance_history()[-3:]
+            if history:
+                self.console.print(f"\n  [bold]Recent Performance:[/bold]")
+                for h in history:
+                    m = h.get('metrics', {})
+                    tc = m.get('threat_classifier', {})
+                    fd = m.get('fake_detector', {})
+                    self.console.print(
+                        f"  [{h['timestamp']}] trigger={h['trigger']} "
+                        f"threat_f1={tc.get('f1_weighted','N/A')} "
+                        f"fake_f1={fd.get('f1','N/A')}"
+                    )
             return
 
         if subcmd == 'collect':
-            self.console.print("[cyan]CRL se training data collect kar raha hoon...[/cyan]")
-            self.console.print("[dim]Yeh 5-10 minute le sakta hai (web crawling)[/dim]")
+            self.console.print("[cyan]Training data collect kar raha hoon...[/cyan]")
+            try:
+                from modules.ml_engine.trainer import ModelTrainer
+                from modules.ml_engine.real_data_collector import RealDataCollector
+                trainer = ModelTrainer()
+                with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                              BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+                    task = progress.add_task("[cyan]Collecting data...", total=None)
+
+                    # Step 1: Real threat intelligence
+                    progress.update(task, description="[cyan]Real data: MalwareBazaar + CISA KEV + ExploitDB...")
+                    collector = RealDataCollector()
+                    real_stats = collector.collect_all()
+                    self.console.print(f"  [green]MalwareBazaar : +{real_stats.get('malwarebazaar', 0)}[/green]")
+                    self.console.print(f"  [green]CISA KEV      : +{real_stats.get('cisa_kev', 0)}[/green]")
+                    self.console.print(f"  [green]ExploitDB     : +{real_stats.get('exploitdb', 0)}[/green]")
+                    self.console.print(f"  [green]URLhaus       : +{real_stats.get('urlhaus', 0)}[/green]")
+                    self.console.print(f"  [green]AlienVault OTX: +{real_stats.get('otx', 0)}[/green]")
+                    self.console.print(f"  [green]GitHub Malware: +{real_stats.get('github_malware', 0)}[/green]")
+
+                    # Step 2: Premium sources (MITRE + NVD + HuggingFace)
+                    progress.update(task, description="[cyan]MITRE ATT&CK + NVD CVE + HuggingFace...")
+                    premium = trainer.collect_premium_sources()
+                    self.console.print(f"  [green]MITRE ATT&CK  : +{premium['mitre_attack']}[/green]")
+                    self.console.print(f"  [green]NVD CVE       : +{premium['nvd_cve']}[/green]")
+                    self.console.print(f"  [green]HF Phishing   : +{premium['huggingface_phishing']}[/green]")
+
+                    # Step 3: CRL web crawl
+                    progress.update(task, description="[cyan]CRL web crawl (security sites)...")
+                    try:
+                        stats = trainer.collect_data(max_pages_per_site=8, rate_limit=2.0)
+                    except ImportError:
+                        stats = {'threat': 0, 'fake': 0, 'total': 0}
+
+                    progress.update(task, completed=True, description="[green]Collection complete")
+
+                trainer._load_raw_data()
+                self.console.print(f"\n  [bold green]Total threat samples : {len(trainer._threat_data)}[/bold green]")
+                self.console.print(f"  [bold green]Total fake samples   : {len(trainer._fake_data)}[/bold green]")
+                self.console.print("[dim]Ab 'train github' then 'train run' then 'train save' chalao[/dim]")
+            except Exception as e:
+                self.console.print(f"[red]Error: {e}[/red]")
+            return
+        if subcmd == 'github':
+            self.console.print("[cyan]GitHub se security training data collect kar raha hoon...[/cyan]")
+            self.console.print("[dim]Sources: GHSA advisories + security repos + awesome lists[/dim]")
             try:
                 from modules.ml_engine.trainer import ModelTrainer
                 trainer = ModelTrainer()
                 with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
                               BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
-                    task = progress.add_task("[cyan]Crawling training data...", total=None)
-                    stats = trainer.collect_data(max_pages_per_site=8, rate_limit=2.0)
-                    progress.update(task, completed=True, description="[green]Data collection complete")
-                self.console.print(f"  [green]Threat samples : {stats['threat']}[/green]")
-                self.console.print(f"  [green]Fake samples   : {stats['fake']}[/green]")
-                self.console.print(f"  [green]Total          : {stats['total']}[/green]")
-                if stats['threat'] >= 10 and stats['fake'] >= 10:
-                    self.console.print("[dim]Enough data — 'train run' then 'train save' chalao[/dim]")
-                else:
-                    self.console.print("[dim]Zyada data ke liye 'train collect' dobara chalao[/dim]")
-            except ImportError:
-                self.console.print("[red]CRL not installed. Run: pip install crawl-relevance-layers[/red]")
+                    task = progress.add_task("[cyan]GitHub data collection...", total=None)
+                    progress.update(task, description="[cyan]GitHub GHSA + repos + awesome lists...")
+                    stats = trainer.collect_github_data(max_repos=50)
+                    progress.update(task, completed=True, description="[green]GitHub collection complete")
+
+                self.console.print(f"\n  [bold green]GitHub GHSA advisories : +{stats['github_ghsa']}[/bold green]")
+                self.console.print(f"  [bold green]GitHub READMEs         : +{stats['github_repos']}[/bold green]")
+                self.console.print(f"  [bold green]Total added            : +{stats['total_added']}[/bold green]")
+                self.console.print(f"  [bold green]Total threat pool      : {stats['total_threat']}[/bold green]")
+                self.console.print("[dim]Ab 'train run' then 'train save' chalao[/dim]")
             except Exception as e:
                 self.console.print(f"[red]Error: {e}[/red]")
             return
@@ -2940,9 +3359,19 @@ Anti-Detection: [green]ACTIVE[/green]
                     trainer._load_raw_data()
                     trainer.train_all()
                 saved = trainer.save_all()
+                # Performance log karo
+                report = trainer.evaluate()
+                from modules.ml_engine.trainer import ModelTrainer
+                ModelTrainer._log_performance(report, trigger='manual_save')
                 self.console.print("[green]Models saved:[/green]")
                 for name, path in saved.items():
                     self.console.print(f"  [green]✓[/green] {name}: {path}")
+                if report:
+                    self.console.print("[bold]Performance:[/bold]")
+                    for model, metrics in report.items():
+                        f1 = metrics.get('f1_weighted', metrics.get('f1', 0))
+                        color = 'green' if f1 >= 0.7 else 'yellow'
+                        self.console.print(f"  [{color}]{model}[/{color}]: F1={f1}")
                 self.console.print("[dim]Models ab automatically use honge next scan mein[/dim]")
             except Exception as e:
                 self.console.print(f"[red]Error: {e}[/red]")

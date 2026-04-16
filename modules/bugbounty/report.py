@@ -204,10 +204,13 @@ class BugBountyReport:
         if (cves.get('critical_count', 0) > 0 or vulns.get('risk_level') == 'CRITICAL'
                 or js.get('risk_level') == 'CRITICAL' or tkover.get('vulnerable')
                 or smug.get('findings') or nuc.get('critical', 0) > 0
-                or cors.get('risk_level') == 'CRITICAL'):
+                or cors.get('risk_level') == 'CRITICAL'
+                or fz.get('total_findings', 0) > 0):
             risk = 'CRITICAL'
         elif (eps.get('critical_count', 0) > 0 or ssl.get('grade') == 'F'
-                or oredir.get('findings') or nuc.get('high', 0) > 0):
+                or oredir.get('findings') or nuc.get('high', 0) > 0
+                or lfi.get('total', 0) > 0 or ab.get('total', 0) > 0
+                or cj.get('total', 0) > 0 or oauth.get('total', 0) > 0):
             risk = 'HIGH'
         elif hdrs.get('grade') in ('D', 'F') or ports.get('total_high_risk', 0) > 0:
             risk = 'MEDIUM'
@@ -335,15 +338,24 @@ class BugBountyReport:
         # Executive Summary data
         critical_items = []
         high_items = []
-        if tkover.get('vulnerable'):          critical_items.append(f"{len(tkover['vulnerable'])} subdomain takeover(s)")
-        if smug.get('findings'):              critical_items.append('HTTP request smuggling confirmed')
-        if cves.get('critical_count', 0) > 0: critical_items.append(f"{cves['critical_count']} critical CVE(s)")
-        if vulns.get('risk_level') == 'CRITICAL': critical_items.append('SQL injection / XSS confirmed')
-        if oauth.get('risk_level') == 'CRITICAL': critical_items.append(f"{oauth.get('total',0)} critical OAuth issue(s)")
+        if tkover.get('vulnerable'):
+            critical_items.append(f"{len(tkover['vulnerable'])} subdomain takeover(s)")
+        if smug.get('findings'):
+            critical_items.append("HTTP request smuggling confirmed")
+        if cves.get('critical_count', 0) > 0:
+            critical_items.append(f"{cves['critical_count']} critical CVE(s)")
+        if vulns.get('risk_level') == 'CRITICAL':
+            critical_items.append("SQL injection / XSS confirmed")
+        if fz.get('total_findings', 0) > 0:
+            critical_items.append(f"{fz['total_findings']} sensitive files exposed (fuzzer)")
         if eps.get('critical_count', 0) > 0:  high_items.append(f"{eps['critical_count']} critical exposed endpoint(s)")
         if ssl.get('grade') == 'F':           high_items.append('SSL/TLS grade F')
-        if nuc.get('high', 0) > 0:            high_items.append(f"{nuc['high']} high Nuclei finding(s)")
+        if nuc.get('high', 0) > 0:            high_items.append(f"{nuc['high']} high-severity Nuclei finding(s)")
         if zt.get('vulnerable'):              critical_items.append(f"{len(zt['vulnerable'])} DNS zone transfer(s) exposed")
+        if lfi.get('total', 0) > 0:           high_items.append(f"{lfi['total']} LFI/RFI finding(s)")
+        if ab.get('total', 0) > 0:            high_items.append(f"{ab['total']} auth bypass finding(s)")
+        if cj.get('total', 0) > 0:            high_items.append(f"{cj['total']} clickjacking vulnerable page(s)")
+        if oauth.get('total', 0) > 0:         high_items.append(f"{oauth['total']} OAuth misconfiguration(s)")
         exec_risk = 'CRITICAL' if critical_items else 'HIGH' if high_items else 'MEDIUM' if eps.get('total_exposed',0) > 0 else 'LOW'
         exec_color = {'CRITICAL':'#e74c3c','HIGH':'#e67e22','MEDIUM':'#f1c40f','LOW':'#2ecc71'}.get(exec_risk,'#95a5a6')
         exec_critical_html = ''.join(f'<li style="color:#e74c3c">🔴 Fix immediately: {_e(i)}</li>' for i in critical_items)

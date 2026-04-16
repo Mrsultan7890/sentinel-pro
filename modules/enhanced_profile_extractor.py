@@ -7,6 +7,7 @@ import re
 from bs4 import BeautifulSoup
 import json
 import requests
+from modules.utils import tor_session
 import time
 import random
 

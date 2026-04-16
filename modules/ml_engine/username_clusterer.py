@@ -27,10 +27,10 @@ class UsernameClusterer:
     3. Har cluster ke liye canonical username nikalo
     """
 
-    def __init__(self, eps: float = 0.35, min_samples: int = 2):
+    def __init__(self, eps: float = None, min_samples: int = 2):
         """
-        eps: Maximum distance between two samples to be in same cluster
-             Lower = stricter matching
+        eps: Maximum distance between two samples to be in same cluster.
+             None = auto-estimate from data (recommended).
         min_samples: Minimum usernames to form a cluster
         """
         self.eps = eps
@@ -62,8 +62,19 @@ class UsernameClusterer:
             scaler = StandardScaler()
             scaled = scaler.fit_transform(feature_matrix)
 
+            # eps auto-estimate: k-distance (k=min_samples) ka 90th percentile
+            if self.eps is None:
+                from sklearn.neighbors import NearestNeighbors
+                k = min(self.min_samples, len(scaled) - 1)
+                nbrs = NearestNeighbors(n_neighbors=k).fit(scaled)
+                distances, _ = nbrs.kneighbors(scaled)
+                eps = float(np.percentile(distances[:, -1], 90))
+                eps = max(eps, 0.1)  # minimum floor
+            else:
+                eps = self.eps
+
             db = DBSCAN(
-                eps=self.eps,
+                eps=eps,
                 min_samples=self.min_samples,
                 metric='euclidean',
                 n_jobs=1,

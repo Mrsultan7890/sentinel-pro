@@ -85,17 +85,34 @@ class GoogleDorker:
                 severity = RISK_MAP.get(dork_type, 'LOW')
                 category_results = []
                 for r in organic:
+                    url     = r.get('link', '')
+                    snippet = r.get('snippet', '')[:200]
+                    title   = r.get('title', '')
+
+                    # Relevance filter — result target se related hona chahiye
+                    target_clean = target.replace('www.', '').lower()
+                    combined = (url + snippet + title).lower()
+                    # site: dorks ke liye URL mein target hona chahiye
+                    if dork_type not in ('pastebin_leaks', 'github_leaks', 'cached_pages'):
+                        if target_clean not in url.lower():
+                            continue
+                    else:
+                        # github/pastebin leaks ke liye snippet ya title mein target hona chahiye
+                        if target_clean not in combined:
+                            continue
+
                     entry = {
                         'dork_type': dork_type,
                         'query':     query,
-                        'title':     r.get('title', ''),
-                        'url':       r.get('link', ''),
-                        'snippet':   r.get('snippet', '')[:200],
+                        'title':     title,
+                        'url':       url,
+                        'snippet':   snippet,
                         'severity':  severity
                     }
                     result['findings'].append(entry)
                     category_results.append(entry)
-                result['by_category'][dork_type] = category_results
+                if category_results:
+                    result['by_category'][dork_type] = category_results
 
     def _run_fallback(self, target: str, selected: list, result: dict):
         """No API key — return dork queries for manual use.

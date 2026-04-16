@@ -54,9 +54,16 @@ class EntityMatcher:
         # Feature strings banao har profile ke liye
         feature_strings = [self._profile_to_string(p) for p in profiles]
 
-        # TF-IDF vectors
+        # TF-IDF vectors — har call pe fresh fit (profiles dynamic hain)
         try:
-            tfidf_matrix = self.vectorizer.fit_transform(feature_strings)
+            vectorizer = TfidfVectorizer(
+                analyzer='char_wb',
+                ngram_range=(2, 4),
+                min_df=1,
+                max_features=500,
+                sublinear_tf=True,
+            )
+            tfidf_matrix = vectorizer.fit_transform(feature_strings)
             self._fitted = True
         except Exception as e:
             logger.warning(f"TF-IDF fitting failed: {e}")

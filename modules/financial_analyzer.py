@@ -3,12 +3,15 @@
 import re
 import json
 import requests
+from modules.utils import tor_session
 from typing import Dict, List, Tuple, Any, Optional
 import time
 from urllib.parse import urlparse
 
 class FinancialAnalyzer:
     def __init__(self):
+        self._session = tor_session()
+        self._session.headers['User-Agent'] = 'Mozilla/5.0'
         # Cryptocurrency address patterns
         self.crypto_patterns = {
             'bitcoin': re.compile(r'\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b'),
@@ -252,7 +255,7 @@ class FinancialAnalyzer:
 
     def _blockchair_btc(self, address: str, analysis: dict):
         url = f'https://api.blockchair.com/bitcoin/dashboards/address/{address}'
-        r = requests.get(url, timeout=10, headers={'User-Agent': 'SentinelPro/2.1'})
+        r = self._session.get(url, timeout=10)
         if r.status_code != 200:
             analysis['api_error'] = f'Blockchair HTTP {r.status_code}'
             return
@@ -272,7 +275,7 @@ class FinancialAnalyzer:
 
     def _blockchair_eth(self, address: str, analysis: dict):
         url = f'https://api.blockchair.com/ethereum/dashboards/address/{address}'
-        r = requests.get(url, timeout=10, headers={'User-Agent': 'SentinelPro/2.1'})
+        r = self._session.get(url, timeout=10)
         if r.status_code != 200:
             analysis['api_error'] = f'Blockchair HTTP {r.status_code}'
             return
@@ -293,7 +296,7 @@ class FinancialAnalyzer:
             analysis['api_error'] = f'No Blockchair support for {crypto_type}'
             return
         url = f'https://api.blockchair.com/{coin}/dashboards/address/{address}'
-        r = requests.get(url, timeout=10, headers={'User-Agent': 'SentinelPro/2.1'})
+        r = self._session.get(url, timeout=10)
         if r.status_code != 200:
             analysis['api_error'] = f'Blockchair HTTP {r.status_code}'
             return

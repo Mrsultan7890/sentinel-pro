@@ -1,73 +1,88 @@
-# Core dependencies
-requests==2.32.5
-beautifulsoup4==4.14.3
+# ══════════════════════════════════════════════════════════════
+#  The Sentinel Pro v2.1 — Requirements
+#  Install: pip install -r requirements.txt
+# ══════════════════════════════════════════════════════════════
 
-# Parsing & processing
+# ── Core HTTP & Networking ─────────────────────────────────────
+requests[socks]>=2.31.0
+httpx[http2,brotli]>=0.25.0
+urllib3>=2.0.0
+PySocks>=1.7.1
+
+# ── HTML Parsing ───────────────────────────────────────────────
+beautifulsoup4>=4.12.0
 lxml>=4.9.3
 
-# Network & proxy
-PySocks==1.7.1
-stem==1.8.2
+# ── DNS & Network Recon ────────────────────────────────────────
+dnspython>=2.4.0
+python-whois>=0.9.4
 
-# Security & crypto
-cryptography==46.0.5
-pyOpenSSL==26.0.0
+# ── Security & Crypto ─────────────────────────────────────────
+cryptography>=41.0.0
+pyOpenSSL>=23.0.0
 
-# Progress & UI
-tqdm==4.67.3
-colorama==0.4.6
-rich==14.3.3
+# ── Tor / Proxy ────────────────────────────────────────────────
+stem>=1.8.2
 
-# User agent rotation
-fake-useragent==2.2.0
+# ── Environment & Config ──────────────────────────────────────
+python-dotenv>=1.0.0
 
-# Async support
-aiohttp==3.13.3
+# ── CLI & UI ──────────────────────────────────────────────────
+rich>=13.0.0
+pyfiglet>=0.8.0
+tqdm>=4.65.0
+colorama>=0.4.6
 
-# Rate limiting
+# ── Async ─────────────────────────────────────────────────────
+aiohttp>=3.9.0
+
+# ── Rate Limiting ─────────────────────────────────────────────
 ratelimit>=2.2.1
 
-# Recon / BugBounty / Breach
-dnspython==2.8.0
-python-whois==0.9.6
-shodan==1.31.0
-python-dotenv==1.2.2
+# ── OSINT / Intelligence APIs ─────────────────────────────────
+shodan>=1.28.0
 
-# Notifications
-requests[socks]>=2.31.0
-
-# PDF Export
-weasyprint>=60.0
-
-# Data science & ML (required for ML engine)
-scikit-learn>=1.3.0
+# ── Data Science & ML Engine (required) ───────────────────────
 numpy>=1.24.0
-nltk>=3.8.0
 scipy>=1.10.0
+scikit-learn>=1.3.0
+joblib>=1.3.0
 
-# NLP improvements (Phase 1 upgrade)
-spacy>=3.7.0          # Better NER: 60% → 90% accuracy
-langdetect>=1.0.9     # 55 language detection
-# After install run: python -m spacy download en_core_web_sm
+# ── NLP Engine ────────────────────────────────────────────────
+nltk>=3.8.0
+spacy>=3.7.0
+langdetect>=1.0.9
+# After install: python -m spacy download en_core_web_sm
 
-# ML Model Training (CRL-powered data pipeline)
-crawl-relevance-layers>=1.1.1  # Data collection for model training
-joblib>=1.3.0                  # Model serialization (save/load .joblib)
+# ── Network Analysis (relation mapper) ────────────────────────
+networkx>=3.1.0
 
-# ML Model Training (CRL-powered data pipeline)
-crawl-relevance-layers>=1.1.1  # Data collection for model training
-joblib>=1.3.0                  # Model serialization (save/load .joblib)
+# ── Visualization (reports) ───────────────────────────────────
+matplotlib>=3.7.0
 
-# Image OSINT (optional — install for face detection)
-# Pillow>=10.0.0
-# opencv-python>=4.8.0
+# ── Image OSINT ───────────────────────────────────────────────
+Pillow>=10.0.0
+opencv-python>=4.8.0
+
+# ── Face Analysis (optional — heavy ~500MB) ───────────────────
 # deepface>=0.0.79
+# tf-keras>=2.15.0      # required by deepface with tensorflow 2.16+
 
-# Browser automation (optional)
-# selenium>=4.15.0
-
-# Favicon hash fingerprinting (tech_fingerprint.py)
+# ── Favicon Hash Fingerprinting ───────────────────────────────
 mmh3>=4.0.0
 
-# Banner font rendering
-pyfiglet>=0.8.0
+# ── ML Training Data Pipeline ─────────────────────────────────
+crawl-relevance-layers>=1.1.1
+ddgs>=6.0.0
+
+# ── PDF Export ────────────────────────────────────────────────
+weasyprint>=60.0
+
+# ── Fake Profile Detection (optional HuggingFace model) ───────
+# transformers>=4.35.0
+
+# ── Custom Neural Network (SentinelThreatNet) ─────────────────
+torch>=2.0.0  # CPU version: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# ── User Agent Rotation ───────────────────────────────────────
+fake-useragent>=1.4.0

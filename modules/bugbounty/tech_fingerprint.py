@@ -66,7 +66,7 @@ HTML_SIGS = [
     (r'data-reactroot',                              'React',        'JS Framework'),
     (r'data-v-[a-f0-9]+',                            'Vue.js',       'JS Framework'),
     (r'Shopify\.theme',                              'Shopify',      'E-Commerce'),
-    (r'Magento',                                     'Magento',      'E-Commerce'),
+    (r'Magento\.theme\|X-Magento-Tags\|Mage\.Cookies', 'Magento', 'E-Commerce'),
     (r'PrestaShop',                                  'PrestaShop',   'E-Commerce'),
     (r'laravel_session',                             'Laravel',      'Framework'),
     (r'XSRF-TOKEN',                                  'Laravel/Rails','Framework'),

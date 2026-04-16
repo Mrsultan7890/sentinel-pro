@@ -4,6 +4,7 @@ import os
 import json
 import hashlib
 import requests
+from modules.utils import tor_session
 from PIL import Image, ExifTags
 from PIL.ExifTags import TAGS
 import numpy as np
@@ -45,8 +46,9 @@ class MediaValidator:
         """Download and validate media from URL"""
         
         try:
-            # Download media
-            response = requests.get(url, timeout=30, headers={
+            # Download media — Tor se route karo agar active
+            _sess = tor_session()
+            response = _sess.get(url, timeout=30, headers={
                 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
             })
             
@@ -365,7 +367,7 @@ class MediaValidator:
         
         return indicators
     
-    def _analyze_video_frames(self, cap: cv2.VideoCapture, max_frames: int = 10) -> Dict[str, Any]:
+    def _analyze_video_frames(self, cap, max_frames: int = 10) -> Dict[str, Any]:
         """Analyze sample frames from video"""
         
         frame_analysis = {
@@ -418,7 +420,7 @@ class MediaValidator:
         
         return frame_analysis
     
-    def _detect_video_deepfake_indicators(self, cap: cv2.VideoCapture) -> Dict[str, float]:
+    def _detect_video_deepfake_indicators(self, cap) -> Dict[str, float]:
         """Detect deepfake indicators in video"""
         
         indicators = {

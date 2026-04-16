@@ -104,7 +104,36 @@ class SSTIScanner:
                 r = session.post(url, data=data, timeout=self.TIMEOUT, allow_redirects=True)
             if r.status_code == 404:
                 return {}
+
+            # Baseline check — pehle bina payload ke response lo
+            try:
+                if method == 'GET':
+                    base_url = url.split('?')[0] + f'?{param}=SENTINEL_TEST_STRING'
+                    base_r = session.get(base_url, timeout=self.TIMEOUT)
+                else:
+                    base_r = session.post(url, data={param: 'SENTINEL_TEST_STRING'}, timeout=self.TIMEOUT)
+                # Agar baseline mein bhi expected string hai to false positive
+                if expected in base_r.text:
+                    return {}
+            except Exception:
+                pass
+
+            # Actual check
             if expected in r.text:
+                # Extra verify — payload ka result response mein clearly dikhna chahiye
+                # Static sites pe '49' common number hai — strict match karo
+                import re as _re
+                # Response mein payload evaluated form clearly hona chahiye
+                strict_patterns = [
+                    rf'\b{expected}\b',           # word boundary
+                    rf'>{expected}<',              # HTML tag ke andar
+                    rf'"result":\s*"{expected}"',  # JSON
+                    rf'value="{expected}"',         # form value
+                ]
+                matched = any(_re.search(p, r.text) for p in strict_patterns)
+                if not matched:
+                    return {}  # False positive
+
                 return {
                     'severity': severity, 'type': 'SSTI', 'engine': engine,
                     'url': url, 'param': param, 'payload': payload,

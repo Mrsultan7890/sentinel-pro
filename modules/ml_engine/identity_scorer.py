@@ -105,7 +105,8 @@ class IdentityScorer:
                 likelihood_ratio = w / (1.0 - w)
                 log_odds += np.log(likelihood_ratio)
 
-        # Log-odds → probability
+        # Log-odds → probability (clip karo overflow se bachne ke liye)
+        log_odds = np.clip(log_odds, -500.0, 500.0)
         probability = 1.0 / (1.0 + np.exp(-log_odds))
 
         # Confidence label

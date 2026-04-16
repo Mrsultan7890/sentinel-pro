@@ -229,22 +229,22 @@ class WritingFingerprinter:
 
     def _char_ngram_similarity(self, text_a: str, text_b: str) -> float:
         try:
-            vectorizer = TfidfVectorizer(
+            self.char_vectorizer = TfidfVectorizer(
                 analyzer='char_wb', ngram_range=(2, 4),
                 max_features=300, sublinear_tf=True, min_df=1,
             )
-            matrix = vectorizer.fit_transform([text_a, text_b])
+            matrix = self.char_vectorizer.fit_transform([text_a, text_b])
             return float(cosine_similarity(matrix[0], matrix[1])[0][0])
         except Exception:
             return 0.0
 
     def _word_ngram_similarity(self, text_a: str, text_b: str) -> float:
         try:
-            vectorizer = TfidfVectorizer(
+            self.word_vectorizer = TfidfVectorizer(
                 analyzer='word', ngram_range=(1, 2),
                 max_features=200, sublinear_tf=True, min_df=1,
             )
-            matrix = vectorizer.fit_transform([text_a, text_b])
+            matrix = self.word_vectorizer.fit_transform([text_a, text_b])
             return float(cosine_similarity(matrix[0], matrix[1])[0][0])
         except Exception:
             return 0.0

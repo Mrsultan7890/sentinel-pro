@@ -316,12 +316,15 @@ class TimelineAnalyzer:
             X_scaled = scaler.fit_transform(X)
 
             # Optimal k (2-4 clusters)
-            best_k = 2
-            best_inertia = float('inf')
+            best_k       = 2
+            best_inertia = None
             for k in range(2, min(5, len(timestamps) // 3 + 1)):
                 km = KMeans(n_clusters=k, random_state=42, n_init=10)
                 km.fit(X_scaled)
-                if km.inertia_ < best_inertia * 0.7:  # 30% improvement threshold
+                if best_inertia is None:
+                    best_inertia = km.inertia_
+                    best_k = k
+                elif km.inertia_ < best_inertia * 0.7:  # 30% improvement threshold
                     best_inertia = km.inertia_
                     best_k = k
 

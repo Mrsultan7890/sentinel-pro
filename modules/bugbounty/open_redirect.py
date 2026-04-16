@@ -7,6 +7,7 @@ import logging
 import requests
 from urllib.parse import urlencode, urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from modules.utils import tor_session
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,11 @@ class OpenRedirectScanner:
 
     TIMEOUT = 8
 
+    def __init__(self):
+        self.session = tor_session(pool_size=20)
+        self.session.verify = False
+        self.session.headers['User-Agent'] = 'Mozilla/5.0'
+        self.session.max_redirects = 5
     def run(self, domain: str, endpoints: list = None) -> dict:
         result = {
             'domain':     domain,
@@ -84,8 +90,8 @@ class OpenRedirectScanner:
         for payload in PAYLOADS[:3]:  # limit requests per param
             test_url = f"{url}{'&' if '?' in url else '?'}{param}={requests.utils.quote(payload)}"
             try:
-                resp = requests.get(
-                    test_url, timeout=self.TIMEOUT, verify=False,
+                resp = self.session.get(
+                    test_url, timeout=self.TIMEOUT,
                     allow_redirects=False, headers=HEADERS
                 )
                 location = resp.headers.get('Location', '')

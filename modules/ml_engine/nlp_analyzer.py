@@ -35,26 +35,54 @@ try:
 except ImportError:
     _LANGDETECT_AVAILABLE = False
 
-# CRL-trained ThreatClassifier (optional, loads from models/ml_engine/)
-_threat_clf_cache = None
+logger = logging.getLogger(__name__)
+
+# ML models cache — SentinelThreatNet (primary) + TF-IDF (fallback)
+import threading
+_neural_trainer_cache = None
+_threat_clf_cache     = None
+_model_lock           = threading.Lock()
+
+def _load_neural_model():
+    """SentinelThreatNet load karo — primary intelligence model"""
+    global _neural_trainer_cache
+    if _neural_trainer_cache is not None:
+        return _neural_trainer_cache
+    with _model_lock:
+        if _neural_trainer_cache is not None:
+            return _neural_trainer_cache
+        try:
+            from modules.ml_engine.sentinel_net import NeuralTrainer
+            nt = NeuralTrainer()
+            if nt.load():
+                _neural_trainer_cache = nt
+                logger.info("SentinelThreatNet (BiLSTM) loaded as primary intelligence model")
+                return _neural_trainer_cache
+        except Exception as e:
+            logger.debug(f"SentinelThreatNet load failed: {e}")
+    return None
 
 def _load_threat_clf():
+    """TF-IDF ThreatClassifier load karo — fallback model"""
     global _threat_clf_cache
     if _threat_clf_cache is not None:
         return _threat_clf_cache
-    try:
-        import joblib
-        from pathlib import Path
-        path = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine' / 'threat_classifier.joblib'
-        if path.exists():
-            _threat_clf_cache = joblib.load(path)
-            logger.info("CRL-trained ThreatClassifier loaded")
+    with _model_lock:
+        if _threat_clf_cache is not None:
             return _threat_clf_cache
-    except Exception as e:
-        logger.debug(f"ThreatClassifier load failed: {e}")
+        try:
+            import joblib, warnings
+            from pathlib import Path
+            path = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine' / 'threat_classifier.joblib'
+            if path.exists():
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore')
+                    _threat_clf_cache = joblib.load(path)
+                logger.info("TF-IDF ThreatClassifier loaded as fallback model")
+                return _threat_clf_cache
+        except Exception as e:
+            logger.debug(f"ThreatClassifier load failed: {e}")
     return None
-
-logger = logging.getLogger(__name__)
 
 # ── OSINT Intelligence Dictionaries ───────────────────────────────────────────
 
@@ -165,26 +193,52 @@ class NLPProfileAnalyzer:
         # OSINT flags generate karo
         result['osint_flags'] = self._generate_osint_flags(result, combined_text)
 
-        # CRL-trained ThreatClassifier use karo agar available ho
-        clf = _load_threat_clf()
-        if clf and combined_text:
-            try:
-                pipeline, le = clf
-                proba    = pipeline.predict_proba([combined_text])[0]
-                pred_idx = proba.argmax()
-                ml_label = le.inverse_transform([pred_idx])[0]
-                ml_conf  = round(float(proba[pred_idx]), 4)
-                result['ml_threat'] = {
-                    'label':         ml_label,
-                    'confidence':    ml_conf,
-                    'probabilities': {c: round(float(p), 4) for c, p in zip(le.classes_, proba)},
-                    'source':        'crl_trained_model',
-                }
-                # ML label se risk override karo agar high confidence
-                if ml_conf >= 0.70 and ml_label in ('HIGH', 'CRITICAL'):
-                    result['risk_level'] = ml_label
-            except Exception as e:
-                logger.debug(f"ThreatClassifier inference failed: {e}")
+        # Intelligence layer: SentinelThreatNet (primary) → TF-IDF (fallback)
+        ml_threat = None
+        if combined_text:
+            # 1. SentinelThreatNet — BiLSTM neural model (primary)
+            neural = _load_neural_model()
+            if neural:
+                try:
+                    pred = neural.predict(combined_text[:1000])
+                    ml_threat = {
+                        'label':         pred['label'],
+                        'confidence':    pred['confidence'],
+                        'probabilities': pred['probabilities'],
+                        'source':        'sentinel_threat_net',
+                        'model':         'BiLSTM',
+                    }
+                    logger.debug(f"SentinelThreatNet: {pred['label']} ({pred['confidence']:.0%})")
+                except Exception as e:
+                    logger.debug(f"SentinelThreatNet inference failed: {e}")
+
+            # 2. TF-IDF fallback agar neural fail hua
+            if not ml_threat:
+                clf = _load_threat_clf()
+                if clf:
+                    try:
+                        pipeline, le = clf
+                        proba    = pipeline.predict_proba([combined_text])[0]
+                        pred_idx = proba.argmax()
+                        ml_label = le.inverse_transform([pred_idx])[0]
+                        ml_conf  = round(float(proba[pred_idx]), 4)
+                        ml_threat = {
+                            'label':         ml_label,
+                            'confidence':    ml_conf,
+                            'probabilities': {c: round(float(p), 4) for c, p in zip(le.classes_, proba)},
+                            'source':        'tfidf_classifier',
+                            'model':         'TF-IDF+LR',
+                        }
+                    except Exception as e:
+                        logger.debug(f"ThreatClassifier inference failed: {e}")
+
+        if ml_threat:
+            result['ml_threat'] = ml_threat
+            # High confidence pe risk override karo
+            if ml_threat['confidence'] >= 0.65 and ml_threat['label'] in ('HIGH', 'CRITICAL'):
+                result['risk_level'] = ml_threat['label']
+            else:
+                result['risk_level'] = self._calc_risk(result)
         else:
             result['risk_level'] = self._calc_risk(result)
 
@@ -203,6 +257,8 @@ class NLPProfileAnalyzer:
         # spaCy path — much better accuracy
         if _SPACY_AVAILABLE and _nlp:
             try:
+                if len(text) > 5000:
+                    logger.debug(f"NER: text truncated from {len(text)} to 5000 chars")
                 doc = _nlp(text[:5000])
                 for ent in doc.ents:
                     name = ent.text.strip()
@@ -428,14 +484,26 @@ class NLPProfileAnalyzer:
 
     def _extract_locations(self, text: str) -> list:
         """Text se locations extract karo"""
+        # Known false positives — app taglines, common words jo location nahi hain
+        FALSE_POSITIVE_LOCATIONS = {
+            'Fast', 'Secure', 'Powerful', 'Free', 'Safe', 'Simple', 'Easy',
+            'Smart', 'Quick', 'Best', 'New', 'Pro', 'Plus', 'Max', 'Ultra',
+            'Premium', 'Basic', 'Standard', 'Advanced', 'Private', 'Public',
+            'Open', 'Close', 'Dark', 'Light', 'Black', 'White', 'Red', 'Blue',
+            'Green', 'Gold', 'Silver', 'Beta', 'Alpha', 'Live', 'Demo',
+        }
+
         locations = []
 
         for pattern in LOCATION_PATTERNS:
             matches = re.findall(pattern, text)
             for match in matches:
                 loc = ' '.join(m for m in match if m).strip()
-                if loc and loc not in locations:
-                    locations.append(loc)
+                # False positive filter
+                if loc and loc not in locations and loc not in FALSE_POSITIVE_LOCATIONS:
+                    # Min 4 chars, not a single common word
+                    if len(loc) >= 4 and not all(w in FALSE_POSITIVE_LOCATIONS for w in loc.split()):
+                        locations.append(loc)
 
         # NER se bhi locations
         try:
@@ -445,7 +513,7 @@ class NLPProfileAnalyzer:
             for subtree in chunked:
                 if isinstance(subtree, Tree) and subtree.label() in ('GPE', 'LOCATION'):
                     loc = ' '.join(w for w, t in subtree.leaves())
-                    if loc not in locations:
+                    if loc not in locations and loc not in FALSE_POSITIVE_LOCATIONS and len(loc) >= 4:
                         locations.append(loc)
         except Exception:
             pass

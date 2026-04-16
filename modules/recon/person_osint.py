@@ -80,6 +80,9 @@ class PersonOSINT:
         # Build relation graph
         self._build_relations(result)
 
+        # ── ML Engine Integration ──────────────────────────────────────────────
+        self._run_ml_analysis(result)
+
         # Calculate risk
         self._calc_risk(result)
 
@@ -256,7 +259,8 @@ class PersonOSINT:
                     # Display name
                     name_match = re.search(r'<title>([^<|]+)', resp.text)
                     if name_match:
-                        profile['display_name'] = name_match.group(1).strip()
+                        import html as _html
+                        profile['display_name'] = _html.unescape(name_match.group(1).strip())
 
                     # Bio extraction — platform specific
                     bio = self._extract_bio(platform, resp.text)
@@ -536,6 +540,115 @@ class PersonOSINT:
         result['relations'] = relations
 
     # ── Risk Calculation ───────────────────────────────────────────────────────
+
+    def _run_ml_analysis(self, result: dict):
+        """
+        ML Engine se person profile analyze karo:
+        1. NLP — bios/posts se traits, topics, personality
+        2. FakeDetector — profile genuine hai ya fake/bot
+        3. IdentityScorer — multiple profiles same person hain?
+        4. UsernameClusterer — username variations cluster karo
+        """
+        try:
+            profiles = result.get('social_profiles', [])
+
+            # 1. NLP Analysis — bios collect karo
+            texts, labels = [], []
+            for p in profiles:
+                bio = p.get('bio', '')
+                if bio and len(bio.split()) >= 3:
+                    texts.append(bio)
+                    labels.append(f"{p['platform']}_{p['username']}")
+
+            if texts:
+                from modules.ml_engine.nlp_analyzer import NLPProfileAnalyzer
+                nlp = NLPProfileAnalyzer()
+                nlp_result = nlp.analyze(texts, labels)
+                result['ml_nlp'] = {
+                    'risk_level':    nlp_result.get('risk_level', 'LOW'),
+                    'professions':   nlp_result.get('professions', [])[:3],
+                    'interests':     nlp_result.get('interests', [])[:5],
+                    'personality':   nlp_result.get('personality', [])[:3],
+                    'languages':     nlp_result.get('languages', {}),
+                    'osint_flags':   nlp_result.get('osint_flags', []),
+                    'key_topics':    nlp_result.get('key_topics', [])[:8],
+                    'writing_style': nlp_result.get('writing_style', {}),
+                    'ml_threat':     nlp_result.get('ml_threat', {}),
+                }
+                # NLP risk level se main risk update karo
+                nlp_risk = nlp_result.get('risk_level', 'LOW')
+                risk_order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+                if risk_order.index(nlp_risk) > risk_order.index(result.get('risk_level', 'LOW')):
+                    result['risk_level'] = nlp_risk
+                    result['risk_flags'].append({
+                        'severity': nlp_risk,
+                        'flag': 'ML NLP threat detected',
+                        'detail': f"NLP analysis: {nlp_risk} risk — {nlp_result.get('ml_threat', {}).get('label', 'N/A')}"
+                    })
+
+            # 2. FakeDetector — har profile ke liye fake score
+            try:
+                import joblib, warnings, logging as _logging
+                # Training logs suppress karo scan ke dauran
+                _logging.getLogger('modules.ml_engine.trainer').setLevel(_logging.ERROR)
+                from pathlib import Path
+                fake_path = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine' / 'fake_detector.joblib'
+                if fake_path.exists():
+                    import warnings
+                    with warnings.catch_warnings():
+                        warnings.simplefilter('ignore')
+                        fake_clf = joblib.load(fake_path)
+                    fake_scores = []
+                    for p in profiles:
+                        bio = p.get('bio', '') or p.get('display_name', '') or p.get('username', '')
+                        if bio:
+                            proba = fake_clf.predict_proba([bio])[0]
+                            fake_prob = round(float(proba[1]) if len(proba) > 1 else float(proba[0]), 3)
+                            fake_scores.append({
+                                'platform': p['platform'],
+                                'username': p['username'],
+                                'fake_probability': fake_prob,
+                                'is_fake': fake_prob >= 0.5,
+                            })
+                    result['ml_fake_scores'] = fake_scores
+                    avg_fake = sum(s['fake_probability'] for s in fake_scores) / len(fake_scores) if fake_scores else 0
+                    result['ml_fake_avg'] = round(avg_fake, 3)
+                    if avg_fake >= 0.6:
+                        result['risk_flags'].append({
+                            'severity': 'HIGH',
+                            'flag': 'ML: High fake profile probability',
+                            'detail': f"Average fake score: {avg_fake:.0%} across {len(fake_scores)} profiles"
+                        })
+            except Exception as e:
+                logger.debug(f"FakeDetector error: {e}")
+
+            # 3. UsernameClusterer — username variations cluster karo
+            usernames = result.get('possible_usernames', [])
+            if len(usernames) >= 2:
+                from modules.ml_engine.username_clusterer import UsernameClusterer
+                clusterer = UsernameClusterer()
+                cluster_result = clusterer.cluster(usernames)
+                result['ml_username_clusters'] = cluster_result
+
+            # 4. IdentityScorer — cross-platform same person confidence
+            if len(profiles) >= 2:
+                from modules.ml_engine.entity_matcher import EntityMatcher
+                from modules.ml_engine.identity_scorer import IdentityScorer
+                matcher = EntityMatcher()
+                scorer  = IdentityScorer()
+                matches = matcher.match_profiles(profiles)
+                identity_score = scorer.score_from_osint_result(result, matches)
+                result['ml_identity'] = identity_score
+                if identity_score.get('confidence', 0) >= 0.75:
+                    result['risk_flags'].append({
+                        'severity': 'HIGH',
+                        'flag': 'ML: Same person confirmed across platforms',
+                        'detail': f"Identity confidence: {identity_score['confidence_pct']}% — {identity_score['label']}"
+                    })
+
+        except Exception as e:
+            logger.debug(f"ML analysis error: {e}")
+            result['ml_error'] = str(e)
 
     def _calc_risk(self, result: dict):
         flags = result['risk_flags']

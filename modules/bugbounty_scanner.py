@@ -7,6 +7,7 @@ import re
 import socket
 import logging
 import requests
+from modules.utils import tor_session
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -40,7 +41,7 @@ class BugBountyScanner:
     ]
 
     def __init__(self):
-        self.session = requests.Session()
+        self.session = tor_session()
         self.session.headers.update(HEADERS)
 
     # ------------------------------------------------------------------ #

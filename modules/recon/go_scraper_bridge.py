@@ -87,23 +87,21 @@ class GoScraperBridge:
             re.escape(domain) + r')[^\s\'"<>]*)', re.IGNORECASE
         )
 
-        # Tech fingerprint patterns
+        # Tech fingerprint patterns — strict matching only
         tech_patterns = {
-            'WordPress':   [r'wp-content', r'wp-includes', r'wordpress'],
-            'Drupal':      [r'drupal', r'sites/default'],
-            'Joomla':      [r'joomla', r'/components/com_'],
-            'Laravel':     [r'laravel', r'laravel_session'],
-            'Django':      [r'django', r'csrfmiddlewaretoken'],
-            'React':       [r'react\.js', r'react-dom', r'__REACT'],
-            'Angular':     [r'ng-version', r'angular\.js'],
-            'Vue':         [r'vue\.js', r'__vue__'],
-            'jQuery':      [r'jquery\.min\.js', r'jquery-\d'],
-            'Bootstrap':   [r'bootstrap\.min\.css', r'bootstrap\.min\.js'],
-            'PHP':         [r'\.php', r'X-Powered-By: PHP'],
-            'ASP.NET':     [r'__VIEWSTATE', r'aspnet', r'\.aspx'],
-            'Apache':      [r'Apache/', r'Server: Apache'],
-            'Nginx':       [r'nginx/', r'Server: nginx'],
-            'Cloudflare':  [r'cf-ray', r'cloudflare'],
+            'WordPress':   [r'wp-content/', r'wp-includes/', r'/wordpress/'],
+            'Drupal':      [r'sites/default/files', r'drupal\.js'],
+            'Joomla':      [r'/components/com_', r'joomla!'],
+            'Laravel':     [r'laravel_session', r'_token.*csrf.*laravel'],
+            'Django':      [r'csrfmiddlewaretoken', r'django-admin'],
+            'React':       [r'react-dom\.', r'__REACT_DEVTOOLS', r'data-reactroot'],
+            'Angular':     [r'ng-version=', r'angular\.min\.js'],
+            'Vue':         [r'vue\.min\.js', r'__vue__', r'data-v-[a-f0-9]{8}'],
+            'jQuery':      [r'jquery\.min\.js', r'jquery-\d+\.\d+'],
+            'Bootstrap':   [r'bootstrap\.min\.css', r'bootstrap\.bundle\.min\.js'],
+            'ASP.NET':     [r'__VIEWSTATE', r'__EVENTVALIDATION', r'\.aspx"'],
+            'PHP':         [r'X-Powered-By: PHP', r'\.php\?', r'\.php"'],
+            'Cloudflare':  [r'cf-ray:', r'__cf_bm'],
         }
 
         # Exposed file patterns (interesting findings)

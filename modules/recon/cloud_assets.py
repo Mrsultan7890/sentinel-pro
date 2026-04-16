@@ -12,6 +12,7 @@ import re
 import logging
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from modules.utils import tor_session
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ WORKERS  = 30   # parallel threads
 
 class CloudAssetDiscovery:
 
+    def __init__(self):
+        self.session = tor_session(pool_size=30)
+        self.session.verify = False
+        self.session.headers['User-Agent'] = 'Mozilla/5.0'
     def run(self, domain: str) -> dict:
         result = {
             'domain':   domain,
@@ -97,10 +102,9 @@ class CloudAssetDiscovery:
         return list(dict.fromkeys(candidates))[:80]
 
     def _get(self, url: str) -> requests.Response | None:
-        """Fast direct GET — bypasses rate limiter for parallel cloud checks."""
+        """Fast GET — routes through Tor if active."""
         try:
-            return requests.get(url, timeout=TIMEOUT, verify=False,
-                                headers={'User-Agent': 'Mozilla/5.0'},
+            return self.session.get(url, timeout=TIMEOUT,
                                 allow_redirects=False)
         except Exception:
             return None
