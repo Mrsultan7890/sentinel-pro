@@ -1,0 +1,8 @@
+# Bug Bounty Targets
+example.com
+testphp.vulnweb.com
+demo.testfire.net
+
+# High Priority
+target1.com
+target2.com

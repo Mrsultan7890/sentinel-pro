@@ -1,0 +1,4 @@
+"username": "attacker",
+"email": "attacker@email.com",
+"password": "unsafe_password",
+"isAdmin": true

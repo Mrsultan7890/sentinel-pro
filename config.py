@@ -49,6 +49,9 @@ DEHASHED_API_KEY   = os.getenv('DEHASHED_API_KEY', '')
 NUMVERIFY_API_KEY      = os.getenv('NUMVERIFY_API_KEY', '')
 ABSTRACTAPI_PHONE_KEY  = os.getenv('ABSTRACTAPI_PHONE_KEY', '')
 
+# Groq LLM API
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+
 # API Keys - read from environment variables
 SHODAN_API_KEY         = os.getenv('SHODAN_API_KEY', '')
 GITHUB_TOKEN           = os.getenv('GITHUB_TOKEN', '')
@@ -59,6 +62,13 @@ NVD_API_KEY            = os.getenv('NVD_API_KEY', '')
 # Rate limiting configuration
 RATE_LIMIT_REQUESTS = int(os.getenv('OSINT_RATE_LIMIT', '10'))
 RATE_LIMIT_PERIOD = int(os.getenv('OSINT_RATE_PERIOD', '60'))
+
+# OSINT scanning configuration (for profile switching)
+OSINT_MIN_DELAY = float(os.getenv('OSINT_MIN_DELAY', '2.0'))
+OSINT_MAX_DELAY = float(os.getenv('OSINT_MAX_DELAY', '5.0'))
+OSINT_RATE_LIMIT = int(os.getenv('OSINT_RATE_LIMIT', '10'))
+OSINT_RATE_PERIOD = int(os.getenv('OSINT_RATE_PERIOD', '60'))
+OSINT_SSL_VERIFY = os.getenv('OSINT_SSL_VERIFY', 'true').lower() == 'true'
 
 # ML Engine Configuration
 ML_CONFIDENCE_THRESHOLD = float(os.getenv('ML_CONFIDENCE_THRESHOLD', '0.50'))

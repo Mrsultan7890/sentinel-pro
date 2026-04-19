@@ -1097,12 +1097,6 @@ class ModelTrainer:
                     ModelTrainer._append_scan_sample('threat', desc, 'MEDIUM')
                     added += 1
 
-                # 9. Agar kuch bhi nahi mila toh bhi ek LOW sample save karo
-                if added == 0:
-                    desc = f"Bug bounty scan {result.get('target','')} SSL grade {result.get('ssl',{}).get('grade','?')} no critical vulnerabilities"
-                    ModelTrainer._append_scan_sample('threat', desc, 'LOW')
-                    added += 1
-
             elif scan_type == 'recon' and result.get('target'):
                 # Recon — risk flags se threat samples banao
                 risk_map = {'CRITICAL': 'CRITICAL', 'HIGH': 'HIGH',

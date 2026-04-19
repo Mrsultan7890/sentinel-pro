@@ -1,0 +1,30 @@
+{
+  "model_name": "Sentinel Threat Intelligence Model",
+  "version": "1.0",
+  "author": "who_is_the_black_hat",
+  "github": "https://github.com/Mrsultan7890/osints",
+  "license": "MIT",
+  "trained_at": "2026-04-16 09:01:13",
+  "models": [
+    "threat_classifier",
+    "fake_detector"
+  ],
+  "threat_samples": 15000,
+  "fake_samples": 20,
+  "algorithms": {
+    "threat_classifier": "TF-IDF (5000 features, bigrams) + LogisticRegression (balanced)",
+    "fake_detector": "TF-IDF (3000 features, bigrams) + RandomForest (100 trees, balanced)"
+  },
+  "training_sources": [
+    "bleepingcomputer.com",
+    "krebsonsecurity.com",
+    "mandiant.com",
+    "portswigger.net",
+    "thedfirreport.com",
+    "securelist.com",
+    "welivesecurity.com",
+    "darkreading.com",
+    "sans.org"
+  ],
+  "description": "Cybersecurity threat classification model trained on curated security content using CRL (crawl-relevance-layers) data pipeline. Classifies text into threat levels: LOW/MEDIUM/HIGH/CRITICAL."
+}

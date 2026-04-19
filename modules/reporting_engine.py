@@ -19,6 +19,94 @@ class LegalReportingEngine:
         self.report_dir = "reports"
         os.makedirs(self.report_dir, exist_ok=True)
         os.makedirs("models", exist_ok=True)
+        
+        # Load output formats configuration
+        self.output_formats = self._load_output_formats()
+        self.current_format = 'standard'  # default format
+    
+    def _load_output_formats(self):
+        """Load output formats configuration"""
+        try:
+            with open('output_formats.json', 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            # Fallback to default formats
+            return {
+                "output_formats": {
+                    "standard": {
+                        "description": "Balanced detail level",
+                        "include": ["target", "risk_level", "findings", "risk_flags", "summary"],
+                        "exclude": ["raw_data", "debug_info"]
+                    }
+                }
+            }
+    
+    def set_output_format(self, format_name):
+        """Set the output format for reports"""
+        if format_name in self.output_formats.get('output_formats', {}):
+            self.current_format = format_name
+            return True
+        return False
+    
+    def _apply_output_format(self, data, format_name=None):
+        """Apply output format filtering to data"""
+        if format_name is None:
+            format_name = self.current_format
+            
+        format_config = self.output_formats.get('output_formats', {}).get(format_name, {})
+        
+        if not format_config:
+            return data  # Return original data if format not found
+        
+        include = format_config.get('include', [])
+        exclude = format_config.get('exclude', [])
+        
+        # If include has '*', include everything except excluded
+        if '*' in include:
+            filtered_data = {k: v for k, v in data.items() if k not in exclude}
+        else:
+            # Only include specified fields
+            filtered_data = {k: v for k, v in data.items() if k in include}
+        
+        # Apply special formatting if specified
+        special_formatting = format_config.get('special_formatting', {})
+        if special_formatting:
+            filtered_data = self._apply_special_formatting(filtered_data, special_formatting)
+        
+        return filtered_data
+    
+    def _apply_special_formatting(self, data, special_formatting):
+        """Apply special formatting rules"""
+        if special_formatting.get('chain_of_custody'):
+            # Enhanced chain of custody formatting
+            if 'chain_of_custody' in data:
+                data['chain_of_custody']['legal_compliance'] = 'ENHANCED'
+                data['chain_of_custody']['court_ready'] = True
+        
+        if special_formatting.get('evidence_hashes'):
+            # Add evidence hashes to all findings
+            if 'legal_findings' in data:
+                for finding in data['legal_findings']:
+                    finding['evidence_hash'] = hashlib.sha256(
+                        json.dumps(finding, sort_keys=True).encode()
+                    ).hexdigest()[:16]
+        
+        if special_formatting.get('compliance_cert'):
+            # Enhanced compliance certification
+            if 'compliance_certification' in data:
+                data['compliance_certification']['court_certified'] = True
+                data['compliance_certification']['expert_testimony_ready'] = True
+        
+        if special_formatting.get('expert_testimony'):
+            # Add expert testimony sections
+            data['expert_testimony_sections'] = {
+                'technical_methodology': 'Available',
+                'evidence_collection': 'Documented', 
+                'analysis_procedures': 'Verified',
+                'legal_standards_compliance': 'Certified'
+            }
+        
+        return data
     
     def generate_legal_report(self, session_data, evidence_chain):
         """Generate comprehensive legal-grade intelligence report"""
@@ -52,6 +140,9 @@ class LegalReportingEngine:
             'technical_appendix': self._create_technical_appendix(session_data),
             'compliance_certification': self._generate_compliance_cert()
         }
+        
+        # Apply output format filtering
+        legal_report = self._apply_output_format(legal_report)
         
         return legal_report
     

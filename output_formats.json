@@ -1,0 +1,46 @@
+{
+  "output_formats": {
+    "minimal": {
+      "description": "Only essential findings",
+      "include": ["target", "risk_level", "critical_findings"],
+      "exclude": ["raw_data", "debug_info", "full_profiles"]
+    },
+    "standard": {
+      "description": "Balanced detail level",
+      "include": ["target", "risk_level", "findings", "risk_flags", "summary"],
+      "exclude": ["raw_data", "debug_info"]
+    },
+    "detailed": {
+      "description": "Complete information",
+      "include": ["*"],
+      "exclude": []
+    },
+    "legal": {
+      "description": "Court-ready format",
+      "include": ["*"],
+      "special_formatting": {
+        "chain_of_custody": true,
+        "evidence_hashes": true,
+        "compliance_cert": true,
+        "expert_testimony": true
+      }
+    }
+  },
+  "report_themes": {
+    "dark": {
+      "background": "#0d1117",
+      "text": "#c9d1d9",
+      "accent": "#58a6ff"
+    },
+    "light": {
+      "background": "#ffffff", 
+      "text": "#24292f",
+      "accent": "#0969da"
+    },
+    "professional": {
+      "background": "#f8f9fa",
+      "text": "#1f2328", 
+      "accent": "#0550ae"
+    }
+  }
+}

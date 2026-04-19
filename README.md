@@ -107,6 +107,7 @@ sentinel-pro> brain investigate target.com
 | **24/7 Monitor** | Continuous target monitoring, new finding → auto Telegram alert |
 | **Dark Web** | Tor integration · .onion crawling · Stealth mode |
 | **Legal** | Chain of custody · Evidence vault · Court-grade HTML/PDF reports |
+| **SentinelProxy** | Burp Suite alternative · mitmproxy backend · AI-powered traffic analysis · 34K+ payloads |
 
 ---
 
@@ -391,12 +392,206 @@ nano .env
 
 ---
 
+## SentinelProxy — Burp Suite Alternative
+
+```
+sentinel-proxy> python3 sentinel_proxy/main.py
+        ↓
+┌─────────────────────────────────────────────────────┐
+│              SENTINEL PROXY v1.0                    │
+│         Professional Web Traffic Analyzer           │
+│                                                     │
+│  mitmproxy backend — intercepts HTTP/HTTPS          │
+│  SentinelNet v4.0 — real-time threat scoring        │
+│  Groq LLM — deep vulnerability analysis             │
+│  34,311 payloads — from PayloadsAllTheThings         │
+└─────────────────────────────────────────────────────┘
+```
+
+### Tabs
+
+| Tab | Purpose |
+|-----|---------|
+| **Proxy** | Live HTTP/HTTPS traffic interception — view all requests/responses in real-time |
+| **Repeater** | Modify and resend any captured request — test parameters manually |
+| **Intruder** | Automated payload fuzzing — 21 attack types, 34K+ payloads |
+| **Scanner** | AI-powered vulnerability scanner — SentinelNet + Groq deep analysis |
+| **Decoder** | URL / Base64 / Hex / Hash encode-decode utility |
+
+### Launch
+
+```bash
+python3 sentinel_proxy/main.py
+```
+
+Then configure browser proxy: `127.0.0.1:8082`
+
+### Proxy Tab
+```
+- Start/Stop proxy with one click
+- Live request table: Method · URL · Status · Length · Risk · Time
+- Click any request → full details (headers, body, params, response)
+- Right-click → Send to Repeater / Send to Intruder / AI Analyze
+- Color coded: RED=CRITICAL · ORANGE=HIGH · YELLOW=MEDIUM · GREEN=LOW
+- Intercept mode — pause and modify requests before they reach server
+- Install CA certificate for HTTPS decryption (Firefox/Chromium/Mobile)
+```
+
+### Repeater Tab
+```
+- Raw HTTP request editor (method, URL, headers, body)
+- Send request → view full response (status, headers, body)
+- Modify any part of request and resend
+- Response highlighting — spot differences instantly
+- History of all repeated requests
+```
+
+### Intruder Tab
+```
+- Target URL + parameter selection
+- 21 attack types:
+    SQLi · XSS · LFI · SSRF · SSTI · RCE · XXE
+    Open Redirect · LDAP · NoSQL · GraphQL · JWT
+    CORS · CRLF · Path Traversal · File Upload
+    Prototype Pollution · Request Smuggling
+    Cache Deception · XPATH · Custom
+- Payload counts:
+    SQLi          : 1,138 payloads
+    XSS           : 2,296 payloads
+    LFI           : 4,778 payloads
+    Path Traversal: 22,662 payloads
+    RCE           :   587 payloads
+    XXE           :   293 payloads
+    + 25 more categories
+    Total         : 34,311 payloads
+- Source: PayloadsAllTheThings (real bug bounty payloads)
+- Configurable threads (default: 10)
+- Results table: Payload · Status · Length · Flagged
+- AI auto-flags anomalous responses
+```
+
+### Scanner Tab
+```
+- Select any captured request → Run AI Scan
+- Fast scan: 9 pattern-based vuln detectors (instant)
+    SQLi · XSS · LFI · SSRF · SSTI · RCE · XXE · Path Traversal · Open Redirect
+- Deep scan: Groq LLM analysis (async background)
+- SentinelNet v4.0 threat classification
+    threat_label  : LOW / MEDIUM / HIGH / CRITICAL
+    threat_type   : recon / web_vuln / breach / ...
+    action_hint   : patch_now / escalate / investigate
+    confidence    : 0.0 - 1.0
+- Results: risk level · vuln types · affected params · fix recommendations
+```
+
+### Decoder Tab
+```
+- URL encode / decode
+- Base64 encode / decode
+- Hex encode / decode
+- MD5 / SHA1 / SHA256 hash
+- HTML entity encode / decode
+```
+
+### AI Analysis Engine
+```
+Layer 1 — Pattern Matching (instant)
+  9 vuln types · regex patterns · param-level detection
+
+Layer 2 — SentinelNet v4.0 (fast, local)
+  CNN+Transformer · F1=0.83 · no internet needed
+  threat_label · threat_type · action_hint · confidence
+
+Layer 3 — Groq LLM (deep, async)
+  llama-3.3-70b-versatile
+  Full request context analysis
+  Structured JSON output: risk · vulns · detail · fix
+```
+
+### Certificate Setup (HTTPS Interception)
+```bash
+# Auto-generated on first run
+~/.mitmproxy/mitmproxy-ca-cert.pem
+
+# Firefox: Settings → Certificates → Import → mitmproxy-ca-cert.pem
+# Chromium: Settings → Security → Manage Certs → Import
+# Mobile:   Transfer cert → Install in Trust Store
+```
+
+### Database
+```
+sentinel_proxy/db/sentinel_proxy.db
+├── requests        — all intercepted traffic
+├── saved_requests  — manually saved requests
+└── intruder_results — fuzzing results
+```
+
+### Project Structure
+```
+sentinel_proxy/
+├── main.py              ← Entry point
+├── ui/
+│   └── app.py           ← Tkinter UI — 5 tabs, dark navy theme
+├── core/
+│   └── proxy_core.py    ← mitmproxy backend engine
+├── ai/
+│   └── analyzer.py      ← Pattern + SentinelNet + Groq analysis
+├── db/
+│   └── proxy_db.py      ← SQLite request storage
+└── payloads/            ← 34,311 payloads, 31 categories
+    ├── sqli.txt         ← 1,138 payloads
+    ├── xss.txt          ← 2,296 payloads
+    ├── lfi.txt          ← 4,778 payloads
+    ├── path_traversal.txt ← 22,662 payloads
+    ├── rce.txt          ←   587 payloads
+    ├── xxe.txt          ←   293 payloads
+    └── ... 25 more
+```
+
+### Future Roadmap — SentinelProxy
+
+```
+v1.1 — Planned
+  ├── WebSocket traffic interception + replay
+  ├── Active scanner — auto-test all params on captured requests
+  ├── Diff view — compare two responses side by side
+  ├── Match & Replace rules — auto-modify headers/body
+  └── Export to HTML/PDF report
+
+v1.2 — Planned
+  ├── Scope rules — include/exclude domains
+  ├── Session token analyzer — JWT/OAuth/SAML auto-detect
+  ├── Blind SQLi/XSS detector — out-of-band via Burp Collaborator style
+  ├── GraphQL introspection + fuzzing
+  └── gRPC support
+
+v2.0 — Vision
+  ├── Full autonomous mode — Brain controls proxy
+  │     brain investigate target.com → proxy auto-intercepts → AI fuzzes
+  ├── Groq-generated payloads — LLM creates custom payloads per target
+  ├── Attack chain builder — visual drag-drop attack flow
+  ├── Replay engine — record full session, replay with modifications
+  ├── Plugin system — custom Python plugins per tab
+  └── Team collaboration — shared proxy session over network
+
+v3.0 — Long Term
+  ├── SentinelNet v5.0 integration — generative payload creation
+  ├── Browser extension — direct browser integration (no proxy config)
+  ├── Mobile app — Android/iOS traffic interception
+  ├── Cloud mode — remote proxy with web UI
+  └── CVE auto-exploit — match findings to known CVEs, auto-run PoC
+```
+
+---
+
 ## Roadmap
 
 - [ ] SentinelNet v5.0 — Encoder-Decoder generative model
 - [ ] Command generation — model generates exact commands
 - [ ] Full autonomous loop — no human input needed
 - [ ] Fine-tuning on real pentest data
+- [ ] SentinelProxy v1.1 — WebSocket · Active Scanner · Diff View
+- [ ] SentinelProxy v2.0 — Brain-controlled autonomous proxy
 
 ---
 

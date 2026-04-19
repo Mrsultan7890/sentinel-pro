@@ -165,7 +165,41 @@ class JobOSINT:
 
         result['total_jobs'] = len(result['jobs_found'])
 
-        # ── 6. Risk flags ─────────────────────────────────────────────────────
+        # ── 6. Validate — hosting provider ka data filter karo ───────────────
+        # Netlify, Render, Vercel, GitHub Pages ke jobs actual site ke nahi hain
+        HOSTING_PROVIDERS = {
+            'netlify.app':   'Netlify',
+            'render.com':    'Render',
+            'vercel.app':    'Vercel',
+            'github.io':     'GitHub Pages',
+            'pages.dev':     'Cloudflare Pages',
+            'herokuapp.com': 'Heroku',
+            'azurewebsites.net': 'Azure',
+            'appspot.com':   'Google App Engine',
+            'amplifyapp.com': 'AWS Amplify',
+        }
+
+        provider = None
+        for suffix, name in HOSTING_PROVIDERS.items():
+            if domain.endswith(suffix):
+                provider = name
+                break
+
+        if provider:
+            # Hosting provider pe hosted site hai — job data unreliable
+            result['jobs_found']  = []
+            result['tech_stack']  = {}
+            result['raw_mentions'] = {}
+            result['total_jobs']  = 0
+            result['error'] = (
+                f'Site is hosted on {provider} — job postings would reflect '
+                f'{provider} company, not the actual site owner. Tech stack detection skipped.'
+            )
+            result['hosting_provider'] = provider
+            logger.info(f"[JobOSINT] {domain} is on {provider} — skipping job data")
+            return result
+
+        # ── 7. Risk flags ─────────────────────────────────────────────────────
         sec_stack = result['tech_stack'].get('Security', [])
         if sec_stack:
             result['risk_flags'].append({

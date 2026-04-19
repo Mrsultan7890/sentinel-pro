@@ -110,38 +110,33 @@ class ReportAgent:
 
     def _save_report(self, target: str, scan_type: str, data: dict,
                      findings: list, risk: str) -> dict:
-        """Fallback report save"""
-        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-        safe = target.replace('.', '_').replace('/', '_')
-        base = Path(f'/home/kali/osints/reports/brain_{safe}_{ts}')
-
-        report = {
-            'target':    target,
-            'scan_type': scan_type,
-            'risk':      risk,
-            'timestamp': datetime.now().isoformat(),
-            'findings':  findings,
-            'data':      data,
-        }
-
-        json_path = str(base) + '.json'
-        txt_path  = str(base) + '_summary.txt'
-
+        """Improved report save — Groq summary + MITRE + chart"""
         try:
+            from modules.report_builder import SentinelReportBuilder
+            builder = SentinelReportBuilder()
+            paths   = builder.build(target, scan_type, data, findings, risk)
+            logger.info(f"[ReportAgent] Report built: {paths.get('html','')}")
+            return paths
+        except Exception as e:
+            logger.error(f"[ReportAgent] report_builder failed: {e}")
+            # Fallback
+            ts   = datetime.now().strftime('%Y%m%d_%H%M%S')
+            # Sanitize target to prevent path traversal
+            import re
+            safe = re.sub(r'[^a-zA-Z0-9._-]', '_', target)[:50]
+            safe = safe.strip('._')  # Remove leading/trailing dots and underscores
+            base = Path(f'/home/kali/osints/reports/brain_{safe}_{ts}')
+            report = {
+                'target': target, 'scan_type': scan_type,
+                'risk': risk, 'timestamp': datetime.now().isoformat(),
+                'findings': findings, 'data': data,
+            }
+            json_path = str(base) + '.json'
+            txt_path  = str(base) + '_summary.txt'
             with open(json_path, 'w') as f:
                 json.dump(report, f, indent=2, default=str)
-
             with open(txt_path, 'w') as f:
-                f.write(f"SENTINEL BRAIN REPORT\n{'='*50}\n")
-                f.write(f"Target  : {target}\n")
-                f.write(f"Risk    : {risk}\n")
-                f.write(f"Time    : {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
-                f.write("FINDINGS:\n")
+                f.write(f"Target: {target}\nRisk: {risk}\n")
                 for fn in findings:
-                    f.write(f"  [{fn['severity']}] {fn['title']}: {fn['detail'][:100]}\n")
-                    if fn.get('fix'):
-                        f.write(f"    FIX: {fn['fix']}\n")
-        except Exception as e:
-            logger.error(f"Report save failed: {e}")
-
-        return {'json': json_path, 'txt': txt_path}
+                    f.write(f"  [{fn['severity']}] {fn['title']}: {fn.get('detail','')[:100]}\n")
+            return {'json': json_path, 'txt': txt_path}

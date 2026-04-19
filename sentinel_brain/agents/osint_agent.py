@@ -19,6 +19,17 @@ class OsintAgent:
         self.memory   = memory
         self.sentinel = sentinel
         self.terminal = kali
+        self._groq    = self._load_groq()
+        
+    def _load_groq(self):
+        try:
+            from modules.ml_engine.groq_llm import GroqLLM
+            if GroqLLM.is_available():
+                g = GroqLLM()
+                return g if g.is_ready else None
+        except Exception:
+            pass
+        return None
 
     def run(self, target: str, target_type: str = None) -> dict:
         target_type = target_type or self._detect_type(target)
@@ -46,7 +57,26 @@ class OsintAgent:
                 logger.error(f"[OsintAgent] sentinel failed: {e}")
                 result = self._kali_osint(target, target_type)
         else:
-            result = self._kali_osint(target, target_type)
+            # Check if any Kali tools are available before proceeding
+            available_tools = []
+            if self.kali.tool_available('sherlock'):
+                available_tools.append('sherlock')
+            if self.kali.tool_available('holehe'):
+                available_tools.append('holehe')
+            if self.kali.tool_available('phoneinfoga'):
+                available_tools.append('phoneinfoga')
+            
+            if not available_tools and target_type != 'domain':
+                logger.warning(f"[OsintAgent] No OSINT tools available for {target_type}")
+                result = {
+                    'error': f'No OSINT tools available for {target_type}',
+                    'risk_level': 'LOW',
+                    'target_type': target_type,
+                    'social_profiles': [],
+                    'available_tools': available_tools
+                }
+            else:
+                result = self._kali_osint(target, target_type)
 
         risk     = result.get('risk_level', 'LOW')
         profiles = len(result.get('social_profiles', []))

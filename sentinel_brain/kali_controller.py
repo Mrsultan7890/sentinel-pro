@@ -48,6 +48,7 @@ KALI_TOOLS = {
     'hashcat': 'GPU password cracker',
     'msfconsole': 'Metasploit Framework',
     'msfvenom': 'Payload generator',
+    'msfdb': 'Metasploit database',
     'searchsploit': 'ExploitDB search',
     'commix': 'Command injection exploiter',
     'wpscan': 'WordPress scanner',
@@ -62,8 +63,21 @@ KALI_TOOLS = {
     'responder': 'LLMNR/NBT-NS poisoner',
     'bettercap': 'Network attack framework',
     'wireshark': 'Network protocol analyzer',
+    'tshark': 'Terminal Wireshark',
     'volatility': 'Memory forensics',
+    'volatility3': 'Memory forensics v3',
+    'autopsy': 'Digital forensics platform',
+    'sleuthkit': 'File system forensics',
+    'foremost': 'File carving tool',
+    'scalpel': 'File carving tool',
     'binwalk': 'Firmware analysis',
+    'yara': 'Malware identification',
+    'strings': 'Extract strings from files',
+    'hexdump': 'Hex dump utility',
+    'dd': 'Disk imaging tool',
+    'dcfldd': 'Enhanced dd for forensics',
+    'ewf-tools': 'Expert Witness Format tools',
+    'afflib-tools': 'Advanced Forensic Format tools',
     'curl': 'HTTP client',
     'wget': 'File downloader',
     'whois': 'Domain registration info',
@@ -92,6 +106,11 @@ KALI_TOOLS = {
     'recon-ng': 'Web reconnaissance framework',
     'phoneinfoga': 'Phone number OSINT',
     'maigret': 'Username OSINT',
+    'aircrack-ng': 'WiFi security auditing',
+    'airmon-ng': 'WiFi monitor mode',
+    'reaver': 'WPS attack tool',
+    'ettercap': 'Network sniffer/interceptor',
+    'hping3': 'Network tool',
 }
 
 
@@ -114,13 +133,36 @@ class KaliController:
 
     # ── Core Execution ────────────────────────────────────────────────────────
 
-    def run(self, command: str, timeout: int = None, cwd: str = None) -> dict:
+    def run(self, command: str, timeout: int = None, cwd: str = None, privileged: bool = None) -> dict:
         timeout = timeout or self.timeout
         cwd     = cwd or self.workdir
 
         for blocked in _BLOCKED:
             if blocked in command:
                 return self._result(command, False, '', f'BLOCKED: {blocked}', -1)
+
+        # Check if command needs privilege escalation
+        if privileged is None:
+            privileged = self._needs_privilege(command)
+        
+        if privileged:
+            try:
+                from modules.privilege_manager import privilege_manager
+                tool_name = command.split()[0]
+                result = privilege_manager.execute_privileged(
+                    command.split(), tool_name, timeout=timeout
+                )
+                parsed_result = self._result(
+                    command, result.returncode == 0,
+                    result.stdout[:15000], result.stderr, result.returncode
+                )
+                parsed_result['parsed'] = self._parse_output(command, result.stdout)
+                with self._lock:
+                    self._history.append(parsed_result)
+                return parsed_result
+            except Exception as e:
+                logger.error(f"Privileged execution failed: {e}")
+                return self._result(command, False, '', str(e), -1)
 
         logger.info(f"[KaliCtrl] $ {command}")
 
@@ -562,10 +604,13 @@ class KaliController:
 
         tool_map = {
             'recon':    ['nmap', 'subfinder', 'amass', 'httpx', 'nuclei', 'theHarvester', 'dig', 'whois'],
-            'exploit':  ['nikto', 'sqlmap', 'nuclei', 'gobuster', 'ffuf', 'commix', 'xsstrike', 'dalfox'],
+            'exploit':  ['nikto', 'sqlmap', 'nuclei', 'gobuster', 'ffuf', 'commix', 'xsstrike', 'dalfox', 'msfconsole', 'msfvenom'],
             'osint':    ['sherlock', 'holehe', 'maigret', 'theHarvester', 'phoneinfoga', 'exiftool'],
             'password': ['hydra', 'medusa', 'john', 'hashcat', 'crunch', 'cewl'],
-            'network':  ['nmap', 'masscan', 'arp-scan', 'netdiscover', 'tcpdump', 'responder', 'bettercap'],
+            'network':  ['nmap', 'masscan', 'arp-scan', 'netdiscover', 'tcpdump', 'responder', 'bettercap', 'hping3'],
+            'forensics': ['volatility', 'autopsy', 'sleuthkit', 'foremost', 'scalpel', 'binwalk', 'yara', 'strings', 'dd'],
+            'metasploit': ['msfconsole', 'msfvenom', 'msfdb', 'searchsploit'],
+            'wireless': ['aircrack-ng', 'airmon-ng', 'reaver', 'ettercap'],
         }
 
         for tool in tool_map.get(goal, []):
@@ -626,6 +671,15 @@ class KaliController:
                 parts.append(h['stdout'][:300])
         return '\n'.join(parts)
 
+    def _needs_privilege(self, command: str) -> bool:
+        """Check if command needs privilege escalation."""
+        try:
+            from modules.privilege_manager import privilege_manager
+            tool_name = command.split()[0]
+            return privilege_manager.needs_privilege(tool_name)
+        except Exception:
+            return False
+    
     @staticmethod
     def _result(cmd, success, stdout, stderr, rc) -> dict:
         return {

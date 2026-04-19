@@ -261,6 +261,11 @@ _REASONING_TEMPLATES = {
     ('MEDIUM',   'phishing'):   'Phishing indicators — user awareness training recommended',
     ('MEDIUM',   'misconfig'):  'Misconfiguration found — review and apply security baseline',
     ('LOW',      'recon'):      'Low-level probe detected — log and monitor',
+    ('CRITICAL', 'forensics'):  'Critical forensic evidence found — preserve chain of custody',
+    ('CRITICAL', 'exploit'):    'Active exploitation detected — isolate system immediately',
+    ('HIGH',     'forensics'):  'Forensic artifacts detected — initiate investigation',
+    ('HIGH',     'exploit'):    'Exploitation attempt — patch vulnerability urgently',
+    ('MEDIUM',   'forensics'):  'Forensic analysis complete — review findings',
     ('LOW',      'unknown'):    'Minimal threat indicators — continue standard monitoring',
 }
 
@@ -550,3 +555,533 @@ class NeuralTrainer:
             'best_f1':  ck.get('best_f1'),
             **ck.get('model_config', {}),
         }
+
+
+# ── Seq2Seq Components ────────────────────────────────────────────────────────
+
+SEQ2SEQ_MODEL_PATH = MODELS_DIR / 'sentinel_seq2seq.pt'
+SEQ2SEQ_VOCAB_PATH = MODELS_DIR / 'sentinel_seq2seq_vocab.json'
+
+
+class SeqTokenizer:
+    """
+    Unified Seq2Seq tokenizer — BPE (preferred) ya word-level fallback.
+    Colab mein BPE train hota hai; Kali pe load karta hai.
+    """
+    PAD, BOS, EOS, UNK = 0, 1, 2, 3
+    SPECIAL = ['<PAD>', '<BOS>', '<EOS>', '<UNK>']
+
+    def __init__(self, max_vocab: int = 10000):
+        self.max_vocab   = max_vocab
+        self.w2i         = {s: i for i, s in enumerate(self.SPECIAL)}
+        self.i2w         = {i: s for i, s in enumerate(self.SPECIAL)}
+        self.vocab_size  = len(self.SPECIAL)
+        self._bpe        = None   # HuggingFace tokenizers.Tokenizer instance
+        self._bpe_mode   = False
+
+    def _tok(self, text: str) -> list:
+        return re.findall(r'[a-z0-9]+(?:[._/-][a-z0-9]+)*', text.lower())
+
+    def load(self, path: Path):
+        """Load vocab — auto-detects BPE vs word-level from metadata."""
+        meta = json.load(open(path))
+        if meta.get('type') == 'BPE':
+            self._load_bpe(meta)
+        else:
+            self._load_word(meta)
+
+    def _load_bpe(self, meta: dict):
+        bpe_file = meta.get('bpe_file', str(SEQ2SEQ_VOCAB_PATH).replace('.json', '_bpe.json'))
+        try:
+            from tokenizers import Tokenizer as HFTokenizer
+            self._bpe       = HFTokenizer.from_file(bpe_file)
+            self.vocab_size = meta['vocab_size']
+            self.PAD        = meta['PAD']
+            self.BOS        = meta['BOS']
+            self.EOS        = meta['EOS']
+            self.UNK        = meta['UNK']
+            self._bpe_mode  = True
+            logger.info(f'SeqTokenizer: BPE loaded, vocab={self.vocab_size}')
+        except ImportError:
+            # tokenizers package nahi hai — BPE vocab se word-level mapping build karo
+            logger.warning('tokenizers package missing — BPE vocab se word-level mapping build kar raha hoon')
+            self._build_word_from_bpe_meta(meta, bpe_file)
+
+    def _build_word_from_bpe_meta(self, meta: dict, bpe_file: str):
+        """BPE vocab file se word2idx mapping build karo — tokenizers package ke bina."""
+        import json as _json
+        self.PAD = meta['PAD']
+        self.BOS = meta['BOS']
+        self.EOS = meta['EOS']
+        self.UNK = meta['UNK']
+        try:
+            bpe_data = _json.load(open(bpe_file))
+            # HuggingFace tokenizers JSON format: model.vocab dict
+            vocab = bpe_data.get('model', {}).get('vocab', {})
+            if not vocab:
+                # Flat vocab format
+                vocab = bpe_data.get('vocab', {})
+            self.w2i = {tok: int(idx) for tok, idx in vocab.items()}
+            self.i2w = {int(idx): tok for tok, idx in vocab.items()}
+            self.vocab_size = len(self.w2i)
+            self._bpe_mode  = False  # word-level decode
+            logger.info(f'SeqTokenizer: BPE vocab loaded as word-level, vocab={self.vocab_size}')
+        except Exception as e:
+            logger.error(f'BPE vocab load failed: {e}')
+            self.vocab_size = meta['vocab_size']
+
+    def _load_word(self, data: dict):
+        self.w2i        = data['w2i']
+        self.i2w        = {int(k): v for k, v in data['i2w'].items()}
+        self.max_vocab  = data.get('max_vocab', 10000)
+        self.vocab_size = len(self.w2i)
+        self._bpe_mode  = False
+
+    def _normalize(self, text: str) -> str:
+        text = text.lower()
+        text = re.sub(r'([/\-_.,=])', r' \1 ', text)
+        return re.sub(r'\s+', ' ', text).strip()
+
+    def encode_src(self, text: str, max_len: int = 128) -> list:
+        if self._bpe_mode and self._bpe:
+            enc = self._bpe.encode(self._normalize(text))
+            ids = [i for i in enc.ids if i not in (self.BOS, self.EOS)]
+            ids = ids[:max_len]
+        else:
+            ids = [self.w2i.get(w, self.UNK) for w in self._tok(text)[:max_len]]
+        ids += [self.PAD] * (max_len - len(ids))
+        return ids
+
+    def decode(self, ids: list) -> str:
+        if self._bpe_mode and self._bpe:
+            clean = []
+            for i in ids:
+                if i == self.EOS:
+                    break
+                if i in (self.PAD, self.BOS):
+                    continue
+                clean.append(i)
+            text = self._bpe.decode(clean)
+            text = re.sub(r'\s+([/\-_.,=])\s+', r'\1', text)
+            return text.strip()
+        words = []
+        for i in ids:
+            if i == self.EOS:
+                break
+            if i in (self.PAD, self.BOS):
+                continue
+            w = self.i2w.get(i, '')
+            if w:
+                words.append(w)
+        return ' '.join(words)
+
+
+class SentinelSeq2Seq(nn.Module):
+    """
+    SentinelSeq2Seq v2.0 — CNN Encoder + Transformer Decoder
+
+    Tasks:
+        cmd_gen   : scan context → kali command
+        chain_gen : current tool + finding → next tool
+        report_gen: findings → report paragraph
+    """
+    VERSION = '2.0'
+    AUTHOR  = 'who_is_the_black_hat'
+
+    def __init__(
+        self,
+        vocab_size:  int   = 10000,
+        embed_dim:   int   = 256,
+        num_filters: int   = 256,
+        nhead:       int   = 4,
+        dec_layers:  int   = 3,
+        ff_dim:      int   = 512,
+        dropout:     float = 0.1,
+        pad_idx:     int   = 0,
+    ):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.pad_idx   = pad_idx
+        self.emb_scale = math.sqrt(embed_dim)
+
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
+        self.emb_drop  = nn.Dropout(dropout)
+
+        # CNN Encoder
+        self.enc_convs = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv1d(embed_dim, num_filters, k, padding=k // 2),
+                nn.GELU(),
+                nn.Dropout(dropout),
+            ) for k in (3, 5, 7)
+        ])
+        self.enc_proj = nn.Linear(num_filters * 3, embed_dim)
+        self.enc_norm = nn.LayerNorm(embed_dim)
+
+        # Transformer Decoder
+        dec_layer = nn.TransformerDecoderLayer(
+            d_model=embed_dim, nhead=nhead,
+            dim_feedforward=ff_dim,
+            dropout=dropout, batch_first=True,
+            norm_first=True,
+        )
+        self.decoder  = nn.TransformerDecoder(dec_layer, num_layers=dec_layers)
+        self.out_proj = nn.Linear(embed_dim, vocab_size)
+
+    def _pos_enc(self, x: torch.Tensor) -> torch.Tensor:
+        B, L, D = x.shape
+        pos = torch.arange(L, device=x.device).unsqueeze(1).float()
+        div = torch.exp(torch.arange(0, D, 2, device=x.device).float() * (-math.log(10000.0) / D))
+        pe  = torch.zeros(L, D, device=x.device)
+        pe[:, 0::2] = torch.sin(pos * div)
+        pe[:, 1::2] = torch.cos(pos * div[:D // 2])
+        return x + pe.unsqueeze(0)
+
+    def encode(self, src: torch.Tensor) -> torch.Tensor:
+        emb   = self.emb_drop(self.embedding(src) * self.emb_scale)
+        x     = emb.transpose(1, 2)
+        feats = torch.cat([c(x).transpose(1, 2) for c in self.enc_convs], dim=-1)
+        return self.enc_norm(F.gelu(self.enc_proj(feats)))
+
+    def greedy(self, src: torch.Tensor, tok: SeqTokenizer, max_len: int = 64) -> str:
+        """Deterministic greedy decoding — chain_gen ke liye."""
+        self.eval()
+        with torch.no_grad():
+            enc_out   = self.encode(src)
+            generated = [tok.BOS]
+            for _ in range(max_len):
+                tgt_ids = torch.tensor([generated], dtype=torch.long, device=src.device)
+                tgt_emb = self._pos_enc(
+                    self.emb_drop(self.embedding(tgt_ids) * self.emb_scale)
+                )
+                T = tgt_ids.size(1)
+                causal = torch.triu(torch.ones(T, T, device=src.device), diagonal=1).bool()
+                out    = self.decoder(tgt_emb, enc_out, tgt_mask=causal)
+                nxt    = self.out_proj(out[:, -1, :]).argmax(-1).item()
+                if nxt == tok.EOS:
+                    break
+                generated.append(nxt)
+        return tok.decode(generated[1:])
+
+    def generate(
+        self, src: torch.Tensor, tok: SeqTokenizer,
+        max_len: int = 64, temperature: float = 0.7, top_k: int = 50,
+    ) -> str:
+        """Top-k sampling — cmd_gen / report_gen ke liye."""
+        self.eval()
+        with torch.no_grad():
+            enc_out   = self.encode(src)
+            generated = [tok.BOS]
+            for _ in range(max_len):
+                tgt_ids = torch.tensor([generated], dtype=torch.long, device=src.device)
+                tgt_emb = self._pos_enc(
+                    self.emb_drop(self.embedding(tgt_ids) * self.emb_scale)
+                )
+                T = tgt_ids.size(1)
+                causal = torch.triu(torch.ones(T, T, device=src.device), diagonal=1).bool()
+                out    = self.decoder(tgt_emb, enc_out, tgt_mask=causal)
+                logits = self.out_proj(out[:, -1, :]) / temperature
+                if top_k > 0:
+                    vals, _ = torch.topk(logits, top_k)
+                    logits[logits < vals[:, -1:]] = float('-inf')
+                probs = F.softmax(logits, dim=-1)
+                nxt   = torch.multinomial(probs, 1).item()
+                if nxt == tok.EOS:
+                    break
+                generated.append(nxt)
+        return tok.decode(generated[1:])
+
+    def get_model_info(self) -> dict:
+        p = sum(x.numel() for x in self.parameters())
+        return {'version': self.VERSION, 'params': p, 'size_mb': round(p * 4 / 1024 / 1024, 2)}
+
+
+# ── Seq2Seq Inference Engine ──────────────────────────────────────────────────
+
+class Seq2SeqInference:
+    """
+    Seq2Seq inference engine — Kali pe use karo.
+
+    Usage:
+        engine = Seq2SeqInference()
+        engine.load()
+        cmd    = engine.cmd_gen('[SCAN_CONTEXT] web server port 80 [THREAT] HIGH [TYPE] web_vuln')
+        tool   = engine.chain_gen('[CURRENT_TOOL] nmap [FINDING] open web port [STATE] scan in progress')
+        report = engine.report_gen('[FINDINGS] sql injection found [SEVERITY] CRITICAL [TYPE] web_vuln [ACTION] patch_now')
+    """
+
+    def __init__(self):
+        self.model  = None
+        self.tok    = None
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.src_len = 128
+
+    def load(self) -> bool:
+        if not SEQ2SEQ_MODEL_PATH.exists() or not SEQ2SEQ_VOCAB_PATH.exists():
+            logger.warning('SentinelSeq2Seq model not found — train karo pehle')
+            return False
+        try:
+            ck  = torch.load(SEQ2SEQ_MODEL_PATH, map_location=self.device, weights_only=True)
+            cfg = ck['hyperparams']
+
+            self.tok = SeqTokenizer()
+            self.tok.load(SEQ2SEQ_VOCAB_PATH)
+
+            self.model = SentinelSeq2Seq(
+                vocab_size  = cfg['vocab_size'],
+                embed_dim   = cfg.get('embed_dim',   256),
+                num_filters = cfg.get('num_filters', 256),
+                nhead       = cfg.get('nhead',       4),
+                dec_layers  = cfg.get('dec_layers',  3),
+                ff_dim      = cfg.get('ff_dim',      512),
+                dropout     = cfg.get('dropout',     0.1),
+            ).to(self.device)
+            self.model.load_state_dict(ck['model_state'])
+            self.model.eval()
+            self.src_len = cfg.get('src_len', 128)
+
+            info = self.model.get_model_info()
+            logger.info(
+                f"SentinelSeq2Seq v{info['version']} loaded | "
+                f"{info['params']:,} params | {info['size_mb']} MB"
+            )
+            return True
+        except Exception as e:
+            logger.error(f'Seq2Seq load error: {e}')
+            return False
+    def _encode_src(self, text: str) -> torch.Tensor:
+        ids = self.tok.encode_src(text, self.src_len)
+        return torch.tensor([ids], dtype=torch.long).to(self.device)
+
+    def cmd_gen(self, context: str, temperature: float = 0.7, top_k: int = 50) -> str:
+        """
+        context → kali command
+        context format: '[SCAN_CONTEXT] ... [THREAT] HIGH [TYPE] web_vuln'
+        """
+        if not self._ensure_loaded():
+            return ''
+        src = self._encode_src(context)
+        return self.model.generate(src, self.tok, temperature=temperature, top_k=top_k)
+
+    def chain_gen(self, context: str) -> str:
+        """
+        current tool + finding → next tool name (deterministic)
+        context format: '[CURRENT_TOOL] nmap [FINDING] open port [STATE] scan in progress'
+        """
+        if not self._ensure_loaded():
+            return ''
+        src = self._encode_src(context)
+        return self.model.greedy(src, self.tok)
+
+    def report_gen(self, findings: str, temperature: float = 0.8, top_k: int = 40) -> str:
+        """
+        findings → report paragraph
+        findings format: '[FINDINGS] ... [SEVERITY] HIGH [TYPE] web_vuln [ACTION] patch_now'
+        """
+        if not self._ensure_loaded():
+            return ''
+        src = self._encode_src(findings)
+        return self.model.generate(src, self.tok, temperature=temperature, top_k=top_k)
+
+    def _ensure_loaded(self) -> bool:
+        if self.model is None:
+            return self.load()
+        return True
+
+    @staticmethod
+    def is_available() -> bool:
+        return SEQ2SEQ_MODEL_PATH.exists() and SEQ2SEQ_VOCAB_PATH.exists()
+
+    @staticmethod
+    def get_info() -> dict:
+        if not SEQ2SEQ_MODEL_PATH.exists():
+            return {'status': 'not_trained'}
+        ck = torch.load(SEQ2SEQ_MODEL_PATH, map_location='cpu', weights_only=True)
+        return {
+            'status':    'trained',
+            'version':   ck.get('version'),
+            'saved_at':  ck.get('saved_at'),
+            'best_loss': ck.get('best_loss'),
+            'tasks':     ck.get('tasks', []),
+            **ck.get('hyperparams', {}),
+        }
+
+
+# ── Seq2Seq Model + Inference ─────────────────────────────────────────────────
+
+SEQ2SEQ_MODEL_PATH = MODELS_DIR / 'sentinel_seq2seq.pt'
+SEQ2SEQ_VOCAB_PATH = MODELS_DIR / 'sentinel_seq2seq_vocab.json'
+
+
+class _SeqTokenizer:
+    """
+    BPE tokenizer for inference — same as Colab Cell 7.5.
+    Loads from sentinel_seq2seq_vocab.json + sentinel_seq2seq_vocab_bpe.json
+    Falls back to word-level if tokenizers library not available.
+    """
+    PAD, BOS, EOS, UNK = 0, 1, 2, 3
+
+    def __init__(self):
+        self._bpe       = None
+        self.w2i: dict  = {}
+        self.i2w: dict  = {}
+        self.vocab_size = 4
+
+    def load(self, path: Path):
+        import json as _json
+        meta = _json.load(open(path))
+
+        # BPE mode
+        if meta.get('type') == 'BPE':
+            try:
+                from tokenizers import Tokenizer
+                bpe_path = meta.get('bpe_file', str(path).replace('.json', '_bpe.json'))
+                self._bpe       = Tokenizer.from_file(bpe_path)
+                self.vocab_size = meta['vocab_size']
+                self.PAD = meta['PAD']
+                self.BOS = meta['BOS']
+                self.EOS = meta['EOS']
+                self.UNK = meta['UNK']
+                logger.info(f'BPE tokenizer loaded: vocab={self.vocab_size}')
+                return
+            except Exception as e:
+                logger.warning(f'BPE load failed ({e}), falling back to word-level')
+
+        # Word-level fallback
+        self.w2i = meta.get('w2i', {})
+        self.i2w = {int(k): v for k, v in meta.get('i2w', {}).items()}
+        self.vocab_size = len(self.w2i) or meta.get('vocab_size', 4)
+
+    def _normalize(self, text: str) -> str:
+        import re as _re
+        text = text.lower()
+        text = _re.sub(r'(--)', r' \1 ', text)
+        text = _re.sub(r'([/\-_=])', r' \1 ', text)
+        return _re.sub(r'\s+', ' ', text).strip()
+
+    def _tok_word(self, text: str) -> list:
+        import re as _re
+        return [w for w in _re.findall(r'[a-z0-9]+(?:[._/-][a-z0-9]+)*', text.lower()) if len(w) >= 1]
+
+    def encode_src(self, text: str, max_len: int = 128) -> list:
+        if self._bpe:
+            enc = self._bpe.encode(self._normalize(text))
+            ids = enc.ids
+            if ids and ids[0] == self.BOS:  ids = ids[1:]
+            if ids and ids[-1] == self.EOS: ids = ids[:-1]
+            ids = ids[:max_len]
+        else:
+            ids = [self.w2i.get(w, self.UNK) for w in self._tok_word(text)[:max_len]]
+        return ids + [self.PAD] * (max_len - len(ids))
+
+    def decode(self, ids: list) -> str:
+        import re as _re
+        clean = []
+        for i in ids:
+            if i == self.EOS: break
+            if i in (self.PAD, self.BOS): continue
+            clean.append(i)
+        if self._bpe:
+            text = self._bpe.decode(clean)
+            # Fix: "-- batch" → "--batch"
+            text = _re.sub(r'-\s+-\s*', '--', text)
+            # Fix: "sqlmap -u" spacing (tool flags)
+            text = _re.sub(r'(\w)\s+-([a-zA-Z])', r'\1 -\2', text)
+            # Fix: "https:// target" → "https://target"
+            text = _re.sub(r'(https?://)\s+', r'\1', text)
+            # Fix: spaces around / in paths
+            text = _re.sub(r'\s+/\s+', '/', text)
+            # Fix: spaces around = in flags
+            text = _re.sub(r'\s+=\s+', '=', text)
+            # Fix: ".txt .json" extensions
+            text = _re.sub(r'\s+(\.\w{2,4})(?=\s|$)', r'\1', text)
+            # Fix: double spaces
+            text = _re.sub(r'  +', ' ', text)
+            return text.strip()
+        return ' '.join(self.i2w.get(i, '') for i in clean).strip()
+
+class _Seq2SeqModel(nn.Module):
+    """SentinelSeq2Seq v2.0 — CNN Encoder + Transformer Decoder (inference only)"""
+
+    def __init__(self, vocab_size, embed_dim=256, num_filters=256,
+                 nhead=4, dec_layers=3, ff_dim=512, dropout=0.1, pad_idx=0):
+        super().__init__()
+        import math as _math
+        self.embed_dim = embed_dim
+        self.pad_idx   = pad_idx
+        self._math     = _math
+
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
+        self.emb_scale = _math.sqrt(embed_dim)
+        self.emb_drop  = nn.Dropout(dropout)
+
+        self.enc_convs = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv1d(embed_dim, num_filters, k, padding=k//2),
+                nn.GELU(), nn.Dropout(dropout)
+            ) for k in (3, 5, 7)
+        ])
+        self.enc_proj = nn.Linear(num_filters * 3, embed_dim)
+        self.enc_norm = nn.LayerNorm(embed_dim)
+
+        dec_layer = nn.TransformerDecoderLayer(
+            d_model=embed_dim, nhead=nhead, dim_feedforward=ff_dim,
+            dropout=dropout, batch_first=True, norm_first=True,
+        )
+        self.decoder  = nn.TransformerDecoder(dec_layer, num_layers=dec_layers)
+        self.out_proj = nn.Linear(embed_dim, vocab_size)
+
+    def _pos_enc(self, x):
+        import math as _m
+        B, L, D = x.shape
+        pos = torch.arange(L, device=x.device).unsqueeze(1).float()
+        div = torch.exp(torch.arange(0, D, 2, device=x.device).float() * (-_m.log(10000.0) / D))
+        pe  = torch.zeros(L, D, device=x.device)
+        pe[:, 0::2] = torch.sin(pos * div)
+        pe[:, 1::2] = torch.cos(pos * div[:D//2])
+        return x + pe.unsqueeze(0)
+
+    def encode(self, src):
+        emb   = self.emb_drop(self.embedding(src) * self.emb_scale)
+        x     = emb.transpose(1, 2)
+        feats = torch.cat([c(x).transpose(1, 2) for c in self.enc_convs], dim=-1)
+        return self.enc_norm(F.gelu(self.enc_proj(feats)))
+
+    def _decode_step(self, generated, enc_out, device):
+        tgt_ids = torch.tensor([generated], dtype=torch.long, device=device)
+        tgt_emb = self._pos_enc(self.emb_drop(self.embedding(tgt_ids) * self.emb_scale))
+        T       = tgt_ids.size(1)
+        causal  = torch.triu(torch.ones(T, T, device=device), diagonal=1).bool()
+        out     = self.decoder(tgt_emb, enc_out, tgt_mask=causal)
+        return self.out_proj(out[:, -1, :])
+
+    def generate(self, src, tok, max_len=64, temperature=0.7, top_k=50):
+        """Top-k sampling — cmd_gen + report_gen"""
+        self.eval()
+        with torch.no_grad():
+            enc_out   = self.encode(src)
+            generated = [tok.BOS]
+            for _ in range(max_len):
+                logits = self._decode_step(generated, enc_out, src.device) / temperature
+                if top_k > 0:
+                    vals, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                    logits[logits < vals[:, -1:]] = float('-inf')
+                probs  = F.softmax(logits, dim=-1)
+                next_t = torch.multinomial(probs, 1).item()
+                if next_t == tok.EOS: break
+                generated.append(next_t)
+        return tok.decode(generated[1:])
+
+    def greedy(self, src, tok, max_len=64):
+        """Greedy decoding — chain_gen"""
+        self.eval()
+        with torch.no_grad():
+            enc_out   = self.encode(src)
+            generated = [tok.BOS]
+            for _ in range(max_len):
+                logits = self._decode_step(generated, enc_out, src.device)
+                next_t = logits.argmax(-1).item()
+                if next_t == tok.EOS: break
+                generated.append(next_t)
+        return tok.decode(generated[1:])
+

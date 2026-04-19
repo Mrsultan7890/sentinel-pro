@@ -101,18 +101,24 @@ class Memory:
     def remember_finding(self, target: str, agent: str, severity: str,
                          title: str, detail: str, fix: str = ''):
         with self._conn() as conn:
+            # Duplicate check — memory DB mein title column hai
+            exists = conn.execute(
+                "SELECT 1 FROM findings WHERE target=? AND title=? AND severity=? LIMIT 1",
+                (target, title[:200], severity)
+            ).fetchone()
+            if exists:
+                return
             conn.execute(
                 "INSERT INTO findings (target, agent, severity, title, detail, fix) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (target, agent, severity, title[:200], detail[:500], fix[:300])
             )
-        # Unified DB
+        # Unified DB (sentinel.db)
         try:
             from modules.database import SentinelDB
             SentinelDB.save_finding(target, title, severity, detail, fix, tool=agent)
         except Exception:
             pass
-
     def remember_decision(self, target: str, agent: str, action: str,
                           reason: str, outcome: str = ''):
         with self._conn() as conn:

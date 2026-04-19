@@ -24,7 +24,21 @@ from sentinel_brain.agents.exploit_agent import ExploitAgent
 from sentinel_brain.agents.osint_agent import OsintAgent
 from sentinel_brain.agents.breach_agent import BreachAgent
 from sentinel_brain.agents.report_agent import ReportAgent
+from sentinel_brain.agents.threat_intel_agent import ThreatIntelAgent
+from sentinel_brain.agents.network_agent import NetworkAgent
+from sentinel_brain.agents.attack_chain_agent import AttackChainAgent
+from sentinel_brain.agents.monitor_agent import MonitorAgent
+from sentinel_brain.agents.darkweb_agent import DarkWebAgent
+from sentinel_brain.agents.browser_agent import BrowserAgent
+from sentinel_brain.agents.terminal_agent import TerminalAgent
+from sentinel_brain.agents.system_monitor_agent import SystemMonitorAgent
+from sentinel_brain.agents.filesystem_agent import FileSystemAgent
+from sentinel_brain.agents.notification_agent import NotificationAgent
+from sentinel_brain.agents.credential_agent import CredentialAgent
+from sentinel_brain.agents.correlation_agent import CorrelationAgent
+from sentinel_brain.agents.scheduler_agent import SchedulerAgent
 from sentinel_brain.advanced_ml import AdvancedMLEngine
+from sentinel_brain.rl_agent import RLAgent, ScanState
 
 logger = logging.getLogger(__name__)
 
@@ -98,17 +112,39 @@ class SentinelBrain:
         self.memory = Memory()
         self.adv_ml = AdvancedMLEngine()
 
-        self.recon_agent   = ReconAgent(self.kali, self.memory, sentinel)
-        self.exploit_agent = ExploitAgent(self.kali, self.memory, sentinel)
-        self.osint_agent   = OsintAgent(self.kali, self.memory, sentinel)
-        self.breach_agent  = BreachAgent(self.kali, self.memory, sentinel)
-        self.report_agent  = ReportAgent(self.memory, sentinel)
+        self.recon_agent        = ReconAgent(self.kali, self.memory, sentinel)
+        self.exploit_agent      = ExploitAgent(self.kali, self.memory, sentinel)
+        self.osint_agent        = OsintAgent(self.kali, self.memory, sentinel)
+        self.breach_agent       = BreachAgent(self.kali, self.memory, sentinel)
+        self.report_agent       = ReportAgent(self.memory, sentinel)
+        self.threat_intel_agent  = ThreatIntelAgent(self.kali, self.memory, sentinel)
+        self.network_agent       = NetworkAgent(self.kali, self.memory, sentinel)
+        self.attack_chain_agent  = AttackChainAgent(self.kali, self.memory, sentinel)
+        self.monitor_agent       = MonitorAgent(self.memory, sentinel)
+        self.darkweb_agent       = DarkWebAgent(self.memory, sentinel)
+        self.browser_agent       = BrowserAgent()
+        self.terminal_agent      = TerminalAgent()
+        self.system_monitor      = SystemMonitorAgent()
+        self.filesystem_agent    = FileSystemAgent()
+        self.notifier            = NotificationAgent()
+        self.credential_agent    = CredentialAgent()
+        self.scheduler_agent     = SchedulerAgent(brain=self)
+        self.correlation_agent   = CorrelationAgent(self.memory, sentinel)
 
-        self._model = self._load_model()
+        self._rl      = self._load_rl()
+        self._model   = self._load_model()
+        self._seq2seq = self._load_seq2seq()
+        self._groq    = self._load_groq()
 
         self._print(f"\n{'='*60}")
         self._print(f"  SENTINEL BRAIN v{self.VERSION} — ReAct Autonomous")
-        self._print(f"  Model  : {'SentinelNet v4.0' if self._model else 'heuristic'}")
+        self._print(f"  Classifier : {'SentinelNet v4.0' if self._model else 'heuristic'}")
+        self._print(f"  Seq2Seq    : {'SentinelSeq2Seq v2.0' if self._seq2seq else 'not loaded'}")
+        self._print(f"  Groq LLM   : {'Llama-3.3-70B ✓' if self._groq and self._groq.is_ready else 'not configured'}")
+        rl_states = len(self._rl.q_table) if self._rl else 0
+        rl_eps    = round(self._rl.epsilon, 3) if self._rl else 0
+        self._print(f"  RL Agent   : {rl_states} states | epsilon={rl_eps}")
+        self._print(f"  Agents     : recon, exploit, osint, breach, threat_intel, network, attack_chain, monitor, darkweb, browser, terminal, sysmon, filesystem, notification, credential, scheduler")
         self._print(f"  Kali   : {self.kali.get_local_ip()}")
         mem = self.memory.stats()
         self._print(f"  Memory : {mem['scans']} scans, {mem['findings']} findings")
@@ -120,6 +156,36 @@ class SentinelBrain:
             nt = NeuralTrainer()
             if nt.load():
                 return nt
+        except Exception:
+            pass
+        return None
+
+    def _load_seq2seq(self):
+        try:
+            from modules.ml_engine.sentinel_net import Seq2SeqInference
+            if Seq2SeqInference.is_available():
+                s2s = Seq2SeqInference()
+                s2s.load()
+                return s2s
+        except Exception:
+            pass
+        return None
+
+    def _load_rl(self):
+        try:
+            rl = RLAgent()
+            logger.info(f"[Brain] RL Agent: {len(rl.q_table)} states, epsilon={rl.epsilon:.3f}")
+            return rl
+        except Exception as e:
+            logger.debug(f"RL load error: {e}")
+            return None
+
+    def _load_groq(self):
+        try:
+            from modules.ml_engine.groq_llm import GroqLLM
+            if GroqLLM.is_available():
+                g = GroqLLM()
+                return g if g.is_ready else None
         except Exception:
             pass
         return None
@@ -139,23 +205,73 @@ class SentinelBrain:
         if 'Previous scans' in ctx:
             self._print(f"[Memory] {ctx[:200]}\n")
 
+        # ── Physical agents: scan shuru ───────────────────────────────────────
+        self.notifier.scan_started(target, mode)
+        self.system_monitor.start_monitoring(interval=30)
+
         t0 = time.time()
 
         # Direct tool command
         if mode == 'tool':
-            return self._run_direct_tool(parsed.get('tool_cmd', task), target)
+            result = self._run_direct_tool(parsed.get('tool_cmd', task), target)
+            self.system_monitor.stop_monitoring()
+            return result
 
         # ReAct loop
         all_results = self._react_loop(target, mode)
+
+        # Screenshot — web target ka
+        if mode in ('full', 'bugbounty', 'recon'):
+            try:
+                ss = self.browser_agent.screenshot_domain(target)
+                if ss.get('path'):
+                    all_results['screenshot'] = ss['path']
+                    self._print(f"[Browser] Screenshot: {ss['path']}")
+            except Exception:
+                pass
 
         # Report
         self._print("\n[Brain] → ReportAgent")
         report = self.report_agent.run(target, all_results)
         all_results['report'] = report
+        
+        # Create evidence chain for legal compliance
+        try:
+            if hasattr(self.sentinel, 'secure_files'):
+                evidence_files = []
+                if report.get('paths', {}).get('json'):
+                    evidence_files.append(report['paths']['json'])
+                if report.get('paths', {}).get('html'):
+                    evidence_files.append(report['paths']['html'])
+                    
+                if evidence_files:
+                    chain_id = self.sentinel.secure_files.create_evidence_chain(
+                        target, mode, evidence_files
+                    )
+                    if chain_id:
+                        self._print(f"[Brain] Evidence Chain: {chain_id}")
+                        all_results['evidence_chain'] = chain_id
+        except Exception as e:
+            logger.debug(f"Evidence chain creation failed: {e}")
 
         elapsed  = round(time.time() - t0, 1)
         risk     = report.get('risk', 'LOW')
         findings = report.get('findings', [])
+
+        # ── Physical agents: scan complete ────────────────────────────────────
+        # Evidence collect karo
+        try:
+            ev = self.filesystem_agent.collect_evidence(target, all_results)
+            self._print(f"[FileSystem] Evidence: {ev['directory']} ({ev['total']} files)")
+        except Exception:
+            pass
+
+        # Final notification
+        self.notifier.scan_complete(target, risk, len(findings))
+
+        # System monitor stop
+        self.system_monitor.stop_monitoring()
+        sys_stats = self.system_monitor.get_stats()
 
         self._print(f"\n{'='*60}")
         self._print(f"  BRAIN COMPLETE — {target}")
@@ -163,6 +279,9 @@ class SentinelBrain:
         self._print(f"  Risk     : {risk}")
         self._print(f"  Findings : {len(findings)}")
         self._print(f"  Telegram : {'✓' if report.get('telegram') else '✗'}")
+        if sys_stats:
+            self._print(f"  CPU peak : {sys_stats.get('cpu',{}).get('percent',0)}%")
+            self._print(f"  RAM peak : {sys_stats.get('memory',{}).get('percent',0)}%")
         if findings:
             self._print(f"\n  TOP FINDINGS:")
             for f in sorted(findings, key=lambda x: _SEV_ORDER.get(x['severity'], 4))[:5]:
@@ -184,6 +303,9 @@ class SentinelBrain:
         step     = 0
         done     = False
         retries  = {}
+
+        # RL state init
+        rl_state = ScanState(target) if self._rl else None
 
         # Initial plan
         plan = self._make_plan(target, mode)
@@ -217,25 +339,108 @@ class SentinelBrain:
 
             results[next_action] = action_result
 
+            # ── Save findings to DB (deduplicate) ────────────────────────────
+            existing_keys = {
+                f"{f['severity']}:{f['title']}"
+                for f in self.memory.recall_findings(target)
+            }
+            for f in action_result.get('_findings', []):
+                key = f"{f.get('severity','')}:{f.get('title','')}"
+                if key not in existing_keys:
+                    try:
+                        self.memory.remember_finding(
+                            target, next_action,
+                            f.get('severity', 'MEDIUM'),
+                            f.get('title', ''),
+                            f.get('detail', ''),
+                            f.get('fix', '')
+                        )
+                        existing_keys.add(key)
+                    except Exception:
+                        pass
+
+            # ── RL: state update + reward ─────────────────────────────────────
+            if self._rl and rl_state:
+                state_before_vec = rl_state.to_vector()
+                from sentinel_brain.rl_agent import ACTIONS
+                tool_name = next_action
+                for a in ACTIONS:
+                    if a in next_action.lower():
+                        tool_name = a
+                        break
+                prev_findings  = list(rl_state.findings)
+                prev_ports     = list(rl_state.ports_found)
+                prev_subs      = list(rl_state.subdomains)
+                rl_state.update(tool_name, action_result)
+                class _Prev:
+                    findings    = prev_findings
+                    ports_found = prev_ports
+                    subdomains  = prev_subs
+                # _findings se direct reward calculate karo
+                direct_reward = 0.0
+                for f in action_result.get('_findings', []):
+                    sev = f.get('severity', 'LOW')
+                    if sev == 'CRITICAL':   direct_reward += 20
+                    elif sev == 'HIGH':     direct_reward += 10
+                    elif sev == 'MEDIUM':   direct_reward += 5
+                # agent summary se bhi check karo
+                summary = action_result.get('_agent_summary', '')
+                if 'port' in summary.lower() or 'subdomain' in summary.lower():
+                    direct_reward += 2
+                if direct_reward == 0:
+                    direct_reward = -1  # nothing found
+                reward = direct_reward
+                self._rl.update_q(state_before_vec, tool_name, reward, rl_state.to_vector())
+                self._rl.episode_rewards.append(reward)
+                self._print(f"  [RL] tool={tool_name} reward={reward:+.1f} | states={len(self._rl.q_table)}")
+
+            # ── CRITICAL finding → turant notification ────────────────────────
+            for f in action_result.get('_findings', []):
+                if f.get('severity') == 'CRITICAL':
+                    try:
+                        self.notifier.critical_finding(
+                            target, f.get('title',''), f.get('detail','')
+                        )
+                    except Exception:
+                        pass
+                    break
+
             # ── ADAPT PLAN ────────────────────────────────────────────────────
             plan = self._adapt_plan(target, plan, next_action, action_result, results)
+
+        # RL save karo
+        if self._rl:
+            try:
+                self._rl._save_q_table()
+                from modules.database import SentinelDB
+                if rl_state:
+                    SentinelDB.save_rl_episode(
+                        target=target, episode=len(self._rl.episode_rewards)+1,
+                        tools_used=list(rl_state.tools_used),
+                        total_reward=sum(self._rl.episode_rewards[-1:] or [0]),
+                        findings=len(rl_state.findings),
+                        risk=rl_state.risk_level,
+                        epsilon=self._rl.epsilon
+                    )
+            except Exception as e:
+                logger.debug(f"RL save error: {e}")
 
         return results
 
     def _make_plan(self, target: str, mode: str) -> list:
         """Genetic algorithm se optimal tool order lo"""
         base_plans = {
-            'recon':     ['recon', 'kali_recon'],
-            'bugbounty': ['recon', 'kali_recon', 'bugbounty', 'kali_exploit'],
+            'recon':     ['kali_recon', 'recon'],
+            'bugbounty': ['kali_recon', 'bugbounty', 'kali_exploit'],
             'osint':     ['osint'],
             'breach':    ['breach'],
         }
         if mode in base_plans:
             return base_plans[mode]
-        # Full mode — genetic algorithm se order lo
+        # Full mode — kali_recon pehle, phir baaki
         optimal = self.adv_ml.get_optimal_scan_order()
         self._print(f"  [Genetic] Optimal order: {' → '.join(optimal[:4])}")
-        return ['recon', 'kali_recon', 'bugbounty', 'kali_exploit', 'osint', 'breach']
+        return ['kali_recon', 'network', 'recon', 'threat_intel', 'bugbounty', 'kali_exploit', 'osint', 'breach', 'darkweb']
 
     def _reason(self, target: str, plan: list, results: dict, step: int) -> str:
         """Model dekhta hai kya hua, khud decide karta hai next step"""
@@ -252,47 +457,83 @@ class SentinelBrain:
 
         context = ' '.join(context_parts)[:400]
 
-        if not self._model:
+        if not self._model and not self._seq2seq:
             return remaining[0]
 
         try:
-            pred = self._model.predict(context)
-            label       = pred.get('label', 'LOW')
-            action_hint = pred.get('action_hint', '')
-            threat_type = pred.get('threat_type', '')
-            conf        = pred.get('confidence', 0)
+            # ── Groq LLM: best reasoning ──────────────────────────────────────
+            if self._groq and self._groq.is_ready and results:
+                last_action = list(results.keys())[-1]
+                last_result = results[last_action]
+                summary     = last_result.get('_agent_summary', '')
+                next_tool   = self._groq.chain_gen(last_action, summary)
+                if next_tool:
+                    tool_to_action = {
+                        'nmap': 'kali_recon', 'subfinder': 'kali_recon',
+                        'amass': 'kali_recon', 'theHarvester': 'kali_recon',
+                        'nikto': 'kali_exploit', 'nuclei': 'kali_exploit',
+                        'gobuster': 'kali_exploit', 'ffuf': 'kali_exploit',
+                        'sqlmap': 'bugbounty', 'commix': 'bugbounty',
+                        'wpscan': 'bugbounty', 'hydra': 'kali_exploit',
+                    }
+                    mapped = tool_to_action.get(next_tool, '')
+                    if mapped and mapped in remaining:
+                        self._print(f"  [Groq] next_tool={next_tool} → {mapped}")
+                        return mapped
 
-            self._print(f"  [ML] {label} | {threat_type} | {action_hint} | conf={conf:.0%}")
+            # ── Seq2Seq: fallback ─────────────────────────────────────────
+            elif self._seq2seq and results:
+                last_action = list(results.keys())[-1]
+                last_result = results[last_action]
+                summary     = last_result.get('_agent_summary', '')
+                next_tool   = self._seq2seq.chain_gen(
+                    f'[CURRENT_TOOL] {last_action} [FINDING] {summary} [STATE] scan in progress'
+                )
+                if next_tool:
+                    tool_to_action = {
+                        'nmap': 'kali_recon', 'subfinder': 'kali_recon',
+                        'amass': 'kali_recon', 'theHarvester': 'kali_recon',
+                        'nikto': 'kali_exploit', 'nuclei': 'kali_exploit',
+                        'gobuster': 'kali_exploit', 'ffuf': 'kali_exploit',
+                        'sqlmap': 'bugbounty', 'commix': 'bugbounty',
+                        'wpscan': 'bugbounty', 'hydra': 'kali_exploit',
+                    }
+                    mapped = tool_to_action.get(next_tool, '')
+                    if mapped and mapped in remaining:
+                        self._print(f"  [Seq2Seq] next_tool={next_tool} → {mapped}")
+                        return mapped
 
-            # Model ke action_hint se next step map karo
-            hint_map = {
-                'patch_now':        'bugbounty',
-                'escalate':         'breach',
-                'investigate':      'osint',
-                'block_ip':         'kali_exploit',
-                'collect_evidence': 'kali_recon',
-                'notify_team':      'bugbounty',
-                'monitor':          remaining[0],
-            }
+            # ── Classifier: label + action_hint + threat_type se decide ──────
+            if self._model:
+                pred        = self._model.predict(context)
+                label       = pred.get('label', 'LOW')
+                action_hint = pred.get('action_hint', '')
+                threat_type = pred.get('threat_type', '')
+                conf        = pred.get('confidence', 0)
+                self._print(f"  [ML] {label} | {threat_type} | {action_hint} | conf={conf:.0%}")
 
-            # CRITICAL/HIGH mila → exploit skip karke seedha bugbounty
-            if label == 'CRITICAL' and 'bugbounty' in remaining:
-                return 'bugbounty'
-            if label == 'CRITICAL' and 'kali_exploit' in remaining:
-                return 'kali_exploit'
-
-            # action_hint se decide karo
-            suggested = hint_map.get(action_hint, '')
-            if suggested and suggested in remaining:
-                return suggested
-
-            # threat_type se decide karo
-            if threat_type == 'breach' and 'breach' in remaining:
-                return 'breach'
-            if threat_type in ('web_vuln', 'exploit') and 'bugbounty' in remaining:
-                return 'bugbounty'
-            if threat_type == 'recon' and 'kali_recon' in remaining:
-                return 'kali_recon'
+                hint_map = {
+                    'patch_now':        'bugbounty',
+                    'escalate':         'breach',
+                    'investigate':      'osint',
+                    'block_ip':         'kali_exploit',
+                    'collect_evidence': 'kali_recon',
+                    'notify_team':      'bugbounty',
+                    'monitor':          remaining[0],
+                }
+                if label == 'CRITICAL' and 'bugbounty' in remaining:
+                    return 'bugbounty'
+                if label == 'CRITICAL' and 'kali_exploit' in remaining:
+                    return 'kali_exploit'
+                suggested = hint_map.get(action_hint, '')
+                if suggested and suggested in remaining:
+                    return suggested
+                if threat_type == 'breach' and 'breach' in remaining:
+                    return 'breach'
+                if threat_type in ('web_vuln', 'exploit') and 'bugbounty' in remaining:
+                    return 'bugbounty'
+                if threat_type == 'recon' and 'kali_recon' in remaining:
+                    return 'kali_recon'
 
         except Exception as e:
             logger.debug(f"_reason model error: {e}")
@@ -303,18 +544,42 @@ class SentinelBrain:
         """Action execute karo"""
         try:
             if action == 'recon':
-                return self.recon_agent.run(target)
+                # kali_recon already nmap run kar chuka hai — skip nmap
+                kali_done = any(r.get('_nmap_done') for r in results.values() if isinstance(r, dict))
+                return self.recon_agent.run(target, skip_nmap=kali_done)
 
             elif action == 'kali_recon':
-                # Direct KaliController chain
                 self._print(f"  [Kali] Running recon chain on {target}")
                 chain = self.kali.chain_recon(target)
-                # Memory mein save karo
                 ports = chain.get('nmap', {}).get('total', 0)
                 subs  = chain.get('subfinder', {}).get('total', 0)
                 self.memory.remember_scan(target, 'kali_recon', 'MEDIUM',
                     f'{ports} ports, {subs} subdomains', chain)
-                return {'success': True, '_agent_summary': f'{ports} ports, {subs} subdomains', **chain}
+                return {'success': True, '_agent_summary': f'{ports} ports, {subs} subdomains',
+                        '_nmap_done': True, **chain}
+
+            elif action == 'threat_intel':
+                recon = results.get('recon', results.get('kali_recon', {}))
+                tech_stack = recon.get('tech_stack', recon.get('technologies', {}))
+                return self.threat_intel_agent.run(target, tech_stack=tech_stack)
+
+            elif action == 'network':
+                return self.network_agent.run(target)
+
+            elif action == 'attack_chain':
+                recon = results.get('recon', results.get('kali_recon', {}))
+                intel = results.get('threat_intel', {})
+                return self.attack_chain_agent.run(target, recon_data=recon,
+                                                   threat_intel=intel, auto=True)
+
+            elif action == 'monitor':
+                return self.monitor_agent.run(target, brain=self)
+
+            elif action == 'darkweb':
+                return self.darkweb_agent.run(target)
+
+            elif action == 'correlate':
+                return self.correlation_agent.run(target)
 
             elif action == 'bugbounty':
                 return self.exploit_agent.run(target, results.get('recon'))
@@ -416,6 +681,29 @@ class SentinelBrain:
         return plan
 
     # ── Direct Tool Execution ─────────────────────────────────────────────────
+
+    def generate_command(self, context: str, threat_level: str = 'HIGH',
+                         threat_type: str = 'web_vuln') -> str:
+        """Groq ya Seq2Seq se exact kali command generate karo."""
+        # Groq first — better quality
+        if self._groq and self._groq.is_ready:
+            cmd = self._groq.cmd_gen(context, threat_level, threat_type)
+            if cmd:
+                return cmd
+        # Seq2Seq fallback
+        if self._seq2seq:
+            cmd = self._seq2seq.cmd_gen(
+                f'[SCAN_CONTEXT] {context} [THREAT] {threat_level} [TYPE] {threat_type}'
+            )
+            if cmd:
+                return cmd
+        return ''
+
+    def ask(self, prompt: str) -> str:
+        """Natural language prompt — Groq se answer lo."""
+        if self._groq and self._groq.is_ready:
+            return self._groq.ask(prompt)
+        return 'Groq API not configured. Add GROQ_API_KEY to .env'
 
     def _run_direct_tool(self, command: str, target: str) -> dict:
         """Direct kali command chalao — brain bypass"""

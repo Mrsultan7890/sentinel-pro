@@ -105,18 +105,20 @@ class TelegramNotifier:
 
     def alert_breach(self, target: str, data: dict):
         if not self.enabled:
-            return
+            return False
         risk = data.get('risk_level', 'LOW')
         if risk not in ('CRITICAL', 'HIGH'):
-            return
+            return False
         lines = [
-            f"💀 <b>Breach Alert — {target}</b>",
+            f"💀 BREACH ALERT — {target}",
             f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-            f"⚠️ Risk: <b>{risk}</b>",
+            f"⚠️ Risk: {risk}",
             f"📋 Breaches: {data.get('total_breaches', 0)}",
             f"🦠 Stealer logs: {data.get('total_stealer_logs', 0)}",
+            f"",
+            f"Sentinel Pro — @who_is_the_black_hat"
         ]
-        self._send("\n".join(lines))
+        return self._send("\n".join(lines))
 
     def send(self, text: str) -> bool:
         """Public send — agent aur autonomous loop use karte hain"""

@@ -108,6 +108,21 @@ class SubdomainEnum:
         }
         found = set()
 
+        # Shared hosting check — subdomain enum useless hoga
+        SHARED_HOSTING = [
+            'netlify.app', 'render.com', 'vercel.app', 'github.io',
+            'pages.dev', 'herokuapp.com', 'azurewebsites.net',
+            'appspot.com', 'amplifyapp.com', 'surge.sh', 'glitch.me',
+        ]
+        for suffix in SHARED_HOSTING:
+            if domain.endswith(suffix):
+                result['total_found'] = 0
+                result['note'] = (
+                    f'Shared hosting ({suffix}) — subdomain enumeration '
+                    f'would return provider subdomains, not site-specific ones'
+                )
+                return result
+
         # Source 1: DNS brute-force (500+ words, 50 threads)
         brute = self._dns_brute(domain)
         for item in brute:

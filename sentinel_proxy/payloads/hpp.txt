@@ -1,0 +1,11 @@
+/app?debug=false&debug=true
+/transfer?amount=1&amount=5000
+param=value1&param=value2
+param[]=value1
+param[]=value1&param[]=value2
+param[]=value1&param=value2
+param=value1&param[]=value2
+param=value1%26other=value2
+param[key1]=value1&param[key2]=value2
+"test": "user",
+"test": "admin"

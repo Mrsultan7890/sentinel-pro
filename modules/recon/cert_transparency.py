@@ -27,6 +27,20 @@ class CertTransparency:
             'error':        None,
         }
 
+        # Shared hosting check — unke certs query karna useless hai
+        SHARED_HOSTING = [
+            'netlify.app', 'render.com', 'vercel.app', 'github.io',
+            'pages.dev', 'herokuapp.com', 'azurewebsites.net',
+            'appspot.com', 'amplifyapp.com', 'surge.sh', 'glitch.me',
+        ]
+        for suffix in SHARED_HOSTING:
+            if domain.endswith(suffix):
+                result['error'] = (
+                    f'Shared hosting ({suffix}) — cert transparency would show '
+                    f'all customers of this provider, not just this site'
+                )
+                return result
+
         # ── Query crt.sh JSON API ─────────────────────────────────────────────
         r = rate_limited_get(
             f"https://crt.sh/?q=%.{domain}&output=json",

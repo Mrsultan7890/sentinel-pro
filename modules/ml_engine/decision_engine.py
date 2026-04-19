@@ -99,6 +99,10 @@ class DecisionEngine:
                 actions = self._decide_from_person(scan_result, target)
             elif scan_type == 'email':
                 actions = self._decide_from_email(scan_result, target)
+            elif scan_type == 'metasploit':
+                actions = self._decide_from_metasploit(scan_result, target)
+            elif scan_type == 'forensics':
+                actions = self._decide_from_forensics(scan_result, target)
 
             # Max actions limit
             actions = actions[:self.MAX_ACTIONS]
@@ -310,6 +314,73 @@ class DecisionEngine:
                 'auto':     False,
             })
 
+        return actions
+    
+    def _decide_from_metasploit(self, result: dict, target: str) -> list:
+        actions = []
+        
+        # Successful exploit → forensics investigation
+        if result.get('success') and result.get('session_id'):
+            actions.append({
+                'action':   'forensics',
+                'target':   f"case_{target.replace('.', '_')}_breach",
+                'reason':   f"Successful exploit on {target} — forensics investigation required",
+                'priority': 'CRITICAL',
+                'auto':     False,
+                'data':     {'type': 'post_exploit_forensics', 'session': result.get('session_id')},
+            })
+        
+        # Vulnerable target found → full bugbounty scan
+        if result.get('vulnerable'):
+            actions.append({
+                'action':   'bugbounty',
+                'target':   target,
+                'reason':   f"Target vulnerable to {result.get('exploit_name', 'exploit')} — full vuln scan",
+                'priority': 'HIGH',
+                'auto':     True,
+            })
+        
+        return actions
+    
+    def _decide_from_forensics(self, result: dict, target: str) -> list:
+        actions = []
+        
+        # YARA malware matches → breach investigation
+        if result.get('matches') and len(result['matches']) > 0:
+            actions.append({
+                'action':   'breach',
+                'target':   'admin@' + target.split('_')[-1] if '_' in target else target,
+                'reason':   f"Malware detected in forensics — credential breach likely",
+                'priority': 'CRITICAL',
+                'auto':     False,
+                'data':     {'type': 'malware_forensics', 'matches': len(result['matches'])},
+            })
+        
+        # Memory analysis found credentials → person OSINT
+        plugins = result.get('plugins', {})
+        if plugins.get('hashdump', {}).get('success'):
+            summary = plugins['hashdump'].get('summary', {})
+            if summary.get('password_hashes', 0) > 0:
+                actions.append({
+                    'action':   'person',
+                    'target':   target.replace('case_', '').replace('_', '.'),
+                    'reason':   f"Password hashes found in memory — identity investigation",
+                    'priority': 'HIGH',
+                    'auto':     False,
+                })
+        
+        # Network connections found → recon
+        if plugins.get('connections', {}).get('success'):
+            summary = plugins['connections'].get('summary', {})
+            if summary.get('network_connections', 0) > 0:
+                actions.append({
+                    'action':   'recon',
+                    'target':   target.replace('case_', '').replace('_', '.'),
+                    'reason':   f"Network connections in memory — infrastructure recon",
+                    'priority': 'MEDIUM',
+                    'auto':     False,
+                })
+        
         return actions
 
     # ── Keyword Fallback ──────────────────────────────────────────────────────

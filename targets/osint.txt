@@ -1,0 +1,5 @@
+# OSINT Investigation Targets
+person1@email.com
+@username1
++1234567890
+person-name

@@ -95,6 +95,7 @@ from modules.breach.breach_checker import BreachChecker
 from modules.breach.report import BreachReport
 from modules.notifications import TelegramNotifier
 from modules.pdf_export import PDFExporter
+from modules.secure_file_manager import SecureFileManager
 
 # Setup logging
 from logging.handlers import RotatingFileHandler
@@ -183,6 +184,7 @@ class TheSentinelPro:
         self.breach      = BreachChecker()
         self.notifier    = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
         self.pdf         = PDFExporter()
+        self.secure_files = SecureFileManager()
         self.session_data = {}
 
         # Autonomous ML learning loop — background daemon
@@ -313,6 +315,10 @@ class TheSentinelPro:
                     self._handle_rl(command)
                 elif command.startswith('brain'):
                     self._handle_brain(command)
+                elif command.startswith('osint'):
+                    self._handle_osint(command)
+                elif command.startswith('collect'):
+                    self._handle_enhanced_collect(command)
                 elif command.startswith('monitor'):
                     self._handle_monitor(command)
                 elif command.startswith('agent'):
@@ -353,7 +359,7 @@ class TheSentinelPro:
                     self._handle_legal_report()
                 elif command == 'status':
                     self._show_detailed_status()
-                elif command in ('tor on', 'tor off', 'tor status', 'tor newip'):
+                elif command.startswith('tor'):
                     self._handle_tor(command)
                 elif command.startswith('telegram'):
                     self._handle_telegram(command)
@@ -368,6 +374,28 @@ class TheSentinelPro:
                     self.display_banner()
                 elif command.startswith('train'):
                     self._handle_train(command)
+                elif command.startswith('scheduler') or command.startswith('schedule'):
+                    self._handle_scheduler(command)
+                elif command.startswith('credential') or command.startswith('cred'):
+                    self._handle_credential(command)
+                elif command.startswith('sysmon') or command == 'system':
+                    self._handle_sysmon(command)
+                elif command.startswith('correlate') or command.startswith('correlation'):
+                    self._handle_correlate(command)
+                elif command.startswith('filesystem') or command.startswith('fs'):
+                    self._handle_filesystem(command)
+                elif command.startswith('secure') or command.startswith('security'):
+                    self._handle_secure_files(command)
+                elif command.startswith('groq') or command.startswith('llm'):
+                    self._handle_groq(command)
+                elif command.startswith('metasploit') or command.startswith('msf'):
+                    self._handle_metasploit(command)
+                elif command.startswith('forensics') or command.startswith('forensic'):
+                    self._handle_forensics(command)
+                elif command.startswith('privilege') or command.startswith('sudo'):
+                    self._handle_privilege(command)
+                elif command.startswith('profile'):
+                    self._handle_profile(command)
                 else:
                     self.console.print(f"[red]Unknown command: {command}[/red]")
                     self.console.print("Type 'help' for available commands")
@@ -410,9 +438,14 @@ class TheSentinelPro:
 
 [bold cyan]BUG BOUNTY & RECON COMMANDS[/bold cyan]  [bold yellow]🆕[/bold yellow]
 [green]brain <task>[/green]         - 🧠 Autonomous brain: ReAct loop, full Kali control
-[green]monitor add <target>[/green]   - 🔔 24/7 monitoring add karo
-[green]monitor status[/green]         - Monitor status
-[green]monitor stop[/green]           - Monitor band karo
+[green]monitor persistent install[/green] - Install as system service (survives laptop restart)
+[green]monitor persistent status[/green]  - Check persistent service status
+[green]monitor persistent sync[/green]    - Sync current targets to persistent service
+[green]monitor add <target>[/green]       - Add target to monitor
+[green]monitor remove <target>[/green]    - Remove target from monitor
+[green]monitor start[/green]              - Start monitoring
+[green]monitor stop[/green]               - Stop monitoring
+[green]monitor interval <seconds>[/green] - Set scan interval
 [green]agent <task>[/green]         - 🤖 ReAct Agent: SentinelNet decides + executes tools autonomously
 [green]agent <task> --auto[/green]  - 🤖 Fully autonomous agent (no confirmation)
 [green]auto <target>[/green]        - ⚡ Autonomous mode: model decides everything
@@ -455,6 +488,24 @@ class TheSentinelPro:
 [green]train save[/green]          - Trained models save karo
 [green]train eval[/green]          - Model accuracy evaluate karo
 [green]pdf[/green]                 - Export last scan report to PDF
+[green]secure stats[/green]        - Show secure file system statistics
+[green]secure verify <id>[/green]  - Verify evidence chain integrity
+[green]secure backup <file>[/green] - Create encrypted backup
+[green]secure cleanup[/green]      - Clean temporary files
+[green]secure audit[/green]        - Show file operation audit log
+[green]metasploit search <target>[/green] - Search for exploits
+[green]metasploit payload <type> <lhost> <lport>[/green] - Generate payload
+[green]metasploit sessions[/green] - List active sessions
+[green]metasploit status[/green]   - Show Metasploit status
+[green]forensics case <name>[/green] - Create forensics case
+[green]forensics memory <case> <dump>[/green] - Analyze memory dump
+[green]forensics status[/green]    - Show forensics tools status
+[green]privilege status[/green]    - Show privilege manager status
+[green]privilege test[/green]      - Test sudo access
+[green]privilege clear[/green]     - Clear password cache
+[green]profile list[/green]        - List available scanning profiles
+[green]profile <name>[/green]      - Switch to scanning profile (stealth/fast/balanced/monitoring)
+[green]profile current[/green]     - Show current profile settings
 [green]clear[/green]               - Clear screen
 [green]help / ?[/green]            - This help menu
 [green]exit / quit / q[/green]     - Exit
@@ -1811,9 +1862,22 @@ Anti-Detection: [green]ACTIVE[/green]
             progress.update(task, advance=2, description="[cyan]OAuth misconfiguration scan...")
             report_data['oauth'] = self.oauth_scan.run(target)
 
-            progress.update(task, advance=3, description="[cyan]Saving report...")
+            progress.update(task, advance=3, description="[cyan]Saving secure report...")
             reporter = BugBountyReport(output_dir=user_folder)
             paths = reporter.save(target, report_data)
+            
+            # Create secure evidence chain
+            evidence_files = [paths.get('json', ''), paths.get('html', '')]
+            evidence_files = [f for f in evidence_files if f and Path(f).exists()]
+            
+            if evidence_files:
+                chain_id = self.secure_files.create_evidence_chain(
+                    target, 'bugbounty', evidence_files
+                )
+                if chain_id:
+                    self.console.print(f"[green]Evidence Chain: {chain_id}[/green]")
+                    paths['evidence_chain'] = chain_id
+            
             self.session_data['bugbounty'] = report_data
             self.session_data['last_paths'] = paths
             self.evidence.add_evidence('bugbounty', report_data)
@@ -2584,6 +2648,23 @@ Anti-Detection: [green]ACTIVE[/green]
         self.console.print(f"  Summary: {paths['summary']}")
         self.console.print(f"  HTML   : {paths['html']}")
 
+    def _handle_osint(self, command: str):
+        """osint <username/email/phone/domain> — auto-detect type"""
+        parts  = command.split(None, 1)
+        target = parts[1].strip() if len(parts) > 1 else ''
+        if not target:
+            self.console.print("[red]Usage: osint <username|email|phone|domain>[/red]")
+            return
+        import re
+        if re.match(r'[\w.+-]+@[\w-]+\.[a-z]{2,}', target):
+            self._handle_email(f'email {target}')
+        elif re.match(r'\+?\d{10,15}$', target.replace(' ','')):
+            self._handle_phone(f'phone {target}')
+        elif re.match(r'^[a-zA-Z0-9][-a-zA-Z0-9.]+\.[a-zA-Z]{2,}$', target):
+            self._handle_recon(f'recon {target}')
+        else:
+            self._handle_person(f'person {target}')
+
     def _handle_email(self, command):
         """Full email OSINT - breach + social + domain validation"""
         parts = command.split(' ', 1)
@@ -3168,7 +3249,7 @@ Anti-Detection: [green]ACTIVE[/green]
             set_busy(False)
 
     def _handle_monitor(self, command: str):
-        """24/7 autonomous monitoring"""
+        """24/7 autonomous monitoring with persistent service support"""
         parts = command.split()
         sub   = parts[1] if len(parts) > 1 else 'status'
 
@@ -3196,13 +3277,111 @@ Anti-Detection: [green]ACTIVE[/green]
             self._get_monitor().interval = int(parts[2])
             self.console.print(f"[green]Interval set: {parts[2]}s[/green]")
 
+        elif sub == 'persistent':
+            self._handle_persistent_monitor(parts[2:] if len(parts) > 2 else [])
+
         else:  # status
             s = self._get_monitor().status()
             st = '[green]RUNNING[/green]' if s['running'] else '[red]STOPPED[/red]'
+            tor_st = '[green]🧅 TOR ON[/green]' if s.get('tor_enabled') else '[dim]🔓 TOR OFF[/dim]'
             self.console.print(f"Monitor : {st}")
             self.console.print(f"Targets : {', '.join(s['targets']) or 'none'}")
             self.console.print(f"Interval: {s['interval']}s ({s['interval']//60} min)")
-            self.console.print("[dim]Commands: monitor add <target> | monitor remove <target> | monitor start | monitor stop | monitor interval <seconds>[/dim]")
+            self.console.print(f"Tor     : {tor_st}")
+            if s.get('tor_proxy'):
+                self.console.print(f"Proxy   : [dim]{s['tor_proxy']}[/dim]")
+            
+            # Persistent service status
+            try:
+                from sentinel_brain.persistent_monitor import PersistentMonitor
+                pm = PersistentMonitor()
+                ps = pm.get_service_status()
+                if ps['installed']:
+                    service_st = '[green]ACTIVE[/green]' if ps['active'] else '[red]INACTIVE[/red]'
+                    boot_st = '[green]ENABLED[/green]' if ps['enabled'] else '[yellow]DISABLED[/yellow]'
+                    self.console.print(f"Service : {service_st} | Boot: {boot_st}")
+            except Exception:
+                pass
+            
+            self.console.print("[dim]Commands: monitor add <target> | monitor persistent install | monitor persistent status[/dim]")
+
+    def _handle_persistent_monitor(self, args: list):
+        """Persistent monitoring service management"""
+        from sentinel_brain.persistent_monitor import PersistentMonitor
+        pm = PersistentMonitor()
+        
+        if not args or args[0] == 'status':
+            status = pm.get_service_status()
+            self.console.print(f"\n[bold cyan]Persistent Monitor Service Status[/bold cyan]")
+            self.console.print(f"  Installed : {'[green]✓[/green]' if status['installed'] else '[red]✗[/red]'}")
+            self.console.print(f"  Active    : {'[green]✓[/green]' if status['active'] else '[red]✗[/red]'}")
+            self.console.print(f"  Boot Start: {'[green]✓[/green]' if status['enabled'] else '[yellow]✗[/yellow]'}")
+            
+            if status['logs']:
+                self.console.print(f"\n[bold]Recent Logs:[/bold]")
+                for line in status['logs'].split('\n')[-5:]:
+                    if line.strip():
+                        self.console.print(f"  [dim]{line}[/dim]")
+        
+        elif args[0] == 'install':
+            self.console.print("[cyan]Installing persistent monitoring service...[/cyan]")
+            
+            # Get current monitor config
+            monitor = self._get_monitor()
+            targets = [{'target': t['target'], 'mode': t['mode']} for t in monitor.targets]
+            interval = monitor.interval
+            tor_enabled = config.is_tor_active()
+            
+            # Save config for daemon
+            if pm.save_config(targets, interval, tor_enabled):
+                self.console.print(f"[green]✓ Configuration saved: {len(targets)} targets[/green]")
+            
+            # Install service
+            if pm.install_service():
+                self.console.print(f"[green]✅ Persistent monitoring service installed![/green]")
+                self.console.print(f"[green]Service will automatically start on boot[/green]")
+                self.console.print(f"[dim]Check status: monitor persistent status[/dim]")
+            else:
+                self.console.print(f"[red]❌ Service installation failed[/red]")
+        
+        elif args[0] == 'uninstall':
+            self.console.print("[yellow]Uninstalling persistent monitoring service...[/yellow]")
+            if pm.uninstall_service():
+                self.console.print(f"[green]✅ Service uninstalled successfully[/green]")
+            else:
+                self.console.print(f"[red]❌ Service uninstall failed[/red]")
+        
+        elif args[0] == 'restart':
+            self.console.print("[cyan]Restarting persistent monitoring service...[/cyan]")
+            if pm.restart_service():
+                self.console.print(f"[green]✅ Service restarted[/green]")
+            else:
+                self.console.print(f"[red]❌ Service restart failed[/red]")
+        
+        elif args[0] == 'sync':
+            # Sync current monitor config to persistent service
+            monitor = self._get_monitor()
+            targets = [{'target': t['target'], 'mode': t['mode']} for t in monitor.targets]
+            interval = monitor.interval
+            tor_enabled = config.is_tor_active()
+            
+            if pm.save_config(targets, interval, tor_enabled):
+                self.console.print(f"[green]✅ Configuration synced to persistent service[/green]")
+                self.console.print(f"[dim]Targets: {len(targets)} | Interval: {interval}s | Tor: {tor_enabled}[/dim]")
+                
+                # Restart service to apply changes
+                if pm.restart_service():
+                    self.console.print(f"[green]✅ Service restarted with new config[/green]")
+            else:
+                self.console.print(f"[red]❌ Configuration sync failed[/red]")
+        
+        else:
+            self.console.print("[red]Usage: monitor persistent [install|uninstall|status|restart|sync][/red]")
+            self.console.print("[dim]  install   - Install as system service (survives reboot)[/dim]")
+            self.console.print("[dim]  uninstall - Remove system service[/dim]")
+            self.console.print("[dim]  status    - Show service status and logs[/dim]")
+            self.console.print("[dim]  restart   - Restart the service[/dim]")
+            self.console.print("[dim]  sync      - Sync current config to service[/dim]")
 
     def _get_monitor(self):
         if not hasattr(self, '_monitor'):
@@ -3453,3 +3632,541 @@ Examples:
     else:
         # Interactive mode
         sentinel_pro.run()
+    def _handle_secure_files(self, command: str):
+        """Secure file management commands"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: secure <subcommand>[/red]")
+            self.console.print("[dim]Subcommands: stats | verify <chain_id> | backup <file> | cleanup | audit[/dim]")
+            return
+            
+        subcmd = parts[1]
+        
+        if subcmd == 'stats':
+            stats = self.secure_files.get_file_stats()
+            
+            stats_table = Table(title="[bold]Secure File System Statistics[/bold]", border_style="green")
+            stats_table.add_column("Metric", style="bold")
+            stats_table.add_column("Value", justify="center")
+            
+            stats_table.add_row("Total Files", str(stats['total_files']))
+            stats_table.add_row("Evidence Chains", str(stats['evidence_chains']))
+            stats_table.add_row("Total Size", f"{stats['total_size']:,} bytes")
+            stats_table.add_row("Encrypted Files", str(stats['encrypted_files']))
+            
+            self.console.print(stats_table)
+            
+            if stats['categories']:
+                cat_table = Table(title="[bold]Files by Category[/bold]", border_style="blue")
+                cat_table.add_column("Category", style="cyan")
+                cat_table.add_column("Count", justify="center")
+                
+                for category, count in stats['categories'].items():
+                    cat_table.add_row(category, str(count))
+                    
+                self.console.print(cat_table)
+                
+        elif subcmd == 'verify' and len(parts) >= 3:
+            chain_id = parts[2]
+            self.console.print(f"[cyan]Verifying evidence chain: {chain_id}[/cyan]")
+            
+            result = self.secure_files.verify_evidence_integrity(chain_id)
+            
+            if result['success']:
+                status_color = 'green' if result['overall_status'] == 'VERIFIED' else 'red'
+                self.console.print(f"[{status_color}]Overall Status: {result['overall_status']}[/{status_color}]")
+                self.console.print(f"Files Checked: {result['files_checked']}")
+                
+                verify_table = Table(title="[bold]File Verification Results[/bold]", border_style="yellow")
+                verify_table.add_column("File", style="cyan")
+                verify_table.add_column("Status", justify="center")
+                verify_table.add_column("Details", style="dim")
+                
+                for file_result in result['verification_results']:
+                    status_color = 'green' if file_result['status'] == 'VERIFIED' else 'red'
+                    status_text = f"[{status_color}]{file_result['status']}[/{status_color}]"
+                    details = file_result.get('sha256', file_result.get('error', ''))[:16] + '...'
+                    verify_table.add_row(file_result['file'], status_text, details)
+                    
+                self.console.print(verify_table)
+            else:
+                self.console.print(f"[red]Verification failed: {result['error']}[/red]")
+                
+        elif subcmd == 'backup' and len(parts) >= 3:
+            file_path = parts[2]
+            self.console.print(f"[cyan]Creating secure backup of: {file_path}[/cyan]")
+            
+            result = self.secure_files.secure_backup(file_path)
+            
+            if result['success']:
+                self.console.print(f"[green]✓ Backup created: {result['backup']}[/green]")
+                self.console.print(f"[dim]SHA256: {result['backup_sha256']}[/dim]")
+                self.console.print(f"[dim]Encrypted: {result['encrypted']}[/dim]")
+            else:
+                self.console.print(f"[red]Backup failed: {result['error']}[/red]")
+                
+        elif subcmd == 'cleanup':
+            self.console.print("[cyan]Cleaning up temporary files...[/cyan]")
+            cleaned = self.secure_files.cleanup_temp_files()
+            self.console.print(f"[green]✓ Cleaned {cleaned} temporary files[/green]")
+            
+        elif subcmd == 'audit':
+            audit_file = self.secure_files.audit_log
+            if audit_file.exists():
+                self.console.print(f"[cyan]Recent audit log entries:[/cyan]")
+                try:
+                    with open(audit_file, 'r') as f:
+                        lines = f.readlines()
+                        for line in lines[-10:]:  # Last 10 entries
+                            self.console.print(f"[dim]{line.strip()}[/dim]")
+                except Exception as e:
+                    self.console.print(f"[red]Failed to read audit log: {e}[/red]")
+            else:
+                self.console.print("[yellow]No audit log found[/yellow]")
+                
+        else:
+            self.console.print("[red]Unknown secure subcommand[/red]")
+            self.console.print("[dim]Available: stats | verify <chain_id> | backup <file> | cleanup | audit[/dim]")
+    def _handle_groq(self, command: str):
+        """Groq LLM commands for AI-powered analysis"""
+        parts = command.split(' ', 1)
+        if len(parts) < 2:
+            self.console.print("[red]Usage: groq <subcommand>[/red]")
+            self.console.print("[dim]Subcommands: ask <question> | plan <target> | analyze <tool> <output> | status[/dim]")
+            return
+            
+        try:
+            from modules.ml_engine.groq_llm import GroqLLM
+            
+            if not GroqLLM.is_available():
+                self.console.print("[red]Groq not configured. Set GROQ_API_KEY in .env[/red]")
+                return
+                
+            groq = GroqLLM()
+            if not groq.is_ready:
+                self.console.print("[red]Groq initialization failed[/red]")
+                return
+                
+            subcmd_parts = parts[1].split(' ', 1)
+            subcmd = subcmd_parts[0]
+            
+            if subcmd == 'ask' and len(subcmd_parts) >= 2:
+                question = subcmd_parts[1]
+                self.console.print(f"[cyan]Asking Groq: {question}[/cyan]")
+                
+                with Progress(SpinnerColumn(), TextColumn("[cyan]Groq thinking..."), 
+                            console=self.console) as progress:
+                    task = progress.add_task("", total=None)
+                    answer = groq.ask(question)
+                    progress.update(task, completed=True)
+                
+                if answer:
+                    self.console.print(f"\n[bold green]🤖 Groq Response:[/bold green]")
+                    self.console.print(f"[white]{answer}[/white]\n")
+                else:
+                    self.console.print("[red]No response from Groq[/red]")
+                    
+            elif subcmd == 'plan' and len(subcmd_parts) >= 2:
+                target = subcmd_parts[1]
+                self.console.print(f"[cyan]Creating scan plan for: {target}[/cyan]")
+                
+                plan = groq.plan(target, 'comprehensive security assessment')
+                
+                if plan.get('steps'):
+                    self.console.print(f"\n[bold green]🎯 Groq Scan Plan:[/bold green]")
+                    self.console.print(f"[dim]Reason: {plan.get('reason', '')}[/dim]\n")
+                    
+                    plan_table = Table(title="Recommended Tool Sequence", border_style="green")
+                    plan_table.add_column("Step", style="bold", width=6)
+                    plan_table.add_column("Tool", style="cyan")
+                    plan_table.add_column("Purpose", style="dim")
+                    
+                    tool_purposes = {
+                        'nmap': 'Port and service discovery',
+                        'nikto': 'Web server vulnerability scan',
+                        'nuclei': 'Template-based vulnerability detection',
+                        'sqlmap': 'SQL injection testing',
+                        'gobuster': 'Directory and file enumeration',
+                        'subfinder': 'Subdomain enumeration',
+                        'amass': 'Advanced subdomain discovery',
+                        'whatweb': 'Web technology fingerprinting'
+                    }
+                    
+                    for i, tool in enumerate(plan['steps'], 1):
+                        purpose = tool_purposes.get(tool, 'Security assessment')
+                        plan_table.add_row(str(i), tool, purpose)
+                        
+                    self.console.print(plan_table)
+                else:
+                    self.console.print("[red]Failed to generate plan[/red]")
+                    
+            elif subcmd == 'analyze' and len(subcmd_parts) >= 2:
+                analyze_parts = subcmd_parts[1].split(' ', 1)
+                if len(analyze_parts) >= 2:
+                    tool = analyze_parts[0]
+                    output = analyze_parts[1]
+                    
+                    self.console.print(f"[cyan]Analyzing {tool} output with Groq...[/cyan]")
+                    
+                    analysis = groq.analyze_output(tool, output, "target")
+                    
+                    if analysis:
+                        risk_color = 'red' if analysis.get('risk') == 'CRITICAL' else 'yellow' if analysis.get('risk') == 'HIGH' else 'green'
+                        
+                        self.console.print(f"\n[bold green]🧠 Groq Analysis:[/bold green]")
+                        self.console.print(f"Risk Level: [{risk_color}]{analysis.get('risk', 'UNKNOWN')}[/{risk_color}]")
+                        self.console.print(f"Summary: [white]{analysis.get('summary', '')}[/white]")
+                        
+                        if analysis.get('findings'):
+                            self.console.print(f"\nFindings:")
+                            for finding in analysis['findings']:
+                                self.console.print(f"  • [yellow]{finding}[/yellow]")
+                                
+                        if analysis.get('next_tool'):
+                            self.console.print(f"\nRecommended next tool: [cyan]{analysis['next_tool']}[/cyan]")
+                    else:
+                        self.console.print("[red]Analysis failed[/red]")
+                else:
+                    self.console.print("[red]Usage: groq analyze <tool> <output>[/red]")
+                    
+            elif subcmd == 'status':
+                self.console.print(f"[bold green]🤖 Groq LLM Status[/bold green]")
+                self.console.print(f"Model: [cyan]{groq.MODEL}[/cyan]")
+                self.console.print(f"Fallback: [dim]{groq.FALLBACK}[/dim]")
+                self.console.print(f"Ready: [green]✓[/green]" if groq.is_ready else "[red]✗[/red]")
+                self.console.print(f"API Key: [green]✓ Configured[/green]")
+                
+            else:
+                self.console.print("[red]Unknown Groq subcommand[/red]")
+                self.console.print("[dim]Available: ask <question> | plan <target> | analyze <tool> <output> | status[/dim]")
+                
+        except Exception as e:
+            self.console.print(f"[red]Groq error: {e}[/red]")
+    def _handle_profile(self, command: str):
+        """Profile management - load/switch scanning profiles"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: profile <name> | profile list | profile current[/red]")
+            return
+            
+        subcmd = parts[1]
+        
+        try:
+            import json
+            with open('config_profiles.json', 'r') as f:
+                profiles_data = json.load(f)
+        except FileNotFoundError:
+            self.console.print("[red]config_profiles.json not found[/red]")
+            return
+        except json.JSONDecodeError:
+            self.console.print("[red]Invalid config_profiles.json format[/red]")
+            return
+            
+        profiles = profiles_data.get('profiles', {})
+        current = profiles_data.get('current_profile', 'balanced')
+        
+        if subcmd == 'list':
+            self.console.print("[bold cyan]Available Profiles:[/bold cyan]")
+            for name, profile in profiles.items():
+                current_marker = '[green]★[/green]' if name == current else ' '
+                self.console.print(f"  {current_marker} [cyan]{name}[/cyan]: {profile['description']}")
+                
+        elif subcmd == 'current':
+            if current in profiles:
+                profile = profiles[current]
+                self.console.print(f"[bold cyan]Current Profile: {current}[/bold cyan]")
+                self.console.print(f"  Description: {profile['description']}")
+                self.console.print(f"  Settings:")
+                for key, value in profile.get('settings', {}).items():
+                    self.console.print(f"    [dim]{key}[/dim]: [yellow]{value}[/yellow]")
+            else:
+                self.console.print(f"[red]Current profile '{current}' not found[/red]")
+                
+        elif subcmd in profiles:
+            # Switch to profile
+            profile = profiles[subcmd]
+            self.console.print(f"[cyan]Switching to profile: {subcmd}[/cyan]")
+            
+            # Apply settings to config
+            settings = profile.get('settings', {})
+            applied = 0
+            
+            for key, value in settings.items():
+                if hasattr(config, key):
+                    # Convert string values to appropriate types
+                    if value.lower() == 'true':
+                        setattr(config, key, True)
+                    elif value.lower() == 'false':
+                        setattr(config, key, False)
+                    elif value.replace('.', '').isdigit():
+                        setattr(config, key, float(value) if '.' in value else int(value))
+                    else:
+                        setattr(config, key, value)
+                    applied += 1
+                    
+            # Update current profile in file
+            profiles_data['current_profile'] = subcmd
+            try:
+                with open('config_profiles.json', 'w') as f:
+                    json.dump(profiles_data, f, indent=2)
+            except Exception as e:
+                self.console.print(f"[yellow]Warning: Could not save current profile: {e}[/yellow]")
+                
+            self.console.print(f"[green]✓ Profile '{subcmd}' activated[/green]")
+            self.console.print(f"[green]✓ Applied {applied} settings[/green]")
+            self.console.print(f"[dim]Description: {profile['description']}[/dim]")
+            
+            # Show key changes
+            if 'TOR_ENABLED' in settings:
+                tor_status = '[green]ENABLED[/green]' if settings['TOR_ENABLED'].lower() == 'true' else '[red]DISABLED[/red]'
+                self.console.print(f"  Tor: {tor_status}")
+            if 'OSINT_MIN_DELAY' in settings:
+                self.console.print(f"  Delay: {settings['OSINT_MIN_DELAY']}-{settings.get('OSINT_MAX_DELAY', 'N/A')}s")
+            if 'OSINT_RATE_LIMIT' in settings:
+                self.console.print(f"  Rate: {settings['OSINT_RATE_LIMIT']}/{settings.get('OSINT_RATE_PERIOD', '60')}s")
+                
+        else:
+            self.console.print(f"[red]Profile '{subcmd}' not found[/red]")
+            self.console.print("[dim]Use 'profile list' to see available profiles[/dim]")
+
+    def _handle_metasploit(self, command: str):
+        """Metasploit Framework commands"""
+        parts = command.split(' ', 1)
+        if len(parts) < 2:
+            self.console.print("[red]Usage: metasploit <subcommand>[/red]")
+            self.console.print("[dim]Subcommands: search | exploit | payload | listener | sessions | status[/dim]")
+            return
+            
+        try:
+            from modules.metasploit_integration import metasploit
+            
+            subcmd_parts = parts[1].split(' ', 1)
+            subcmd = subcmd_parts[0]
+            
+            if subcmd == 'search' and len(subcmd_parts) >= 2:
+                target = subcmd_parts[1]
+                self.console.print(f"[cyan]Searching exploits for: {target}[/cyan]")
+                
+                exploits = metasploit.search_exploits(target)
+                
+                if exploits:
+                    exploit_table = Table(title="[bold]Metasploit Exploits[/bold]", border_style="red")
+                    exploit_table.add_column("Name", style="cyan")
+                    exploit_table.add_column("Date", style="yellow")
+                    exploit_table.add_column("Rank", style="green")
+                    exploit_table.add_column("Description", style="dim")
+                    
+                    for exploit in exploits[:10]:
+                        exploit_table.add_row(
+                            exploit['name'],
+                            exploit['disclosure_date'],
+                            exploit['rank'],
+                            exploit['description'][:60] + '...' if len(exploit['description']) > 60 else exploit['description']
+                        )
+                    
+                    self.console.print(exploit_table)
+                else:
+                    self.console.print("[yellow]No exploits found[/yellow]")
+                    
+            elif subcmd == 'payload' and len(subcmd_parts) >= 2:
+                args = subcmd_parts[1].split()
+                if len(args) >= 3:
+                    payload_type, lhost, lport = args[0], args[1], int(args[2])
+                    platform = args[3] if len(args) > 3 else 'windows'
+                    
+                    self.console.print(f"[cyan]Generating {payload_type} payload for {platform}[/cyan]")
+                    
+                    result = metasploit.generate_payload(payload_type, lhost, lport, platform)
+                    
+                    if result['success']:
+                        self.console.print(f"[green]✓ Payload generated: {result['file_path']}[/green]")
+                        self.console.print(f"[dim]Size: {result['file_size']} bytes | Platform: {result['platform']}[/dim]")
+                    else:
+                        self.console.print(f"[red]Payload generation failed: {result['error']}[/red]")
+                else:
+                    self.console.print("[red]Usage: metasploit payload <type> <lhost> <lport> [platform][/red]")
+                    
+            elif subcmd == 'sessions':
+                sessions = metasploit.list_sessions()
+                
+                if sessions:
+                    session_table = Table(title="[bold]Active Sessions[/bold]", border_style="green")
+                    session_table.add_column("ID", style="cyan")
+                    session_table.add_column("Type", style="yellow")
+                    session_table.add_column("Info", style="white")
+                    session_table.add_column("Tunnel", style="dim")
+                    
+                    for session in sessions:
+                        session_table.add_row(
+                            session['id'],
+                            session['type'],
+                            session['info'],
+                            session['tunnel']
+                        )
+                    
+                    self.console.print(session_table)
+                else:
+                    self.console.print("[yellow]No active sessions[/yellow]")
+                    
+            elif subcmd == 'status':
+                status = metasploit.status()
+                
+                status_table = Table(title="[bold]Metasploit Status[/bold]", border_style="blue")
+                status_table.add_column("Component", style="bold")
+                status_table.add_column("Status", justify="center")
+                
+                status_table.add_row("MSF Path", status['msf_path'])
+                status_table.add_row("Available", "[green]✓[/green]" if status['msf_available'] else "[red]✗[/red]")
+                status_table.add_row("Database", "[green]✓[/green]" if status['db_initialized'] else "[red]✗[/red]")
+                status_table.add_row("Active Sessions", str(status['active_sessions']))
+                
+                self.console.print(status_table)
+                
+            else:
+                self.console.print("[red]Unknown metasploit subcommand[/red]")
+                self.console.print("[dim]Available: search <target> | payload <type> <lhost> <lport> | sessions | status[/dim]")
+                
+        except Exception as e:
+            self.console.print(f"[red]Metasploit error: {e}[/red]")
+    
+    def _handle_forensics(self, command: str):
+        """Digital forensics commands"""
+        parts = command.split(' ', 1)
+        if len(parts) < 2:
+            self.console.print("[red]Usage: forensics <subcommand>[/red]")
+            self.console.print("[dim]Subcommands: case | evidence | memory | carve | network | yara | report[/dim]")
+            return
+            
+        try:
+            from modules.forensics_integration import forensics
+            
+            subcmd_parts = parts[1].split(' ', 1)
+            subcmd = subcmd_parts[0]
+            
+            if subcmd == 'case' and len(subcmd_parts) >= 2:
+                case_args = subcmd_parts[1].split(' ', 1)
+                case_name = case_args[0]
+                description = case_args[1] if len(case_args) > 1 else ""
+                
+                self.console.print(f"[cyan]Creating forensics case: {case_name}[/cyan]")
+                
+                result = forensics.create_evidence_case(case_name, description)
+                
+                if result['success']:
+                    self.console.print(f"[green]✓ Case created: {result['case_dir']}[/green]")
+                    self.console.print(f"[dim]Subdirectories: {', '.join(result['subdirs'])}[/dim]")
+                else:
+                    self.console.print(f"[red]Case creation failed: {result['error']}[/red]")
+                    
+            elif subcmd == 'memory' and len(subcmd_parts) >= 2:
+                args = subcmd_parts[1].split()
+                if len(args) >= 2:
+                    case_name, dump_path = args[0], args[1]
+                    profile = args[2] if len(args) > 2 else None
+                    
+                    self.console.print(f"[cyan]Analyzing memory dump: {dump_path}[/cyan]")
+                    
+                    with Progress(SpinnerColumn(), TextColumn("[cyan]Running Volatility analysis..."), 
+                                console=self.console) as progress:
+                        task = progress.add_task("", total=None)
+                        result = forensics.analyze_memory_dump(case_name, dump_path, profile)
+                        progress.update(task, completed=True)
+                    
+                    if result['success']:
+                        self.console.print(f"[green]✓ Memory analysis complete[/green]")
+                        self.console.print(f"[dim]Profile: {result['profile']} | Output: {result['output_dir']}[/dim]")
+                        
+                        # Show plugin results
+                        for plugin, plugin_result in result['plugins'].items():
+                            if plugin_result['success']:
+                                summary = plugin_result['summary']
+                                items = summary.get('items_found', 0)
+                                status = f"[green]{items} items[/green]" if items > 0 else "[dim]no items[/dim]"
+                                self.console.print(f"  {plugin}: {status}")
+                    else:
+                        self.console.print(f"[red]Memory analysis failed: {result['error']}[/red]")
+                else:
+                    self.console.print("[red]Usage: forensics memory <case_name> <dump_path> [profile][/red]")
+                    
+            elif subcmd == 'status':
+                status = forensics.status()
+                
+                status_table = Table(title="[bold]Forensics Toolkit Status[/bold]", border_style="yellow")
+                status_table.add_column("Tool", style="bold")
+                status_table.add_column("Available", justify="center")
+                status_table.add_column("Path", style="dim")
+                
+                for tool, info in status['tools_available'].items():
+                    available = "[green]✓[/green]" if info['available'] else "[red]✗[/red]"
+                    path = info['path'] or 'Not found'
+                    status_table.add_row(tool, available, path)
+                
+                self.console.print(status_table)
+                self.console.print(f"\n[dim]Evidence directory: {status['evidence_dir']}[/dim]")
+                self.console.print(f"[dim]Active cases: {status['active_cases']}[/dim]")
+                
+            else:
+                self.console.print("[red]Unknown forensics subcommand[/red]")
+                self.console.print("[dim]Available: case <name> [description] | memory <case> <dump> | status[/dim]")
+                
+        except Exception as e:
+            self.console.print(f"[red]Forensics error: {e}[/red]")
+    
+    def _handle_privilege(self, command: str):
+        """Privilege management commands"""
+        parts = command.split(' ', 1)
+        if len(parts) < 2:
+            self.console.print("[red]Usage: privilege <subcommand>[/red]")
+            self.console.print("[dim]Subcommands: status | store | clear | remove | test[/dim]")
+            return
+            
+        try:
+            from modules.privilege_manager import privilege_manager
+            
+            subcmd = parts[1]
+            
+            if subcmd == 'status':
+                status = privilege_manager.status()
+                
+                status_table = Table(title="[bold]Privilege Manager Status[/bold]", border_style="green")
+                status_table.add_column("Component", style="bold")
+                status_table.add_column("Status", justify="center")
+                
+                status_table.add_row("Keyring Available", "[green]✓[/green]" if status['keyring_available'] else "[red]✗[/red]")
+                status_table.add_row("Stored Password", "[green]✓[/green]" if status['stored_password'] else "[yellow]✗[/yellow]")
+                status_table.add_row("Username", status['username'])
+                status_table.add_row("Cached Tools", str(len(status['cached_tools'])))
+                status_table.add_row("Privileged Tools", str(status['privileged_tools_count']))
+                
+                self.console.print(status_table)
+                
+                if status['cached_tools']:
+                    self.console.print(f"\n[dim]Cached: {', '.join(status['cached_tools'])}[/dim]")
+                    
+            elif subcmd == 'clear':
+                privilege_manager.clear_cache()
+                self.console.print("[green]✓ Password cache cleared[/green]")
+                
+            elif subcmd == 'remove':
+                if privilege_manager.remove_stored_password():
+                    self.console.print("[green]✓ Stored password removed[/green]")
+                else:
+                    self.console.print("[red]Failed to remove stored password[/red]")
+                    
+            elif subcmd == 'test':
+                self.console.print("[cyan]Testing sudo access...[/cyan]")
+                try:
+                    result = privilege_manager.execute_privileged(['whoami'], 'test')
+                    if result.returncode == 0:
+                        self.console.print(f"[green]✓ Sudo access working: {result.stdout.strip()}[/green]")
+                    else:
+                        self.console.print(f"[red]Sudo test failed: {result.stderr}[/red]")
+                except Exception as e:
+                    self.console.print(f"[red]Sudo test error: {e}[/red]")
+                    
+            else:
+                self.console.print("[red]Unknown privilege subcommand[/red]")
+                self.console.print("[dim]Available: status | clear | remove | test[/dim]")
+                
+        except Exception as e:
+            self.console.print(f"[red]Privilege error: {e}[/red]")

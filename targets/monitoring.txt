@@ -1,0 +1,4 @@
+# 24/7 Monitoring Targets
+important-client.com
+critical-asset.com
+main-website.com

@@ -1,0 +1,49 @@
+{
+  "profiles": {
+    "stealth": {
+      "description": "Maximum stealth mode for sensitive targets",
+      "settings": {
+        "OSINT_MIN_DELAY": "5.0",
+        "OSINT_MAX_DELAY": "10.0",
+        "OSINT_RATE_LIMIT": "5",
+        "OSINT_RATE_PERIOD": "120",
+        "TOR_ENABLED": "true",
+        "OSINT_SSL_VERIFY": "false"
+      }
+    },
+    "fast": {
+      "description": "Fast scanning for bug bounty",
+      "settings": {
+        "OSINT_MIN_DELAY": "0.5",
+        "OSINT_MAX_DELAY": "2.0",
+        "OSINT_RATE_LIMIT": "20",
+        "OSINT_RATE_PERIOD": "30",
+        "TOR_ENABLED": "false",
+        "OSINT_SSL_VERIFY": "true"
+      }
+    },
+    "balanced": {
+      "description": "Balanced speed and stealth",
+      "settings": {
+        "OSINT_MIN_DELAY": "2.0",
+        "OSINT_MAX_DELAY": "5.0",
+        "OSINT_RATE_LIMIT": "10",
+        "OSINT_RATE_PERIOD": "60",
+        "TOR_ENABLED": "false",
+        "OSINT_SSL_VERIFY": "true"
+      }
+    },
+    "monitoring": {
+      "description": "24/7 monitoring optimized",
+      "settings": {
+        "OSINT_MIN_DELAY": "3.0",
+        "OSINT_MAX_DELAY": "7.0",
+        "OSINT_RATE_LIMIT": "8",
+        "OSINT_RATE_PERIOD": "90",
+        "TOR_ENABLED": "true",
+        "OSINT_SSL_VERIFY": "true"
+      }
+    }
+  },
+  "current_profile": "balanced"
+}
