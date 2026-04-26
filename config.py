@@ -4,14 +4,29 @@ Centralized configuration with environment variable support
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env file if present (before any os.getenv calls)
-load_dotenv(Path(__file__).resolve().parent / '.env')
+# ── Base directory — binary aur source dono ke liye sahi ───────────────────────────
+def _get_base_dir() -> Path:
+    """
+    PyInstaller binary mein: executable ke saath wali directory
+    Normal Python mein: config.py wali directory
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller — user ne jahan binary rakhi hai woh folder
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
 
-# Base directory - dynamically determined
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = _get_base_dir()
+
+# Load .env from BASE_DIR
+load_dotenv(BASE_DIR / '.env')
+
+def get_base_dir() -> Path:
+    """Har module se BASE_DIR lene ka safe tarika."""
+    return BASE_DIR
 
 # Directory structure
 INVESTIGATIONS_DIR = BASE_DIR / "investigations"
@@ -25,11 +40,11 @@ for directory in [INVESTIGATIONS_DIR, REPORTS_DIR, MODELS_DIR, EVIDENCE_DIR, LOG
     directory.mkdir(exist_ok=True)
 
 # Binary paths
-SCRAPER_BIN = BASE_DIR / "scraper" / "scraper"
-PREDICTOR_BIN = BASE_DIR / "predictor" / "predictor"
-ANALYZER_BIN = BASE_DIR / "analyzer" / "target" / "release" / "analyzer"
+SCRAPER_BIN        = BASE_DIR / "scraper" / "scraper"
+PREDICTOR_BIN      = BASE_DIR / "predictor" / "predictor"
+ANALYZER_BIN       = BASE_DIR / "analyzer" / "target" / "release" / "analyzer"
 NETWORK_MAPPER_BIN = BASE_DIR / "network_mapper" / "network_mapper"
-STEALTH_PROXY_BIN = BASE_DIR / "stealth_proxy" / "stealth_proxy"
+STEALTH_PROXY_BIN  = BASE_DIR / "stealth_proxy" / "stealth_proxy"
 MEDIA_ANALYZER_BIN = BASE_DIR / "media_analyzer" / "target" / "release" / "media_analyzer"
 
 # Screenshots directory

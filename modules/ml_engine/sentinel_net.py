@@ -22,7 +22,8 @@ from torch.utils.data import Dataset, DataLoader
 
 logger = logging.getLogger(__name__)
 
-MODELS_DIR        = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine'
+import config as _config
+MODELS_DIR        = _config.get_base_dir() / 'models' / 'ml_engine'
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 NEURAL_MODEL_PATH = MODELS_DIR / 'sentinel_threat_net.pt'
 VOCAB_PATH        = MODELS_DIR / 'sentinel_vocab.json'

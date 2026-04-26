@@ -10,7 +10,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-SMUGGLER_BIN = Path(__file__).resolve().parents[2] / 'smuggler' / 'smuggler'
+import config as _config
+SMUGGLER_BIN = _config.get_base_dir() / 'smuggler' / 'smuggler'
 
 
 class SmugglerBridge:

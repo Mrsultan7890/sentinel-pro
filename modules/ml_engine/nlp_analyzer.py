@@ -73,7 +73,7 @@ def _load_threat_clf():
         try:
             import joblib, warnings
             from pathlib import Path
-            path = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine' / 'threat_classifier.joblib'
+            path = __import__('config').get_base_dir() / 'models' / 'ml_engine' / 'threat_classifier.joblib'
             if path.exists():
                 with warnings.catch_warnings():
                     warnings.simplefilter('ignore')

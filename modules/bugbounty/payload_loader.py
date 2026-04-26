@@ -77,7 +77,8 @@ def get_limit(payload_type: str, override: int = 0) -> int:
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
-_BASE_DIR    = Path(__file__).resolve().parents[2]  # osints/
+import config as _config
+_BASE_DIR    = _config.get_base_dir()
 _PROXY_DIR   = _BASE_DIR / 'sentinel_proxy' / 'payloads'
 
 # SecLists locations (Kali default + Arch/custom)

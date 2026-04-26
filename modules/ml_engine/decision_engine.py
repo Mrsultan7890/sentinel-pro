@@ -21,7 +21,8 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-STATE_FILE = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine' / 'training_data' / 'autonomous_decisions.jsonl'
+import config as _config
+STATE_FILE = _config.get_base_dir() / 'models' / 'ml_engine' / 'training_data' / 'autonomous_decisions.jsonl'
 
 
 class DecisionEngine:

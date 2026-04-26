@@ -24,7 +24,7 @@ def _load_trained_model():
     try:
         import joblib
         from pathlib import Path
-        model_path = Path(__file__).resolve().parents[1] / 'models' / 'ml_engine' / 'fake_detector.joblib'
+        model_path = __import__('config').get_base_dir() / 'models' / 'ml_engine' / 'fake_detector.joblib'
         if model_path.exists():
             _trained_fake_clf = joblib.load(model_path)
             logger.info("CRL-trained FakeDetector loaded")

@@ -12,7 +12,8 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR     = Path(__file__).resolve().parents[2]
+import config as _config
+BASE_DIR     = _config.get_base_dir()
 ANALYZER_BIN = BASE_DIR / 'analyzer' / 'target' / 'release' / 'analyzer'
 
 

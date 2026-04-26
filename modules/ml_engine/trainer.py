@@ -41,7 +41,8 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-MODELS_DIR = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine'
+import config as _config
+MODELS_DIR = _config.get_base_dir() / 'models' / 'ml_engine'
 DATA_DIR   = MODELS_DIR / 'training_data'
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)

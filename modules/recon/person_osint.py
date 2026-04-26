@@ -630,7 +630,7 @@ class PersonOSINT:
                 # Training logs suppress karo scan ke dauran
                 _logging.getLogger('modules.ml_engine.trainer').setLevel(_logging.ERROR)
                 from pathlib import Path
-                fake_path = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine' / 'fake_detector.joblib'
+                fake_path = __import__('config').get_base_dir() / 'models' / 'ml_engine' / 'fake_detector.joblib'
                 if fake_path.exists():
                     import warnings
                     with warnings.catch_warnings():

@@ -26,7 +26,8 @@ import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
-MODELS_DIR = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine'
+import config as _config
+MODELS_DIR = _config.get_base_dir() / 'models' / 'ml_engine'
 MODEL_PATH = MODELS_DIR / 'sentinellm_v1.pt'
 VOCAB_PATH = MODELS_DIR / 'sentinellm_vocab.json'
 

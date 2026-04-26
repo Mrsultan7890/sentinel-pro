@@ -24,7 +24,8 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-CHAIN_LOG = Path(__file__).resolve().parents[1] / 'reports' / 'attack_chains'
+import config as _config
+CHAIN_LOG = _config.get_base_dir() / 'reports' / 'attack_chains'
 
 
 class AttackChain:

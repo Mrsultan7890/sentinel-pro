@@ -11,7 +11,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DIRBUSTER_BIN = Path(__file__).resolve().parents[2] / 'dirbuster' / 'dirbuster'
+import config as _config
+DIRBUSTER_BIN = _config.get_base_dir() / 'dirbuster' / 'dirbuster'
 
 # Wordlist priority per depth
 # FAST   — small curated list (~200 paths, ~10 sec)
