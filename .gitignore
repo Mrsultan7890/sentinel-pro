@@ -1,55 +1,109 @@
-# Build artifacts
-scraper/scraper
-predictor/predictor
-analyzer/target/
+# ── Credentials & Secrets ─────────────────────────────────────────────────────
+.env
+*.key
+*.pem
+*.p12
+*.pfx
+data/.encryption_key
+data/file_registry.json
 
-# Reports & investigations (user data)
+# ── Databases (user data) ─────────────────────────────────────────────────────
+data/sentinel.db
+data/sentinel.db-shm
+data/sentinel.db-wal
+data/sentinel_memory.db
+data/sentinel_memory.db-shm
+data/sentinel_memory.db-wal
+data/sentinel_proxy.db
+data/sentinel_proxy.db-shm
+data/sentinel_proxy.db-wal
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# ── User scan data ────────────────────────────────────────────────────────────
 reports/
 investigations/
 screenshots/
 evidence/
-
-# ML training data & cache (large files)
-models/ml_engine/training_data/
-models/ml_engine/*.joblib
-models/ml_engine/metadata.json
-
-# Logs
+targets/
+temp/
 logs/
 *.log
 
-# Python
+# ── ML models (large binary files) ───────────────────────────────────────────
+models/ml_engine/*.pt
+models/ml_engine/*.joblib
+models/ml_engine/*.json
+models/ml_engine/training_data/
+models/ml_engine/old_models/
+models/ml_engine/old_models_backup/
+
+# Keep these model files (small, needed)
+!models/ml_engine/rl_qtable.json
+
+# ── Proxy models ──────────────────────────────────────────────────────────────
+sentinel_proxy/models/
+sentinel_proxy/models/*.pt
+sentinel_proxy/models/*.joblib
+
+# ── Rust build artifacts ──────────────────────────────────────────────────────
+analyzer/target/
+fuzzer/target/
+media_analyzer/target/
+sentinel_proxy/rust_core/target/
+sentinel_proxy/rust_fuzzer/target/
+Cargo.lock
+
+# ── Go build artifacts ────────────────────────────────────────────────────────
+scraper/scraper
+dirbuster/dirbuster
+network_mapper/network_mapper
+predictor/predictor
+smuggler/smuggler
+stealth_proxy/stealth_proxy
+*.exe
+
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env/
 venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
 
-# Rust
-analyzer/target/
-fuzzer/target/
-media_analyzer/target/
-Cargo.lock
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
 
-# Environment
-.env
+# ── Colab / training scripts (local only) ────────────────────────────────────
+colab_data/
+colab_train.py
+data_pipeline.py
+data_pipeline_v2.py
+data_pipeline_v3.py
+rl_train_bg.py
 
-# Cache
-.crl_cache
-*.cache
+# ── Tor / proxy sockets ───────────────────────────────────────────────────────
+/tmp/sentinel_proxy_v2.sock
+/tmp/sentinel_proxy_v2.sock.events
 
-# Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+# ── CA certificates (auto-generated) ─────────────────────────────────────────
+~/.mitmproxy/
 
-# Logs
-*.log
-
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
+
+# ── Cache ─────────────────────────────────────────────────────────────────────
+.crl_cache
+*.cache
+.cache/

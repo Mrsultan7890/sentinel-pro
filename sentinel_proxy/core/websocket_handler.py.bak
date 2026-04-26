@@ -1,0 +1,69 @@
+"""
+WebSocket Handler — intercept WS messages
+==========================================
+Hooks into mitmproxy websocket_message event.
+"""
+
+import logging
+import time
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+
+class WebSocketHandler:
+    """
+    Collects WebSocket messages from mitmproxy.
+    on_message(msg_dict) callback fires for each message.
+    """
+
+    def __init__(self):
+        self.on_message = None   # callback(dict)
+        self._messages  = []     # in-memory buffer (last 500)
+
+    def handle(self, flow, message) -> dict:
+        """Convert mitmproxy WS message to dict."""
+        try:
+            content = message.content
+            if isinstance(content, bytes):
+                try:
+                    text = content.decode('utf-8')
+                    is_binary = False
+                except Exception:
+                    text = content.hex()
+                    is_binary = True
+            else:
+                text = str(content)
+                is_binary = False
+
+            msg = {
+                'id':        id(message),
+                'timestamp': datetime.now().isoformat(),
+                'host':      flow.request.pretty_host,
+                'url':       flow.request.pretty_url,
+                'direction': 'client→server' if message.from_client else 'server→client',
+                'from_client': message.from_client,
+                'content':   text,
+                'is_binary': is_binary,
+                'length':    len(content),
+            }
+
+            self._messages.append(msg)
+            if len(self._messages) > 500:
+                self._messages.pop(0)
+
+            if self.on_message:
+                self.on_message(msg)
+
+            return msg
+        except Exception as e:
+            logger.debug(f'WS handle error: {e}')
+            return {}
+
+    def get_messages(self, host_filter: str = '') -> list:
+        if host_filter:
+            return [m for m in self._messages if host_filter in m.get('host', '')]
+        return list(self._messages)
+
+    def clear(self):
+        self._messages.clear()

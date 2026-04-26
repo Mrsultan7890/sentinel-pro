@@ -47,18 +47,35 @@ class ScreenshotCapture:
             '--disable-software-rasterizer',
             '--hide-scrollbars',
             '--window-size=1280,900',
+            '--virtual-time-budget=5000',
             f'--screenshot={out_path}',
             url
         ]
 
         try:
-            proc = subprocess.run(cmd, capture_output=True, timeout=30)
+            proc = subprocess.run(cmd, capture_output=True, timeout=45)
             if out_path.exists() and out_path.stat().st_size > 0:
                 result['path'] = str(out_path)
             else:
-                result['error'] = proc.stderr.decode(errors='ignore')[:300] or 'Screenshot file empty'
+                # Fallback: try older headless flag
+                cmd2 = [
+                    self.chromium,
+                    '--headless',
+                    '--no-sandbox',
+                    '--disable-gpu',
+                    '--disable-dev-shm-usage',
+                    '--hide-scrollbars',
+                    '--window-size=1280,900',
+                    f'--screenshot={out_path}',
+                    url
+                ]
+                proc2 = subprocess.run(cmd2, capture_output=True, timeout=45)
+                if out_path.exists() and out_path.stat().st_size > 0:
+                    result['path'] = str(out_path)
+                else:
+                    result['error'] = proc.stderr.decode(errors='ignore')[:300] or 'Screenshot file empty'
         except subprocess.TimeoutExpired:
-            result['error'] = 'Screenshot timeout (30s)'
+            result['error'] = 'Screenshot timeout (45s)'
         except Exception as e:
             result['error'] = str(e)
             logger.error(f"Screenshot failed for {url}: {e}")

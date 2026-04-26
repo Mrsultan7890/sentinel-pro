@@ -35,8 +35,7 @@ VULN_PATTERNS = {
         r"(include|require|include_once|require_once)\s*\(",
     ],
     'SSRF': [
-        r"(http|https|ftp|file|dict|gopher)://",
-        r"(127\.0\.0\.1|localhost|0\.0\.0\.0|169\.254\.169\.254)",
+        r"(http|https|ftp|file|dict|gopher)://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|169\.254\.169\.254|\[::1\])",
         r"(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)",
         r"(metadata\.google|169\.254\.169\.254/latest)",
     ],
@@ -44,7 +43,7 @@ VULN_PATTERNS = {
         r"\{\{.*?\}\}",
         r"\{%.*?%\}",
         r"\$\{.*?\}",
-        r"(7\*7|7\*'7'|49)",
+        r"(7\*7|7\*'7')",
     ],
     'RCE': [
         r"(;|\||&&|`|\$\()\s*(ls|cat|id|whoami|uname|pwd|wget|curl|bash|sh|python|perl|ruby)",
@@ -57,9 +56,11 @@ VULN_PATTERNS = {
         r"<!DOCTYPE[^>]*\[",
     ],
     'Path Traversal': [
-        r"(\.\./){2,}",
-        r"%2e%2e%2f",
-        r"\.\.\\",
+        r'(\.\./){2,}',
+        r'(\.\./|\.\.\\/|%2e%2e%2f|%2e%2e/|\.\./){1,}',
+        r'%2e%2e%2f',
+        r'\.\.\\\'',
+        r'(\.{2,}/){1,}',
     ],
     'Open Redirect': [
         r"(redirect|return|next|url|goto|target|redir|destination)\s*=\s*https?://",
@@ -83,8 +84,16 @@ class AIAnalyzer:
 
     def __init__(self):
         self._sentinel = self._load_sentinel()
-        self._groq      = self._load_groq()
         self._lock      = threading.Lock()
+        # Groq singleton — proxy mein deep vuln analysis ke liye
+        try:
+            import sys as _sys
+            if '/home/kali/osints' not in _sys.path:
+                _sys.path.insert(0, '/home/kali/osints')
+            from modules.ml_engine.groq_llm import get_groq
+            self._groq = get_groq()
+        except Exception:
+            self._groq = None
 
     def _load_sentinel(self):
         try:
@@ -100,15 +109,12 @@ class AIAnalyzer:
         return None
 
     def _load_groq(self):
+        """Legacy — use get_groq() singleton instead."""
         try:
             import sys
             sys.path.insert(0, '/home/kali/osints')
-            from modules.ml_engine.groq_llm import GroqLLM
-            if GroqLLM.is_available():
-                g = GroqLLM()
-                if g.is_ready:
-                    logger.info("[AIAnalyzer] Groq loaded")
-                    return g
+            from modules.ml_engine.groq_llm import get_groq
+            return get_groq()
         except Exception as e:
             logger.debug(f"Groq load: {e}")
         return None
@@ -179,52 +185,99 @@ class AIAnalyzer:
         callback(groq_result) called when done.
         """
         if not self._groq:
+            if callback:
+                callback({'risk': 'UNKNOWN', 'vulns': [], 'detail': 'Groq not configured', 'fix': ''})
             return
 
         def _run():
             try:
                 url    = flow.get('url', '')
                 method = flow.get('method', '')
-                body   = flow.get('body', '')[:500]
-                params = json.dumps(flow.get('params', {}))[:300]
                 status = flow.get('status_code', '')
-                resp   = flow.get('resp_body', '')[:500]
+
+                # params/body may be JSON string (from DB) or dict
+                raw_params = flow.get('params', {})
+                if isinstance(raw_params, str):
+                    try:
+                        raw_params = json.loads(raw_params)
+                    except Exception:
+                        raw_params = {}
+                params = json.dumps(raw_params)[:300]
+
+                body = (flow.get('body') or '')[:500]
+                resp = (flow.get('resp_body') or '')[:300]
 
                 prompt = (
                     f"Analyze this HTTP request for security vulnerabilities:\n"
                     f"Method: {method}\nURL: {url}\n"
                     f"Params: {params}\nBody: {body}\n"
-                    f"Response: {status} {resp[:200]}\n\n"
-                    f"Reply in JSON: {{\"risk\": \"LOW/MEDIUM/HIGH/CRITICAL\", "
+                    f"Response: {status} {resp}\n\n"
+                    f"Reply ONLY in JSON: {{\"risk\": \"LOW/MEDIUM/HIGH/CRITICAL\", "
                     f"\"vulns\": [\"vuln1\", ...], \"detail\": \"explanation\", "
                     f"\"fix\": \"recommendation\"}}"
                 )
-                out = self._groq.ask(prompt, max_tokens=200)
-                if out and callback:
-                    try:
-                        import re as _re
-                        m = _re.search(r'\{.*\}', out, _re.DOTALL)
-                        if m:
-                            callback(json.loads(m.group()))
-                        else:
+                out = self._groq.ask(prompt, max_tokens=250)
+                if callback:
+                    if out:
+                        try:
+                            m = re.search(r'\{.*\}', out, re.DOTALL)
+                            callback(json.loads(m.group()) if m else {'detail': out[:200]})
+                        except Exception:
                             callback({'detail': out[:200]})
-                    except Exception:
-                        callback({'detail': out[:200]})
+                    else:
+                        callback({'risk': 'UNKNOWN', 'vulns': [], 'detail': 'No response', 'fix': ''})
             except Exception as e:
-                logger.debug(f"Groq analysis error: {e}")
+                logger.debug(f'Groq analysis error: {e}')
+                if callback:
+                    callback({'risk': 'UNKNOWN', 'vulns': [], 'detail': str(e), 'fix': ''})
 
-        threading.Thread(target=_run, daemon=True).start()
+        threading.Thread(target=_run, daemon=True, name='sp-groq').start()
 
     # ── Pattern Scanner ───────────────────────────────────────────────────────
 
     def _pattern_scan(self, text: str, flow: dict) -> list:
         vulns = []
-        text_lower = text.lower()
+        detected_types = set()
 
-        for vuln_type, patterns in VULN_PATTERNS.items():
+        # Priority order — specific types pehle check karo
+        PRIORITY_ORDER = ['XXE', 'SSTI', 'RCE', 'SQLi', 'XSS', 'LFI',
+                          'Path Traversal', 'Open Redirect', 'SSRF']
+        ordered = PRIORITY_ORDER + [t for t in VULN_PATTERNS if t not in PRIORITY_ORDER]
+
+        # XXE — body mein specifically check karo
+        body = flow.get('body', '')
+        if body and re.search(r'<!ENTITY|<!DOCTYPE.*\[', body, re.IGNORECASE | re.DOTALL):
+            vulns.append({
+                'type': 'XXE', 'severity': 'CRITICAL',
+                'pattern': '<!ENTITY', 'param': 'body',
+                'detail': 'XXE pattern in request body',
+            })
+            detected_types.add('XXE')
+
+        # Open Redirect — params mein specifically check karo
+        params = flow.get('params', {})
+        OR_PARAMS = {'redirect', 'return', 'next', 'url', 'goto', 'target',
+                     'redir', 'destination', 'back', 'continue', 'forward'}
+        for k, v in params.items():
+            if k.lower() in OR_PARAMS and re.match(r'https?://', str(v)):
+                # Check it's not an internal IP (that would be SSRF)
+                if not re.search(r'(127\.0\.0\.1|localhost|0\.0\.0\.0|169\.254|192\.168|10\.|172\.)', str(v)):
+                    vulns.append({
+                        'type': 'Open Redirect', 'severity': 'MEDIUM',
+                        'pattern': 'redirect param', 'param': k,
+                        'detail': f'Open Redirect in param: {k}',
+                    })
+                    detected_types.add('Open Redirect')
+                    break
+
+        for vuln_type in ordered:
+            if vuln_type in detected_types:
+                continue
+            if vuln_type in ('XXE', 'Open Redirect'):
+                continue
+            patterns = VULN_PATTERNS.get(vuln_type, [])
             for pattern in patterns:
                 if re.search(pattern, text, re.IGNORECASE):
-                    # Find which param is flagged
                     flagged_param = self._find_flagged_param(
                         flow.get('params', {}),
                         flow.get('body', ''),
@@ -237,7 +290,8 @@ class AIAnalyzer:
                         'param':    flagged_param,
                         'detail':   f"{vuln_type} pattern in {flagged_param or 'request'}",
                     })
-                    break  # One match per vuln type enough
+                    detected_types.add(vuln_type)
+                    break
 
         return vulns
 

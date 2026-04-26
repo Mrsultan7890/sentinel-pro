@@ -723,16 +723,19 @@ class NLPProfileAnalyzer:
                 'type':     'financial_indicator',
             })
 
-        # Personality flags
-        personality = [p['trait'] for p in result['personality']]
-        if 'aggressive' in personality:
-            flags.append({
-                'severity': 'HIGH',
-                'flag':     'Aggressive language patterns',
-                'detail':   'Text contains aggressive/threatening language',
-                'type':     'behavioral_indicator',
-            })
-        if 'paranoid' in personality:
+        # Personality flags — minimum 2 matched keywords required
+        personality_traits = [p['trait'] for p in result['personality']]
+        if 'aggressive' in personality_traits:
+            agg = next((p for p in result['personality'] if p['trait'] == 'aggressive'), {})
+            # Sirf tab flag karo jab 2+ keywords match hoon
+            if len(agg.get('keywords_found', [])) >= 2:
+                flags.append({
+                    'severity': 'HIGH',
+                    'flag':     'Aggressive language patterns',
+                    'detail':   f"Aggressive keywords found: {', '.join(agg.get('keywords_found', []))}",
+                    'type':     'behavioral_indicator',
+                })
+        if 'paranoid' in personality_traits:
             flags.append({
                 'severity': 'MEDIUM',
                 'flag':     'Paranoid/conspiracy language',

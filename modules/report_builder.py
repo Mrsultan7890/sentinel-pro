@@ -76,17 +76,8 @@ class SentinelReportBuilder:
     """
 
     def __init__(self):
-        self._groq = self._load_groq()
-
-    def _load_groq(self):
-        try:
-            from modules.ml_engine.groq_llm import GroqLLM
-            if GroqLLM.is_available():
-                g = GroqLLM()
-                return g if g.is_ready else None
-        except Exception:
-            pass
-        return None
+        from modules.ml_engine.groq_llm import get_groq
+        self._groq = get_groq()
 
     # ── Main Build ────────────────────────────────────────────────────────────
 

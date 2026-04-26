@@ -210,29 +210,32 @@ class TheSentinelPro:
         p = self.console.print
         try:
             import pyfiglet
-            sent_lines = pyfiglet.figlet_format('SENTINEL', font='doom').rstrip().split('\n')
+            sent_lines = pyfiglet.figlet_format('SENTINEL', font='slant').rstrip().split('\n')
         except ImportError:
             sent_lines = ['THE SENTINEL']
 
         OCT = [
-            r"      ___________          ",
-            r"    /             \        ",
-            r"   | (o)       (o) |       ",
-            r"   |    _______    |       ",
-            r"   |   /       \   |       ",
-            r"    \_/         \_/        ",
-            r"   /|             |\       ",
-            r"  / |             | \      ",
-            r" /  |_____________|  \     ",
-            r"/  /                 \ \   ",
+            "      .  .::::::.  .      ",
+            "    .:::::::::::::::::.    ",
+            "   ::::(o):::::::(o)::::   ",
+            "   ::::::::  ^  ::::::::   ",
+            "   ::::::: \\___/ :::::::   ",
+            "    ':::::::::::::::::'    ",
+            "  ~~/~\\:::::::::::::/~\\~~  ",
+            " ~~/ /~\\:::::::::::/~\\ \\~~ ",
+            "~/ /   \\:::::::::/   \\ \\~  ",
+            "~\\_\\    \\:::::::/    /_/~  ",
+            " ~~~     '::::::'     ~~~  ",
         ]
 
         p()
         for line in sent_lines:
-            p(f"[bold red]{line}[/bold red]")
+            p(f"[bold cyan]{line}[/bold cyan]")
         p()
         for line in OCT:
             p(f"[bold cyan]{line}[/bold cyan]")
+        p()
+        p("[bold cyan]  SENTINEL OCTOPUS[/bold cyan]  [dim]Eight arms. Zero mercy.[/dim]")
         p()
         p("[dim]  ─────────────────────────────────────────────────────────────────[/dim]")
         p("  [bold green]OSINT[/bold green]  [bold red]BugBounty[/bold red]  [bold blue]Recon[/bold blue]  [bold magenta]AI/ML[/bold magenta]  [bold yellow]DarkWeb[/bold yellow]  [dim]│  Python · Go · Rust  │  40+ Platforms[/dim]")
@@ -329,6 +332,8 @@ class TheSentinelPro:
                     self._handle_attack_chain(command)
                 elif command.startswith('bugbounty'):
                     self._handle_bugbounty(command)
+                elif command.startswith('depth') or command == 'scan depth':
+                    self._handle_scan_depth(command)
                 elif command.startswith('recon'):
                     self._handle_recon(command)
                 elif command.startswith('breach'):
@@ -394,6 +399,8 @@ class TheSentinelPro:
                     self._handle_forensics(command)
                 elif command.startswith('privilege') or command.startswith('sudo'):
                     self._handle_privilege(command)
+                elif command == 'proxy' or command.startswith('proxy') or command.startswith('sentinelproxy'):
+                    self._handle_proxy(command)
                 elif command.startswith('profile'):
                     self._handle_profile(command)
                 else:
@@ -422,6 +429,17 @@ class TheSentinelPro:
         
         tor_status = "[green]🧅 TOR ON[/green]" if config.is_tor_active() else "[dim]🔓 TOR OFF[/dim]"
         table.add_row("Tor Routing:", tor_status)
+
+        # Scan depth indicator
+        try:
+            from modules.bugbounty.payload_loader import SCAN_DEPTH
+            depth_colors = {'FAST': 'green', 'NORMAL': 'cyan', 'DEEP': 'red'}
+            depth_icons  = {'FAST': '⚡', 'NORMAL': '⚖', 'DEEP': '🔍'}
+            c = depth_colors.get(SCAN_DEPTH, 'cyan')
+            i = depth_icons.get(SCAN_DEPTH, '⚖')
+            table.add_row("Scan Depth:", f"[{c}]{i} {SCAN_DEPTH}[/{c}]")
+        except Exception:
+            pass
         
         if 'target' in self.session_data:
             table.add_row("Current Target:", f"[magenta]{self.session_data['target']}[/magenta]")
@@ -475,6 +493,14 @@ class TheSentinelPro:
 [green]status[/green]               - Detailed system status
 
 [bold cyan]SYSTEM COMMANDS[/bold cyan]
+[green]proxy start[/green]         - 🔒 Start SentinelProxy v2.0 (Rust Core)
+[green]proxy stop[/green]          - Stop SentinelProxy
+[green]proxy restart[/green]       - Kill stale + fresh start (use when site not loading)
+[green]proxy status[/green]        - Check if proxy is running
+[green]depth fast[/green]          - ⚡ Set scan depth: fast (~30 sec)
+[green]depth normal[/green]        - ⚖ Set scan depth: normal (~2-3 min) [default]
+[green]depth deep[/green]          - 🔍 Set scan depth: deep (full wordlist)
+[green]depth[/green]               - Show current depth + payload counts
 [green]tor on[/green]              - Enable Tor routing (anonymize all requests)
 [green]tor off[/green]             - Disable Tor routing
 [green]tor status[/green]          - Show current Tor exit IP
@@ -837,6 +863,7 @@ class TheSentinelPro:
             ("Evidence Vault",   "🟢 SECURE",   f"{len(self.evidence.get_evidence_list())} items"),
             ("AI Threat Engine", "🟢 LOADED",   "Predictive models ready"),
             ("Legal Framework",  "🟢 COMPLIANT","Chain of custody active"),
+            ("SentinelProxy",    "🟢 READY",    "Run: proxy  |  127.0.0.1:8082"),
         ]
         for component, status, details in components:
             status_table.add_row(component, status, details)
@@ -3575,63 +3602,93 @@ Anti-Detection: [green]ACTIVE[/green]
 
         self.console.print("[dim]Usage: train status | train collect | train run | train save | train eval[/dim]")
 
+    def _handle_proxy(self, command: str = 'proxy'):
+        """SentinelProxy commands — start / stop / restart / status"""
+        import subprocess
+        from pathlib import Path
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog='sentinel-pro',
-        description='The Sentinel Pro - Professional OSINT & Bug Bounty Platform',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python3 main.py                          # Interactive mode
-  python3 main.py --bugbounty example.com  # Direct bug bounty scan
-  python3 main.py --recon example.com      # Direct recon scan
-  python3 main.py --breach user@email.com  # Direct breach check
-  python3 main.py --email user@email.com   # Direct email OSINT
-  python3 main.py --scan-all example.com   # Run all scans
-        """
-    )
-    parser.add_argument('--version', action='version', version='The Sentinel Pro v2.1')
-    parser.add_argument('--bugbounty', metavar='DOMAIN',  help='Run bug bounty scan on domain')
-    parser.add_argument('--recon',     metavar='DOMAIN',  help='Run passive recon on domain')
-    parser.add_argument('--breach',    metavar='TARGET',  help='Check email/username in breach databases')
-    parser.add_argument('--email',     metavar='EMAIL',   help='Run full email OSINT')
-    parser.add_argument('--phone',     metavar='PHONE',   help='Run phone number OSINT')
-    parser.add_argument('--person',    metavar='QUERY',   help='Run person OSINT (name/email/phone)')
-    parser.add_argument('--image',     metavar='PATH',    help='Run image OSINT (reverse search + face)')
-    parser.add_argument('--scan-all',  metavar='DOMAIN',  help='Run recon + bugbounty + breach on domain')
-    parser.add_argument('--bulk',      metavar='FILE',    help='Bulk scan from file (use with --mode)')
-    parser.add_argument('--mode',      metavar='MODE',    help='Scan mode for --bulk: bugbounty/recon/breach/email/phone/all', default='all')
+        parts   = command.strip().split()
+        subcmd  = parts[1] if len(parts) > 1 else 'start'
 
-    args = parser.parse_args()
-    sentinel_pro = TheSentinelPro()
+        proxy_main   = Path('/home/kali/osints/sentinel_proxy/main.py')
+        venv_python  = Path('/home/kali/osints/venv/bin/python3')
+        python       = str(venv_python) if venv_python.exists() else 'python3'
 
-    # Non-interactive mode — run single command and exit
-    if args.bugbounty:
-        sentinel_pro._handle_bugbounty(f'bugbounty {args.bugbounty}')
-    elif args.recon:
-        sentinel_pro._handle_recon(f'recon {args.recon}')
-    elif args.breach:
-        sentinel_pro._handle_breach(f'breach {args.breach}')
-    elif args.email:
-        sentinel_pro._handle_email(f'email {args.email}')
-    elif args.phone:
-        sentinel_pro._handle_phone(f'phone {args.phone}')
-    elif args.person:
-        sentinel_pro._handle_person(f'person {args.person}')
-    elif args.image:
-        sentinel_pro._handle_image(f'image {args.image}')
-    elif args.scan_all:
-        domain = args.scan_all
-        sentinel_pro.console.print(f"[bold cyan]Running full scan on: {domain}[/bold cyan]")
-        sentinel_pro._handle_recon(f'recon {domain}')
-        sentinel_pro._handle_bugbounty(f'bugbounty {domain}')
-        sentinel_pro._handle_breach(f'breach {domain}')
-    elif args.bulk:
-        sentinel_pro._handle_bulk(f'bulk {args.bulk} {args.mode}')
-    else:
-        # Interactive mode
-        sentinel_pro.run()
+        def _kill_port():
+            try:
+                r = subprocess.run(['lsof', '-t', '-i:8082'],
+                                   capture_output=True, text=True)
+                for pid in r.stdout.strip().split():
+                    if pid:
+                        subprocess.run(['kill', '-9', pid], capture_output=True)
+                if r.stdout.strip():
+                    import time; time.sleep(0.5)
+                    return True
+            except Exception:
+                pass
+            return False
+
+        def _is_running() -> bool:
+            import socket as _s
+            try:
+                c = _s.create_connection(('127.0.0.1', 8082), timeout=0.5)
+                c.close(); return True
+            except Exception:
+                return False
+
+        if subcmd in ('start', 'on'):
+            if _is_running():
+                self.console.print("[yellow][~][/yellow] Proxy already running on 127.0.0.1:8082")
+                self.console.print("[dim]    Use: proxy restart  — to restart cleanly[/dim]")
+                return
+            self.console.print("[cyan][*][/cyan] Starting SentinelProxy v2.0 (Rust Core)...")
+            try:
+                subprocess.Popen(
+                    [python, str(proxy_main)],
+                    cwd='/home/kali/osints',
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self.console.print("[green][+][/green] SentinelProxy launched")
+                self.console.print("[dim]    Browser proxy: 127.0.0.1:8082[/dim]")
+                self.console.print("[dim]    CA cert: ~/.mitmproxy/sentinel-ca-cert.pem[/dim]")
+            except Exception as e:
+                self.console.print(f"[red][!][/red] Failed to launch: {e}")
+
+        elif subcmd in ('stop', 'off'):
+            killed = _kill_port()
+            if killed:
+                self.console.print("[green][+][/green] Proxy stopped")
+            else:
+                self.console.print("[yellow][~][/yellow] Proxy was not running")
+
+        elif subcmd == 'restart':
+            self.console.print("[cyan][*][/cyan] Restarting SentinelProxy...")
+            _kill_port()
+            import time; time.sleep(0.5)
+            try:
+                subprocess.Popen(
+                    [python, str(proxy_main)],
+                    cwd='/home/kali/osints',
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                self.console.print("[green][+][/green] SentinelProxy restarted on 127.0.0.1:8082")
+            except Exception as e:
+                self.console.print(f"[red][!][/red] Restart failed: {e}")
+
+        elif subcmd == 'status':
+            running = _is_running()
+            if running:
+                self.console.print("[green][+][/green] SentinelProxy [bold]RUNNING[/bold] on 127.0.0.1:8082")
+                self.console.print("[dim]    Browser proxy: 127.0.0.1:8082[/dim]")
+                self.console.print("[dim]    CA cert: ~/.mitmproxy/sentinel-ca-cert.pem[/dim]")
+            else:
+                self.console.print("[red][-][/red] SentinelProxy [bold]NOT RUNNING[/bold]")
+                self.console.print("[dim]    Start with: proxy start[/dim]")
+
+        else:
+            self.console.print("[dim]Usage: proxy start | stop | restart | status[/dim]")
     def _handle_secure_files(self, command: str):
         """Secure file management commands"""
         parts = command.split()
@@ -4111,7 +4168,7 @@ Examples:
                 
         except Exception as e:
             self.console.print(f"[red]Forensics error: {e}[/red]")
-    
+
     def _handle_privilege(self, command: str):
         """Privilege management commands"""
         parts = command.split(' ', 1)
@@ -4147,6 +4204,18 @@ Examples:
                 privilege_manager.clear_cache()
                 self.console.print("[green]✓ Password cache cleared[/green]")
                 
+            elif subcmd.startswith('store'):
+                import getpass
+                self.console.print("[cyan]Enter sudo password to store securely:[/cyan]")
+                try:
+                    pwd = getpass.getpass('Password: ')
+                    if privilege_manager.store_password(pwd):
+                        self.console.print("[green]✓ Password stored securely in keyring[/green]")
+                    else:
+                        self.console.print("[red]Failed to store password[/red]")
+                except Exception as e:
+                    self.console.print(f"[red]Store error: {e}[/red]")
+                    
             elif subcmd == 'remove':
                 if privilege_manager.remove_stored_password():
                     self.console.print("[green]✓ Stored password removed[/green]")
@@ -4170,3 +4239,326 @@ Examples:
                 
         except Exception as e:
             self.console.print(f"[red]Privilege error: {e}[/red]")
+
+    # ── Missing Handlers + Scan Depth ──────────────────────────────────────────────────────────────────────────────
+
+
+        import modules.bugbounty.payload_loader as pl
+        from modules.bugbounty.payload_loader import payload_stats
+        from modules.bugbounty.dirbuster_bridge import WORDLISTS
+        from pathlib import Path
+        from rich.table import Table
+
+        parts = command.split()
+
+        def _show_stats(depth):
+            """Show payload + wordlist stats for given depth."""
+            stats = payload_stats()
+            total_payloads = sum(stats.values())
+
+            # Wordlist info
+            wl_map = {
+                'FAST':   ('Built-in fast list', f'{len(pl.FAST_PATHS) if hasattr(pl, "FAST_PATHS") else 50} paths'),
+                'NORMAL': ('/usr/share/seclists/common.txt', '~4,700 paths'),
+                'DEEP':   ('/usr/share/seclists/big.txt', '~20,000 paths'),
+            }
+            # Check actual wordlist availability
+            wl_paths = WORDLISTS.get(depth, [])
+            wl_found = next((w for w in wl_paths if w and Path(w).exists()), None)
+            wl_name  = Path(wl_found).name if wl_found else ('built-in' if depth == 'FAST' else 'not found')
+            wl_size  = wl_map.get(depth, ('', ''))[1]
+
+            t = Table(show_header=True, header_style='bold', border_style='dim')
+            t.add_column('Category',  style='dim',  width=22)
+            t.add_column('Count',     justify='right', width=10)
+            t.add_column('Source',    style='dim')
+
+            # Top payload types
+            for ptype in ['sqli','xss','lfi','path_traversal','ssrf','rce']:
+                t.add_row(ptype, str(stats.get(ptype, 0)), 'sentinel_proxy/payloads/')
+            t.add_row('─'*20, '─'*8, '─'*20)
+            t.add_row('[bold]Total payloads[/bold]', f'[bold]{total_payloads}[/bold]', 'all types')
+            t.add_row('[bold]Dir wordlist[/bold]',   f'[bold]{wl_size}[/bold]', wl_name)
+
+            self.console.print(t)
+
+        if len(parts) < 2:
+            colors = {'FAST': 'green', 'NORMAL': 'cyan', 'DEEP': 'red'}
+            icons  = {'FAST': '⚡', 'NORMAL': '⚖', 'DEEP': '🔍'}
+            c = colors.get(pl.SCAN_DEPTH, 'cyan')
+            i = icons.get(pl.SCAN_DEPTH, '⚖')
+            self.console.print(f"[bold]Current scan depth:[/bold] [{c}]{i} {pl.SCAN_DEPTH}[/{c}]")
+            self.console.print()
+            self.console.print("  [green]fast[/green]   ⚡  built-in ~50 paths   · top 8-15 payloads   (~30 sec/target)")
+            self.console.print("  [cyan]normal[/cyan] ⚖  common.txt ~4.7K      · top 25-50 payloads  (~2-3 min/target) [default]")
+            self.console.print("  [red]deep[/red]   🔍  big.txt ~20K          · full wordlist       (~10+ min/target)")
+            self.console.print()
+            _show_stats(pl.SCAN_DEPTH)
+            return
+
+        depth = parts[-1].upper()
+        if depth not in ('FAST', 'NORMAL', 'DEEP'):
+            self.console.print("[red]Invalid depth. Use: fast | normal | deep[/red]")
+            return
+
+        pl.SCAN_DEPTH = depth
+        pl._load_file.cache_clear()
+
+        colors = {'FAST': 'green', 'NORMAL': 'cyan', 'DEEP': 'red'}
+        icons  = {'FAST': '⚡', 'NORMAL': '⚖', 'DEEP': '🔍'}
+        c = colors[depth]
+        i = icons[depth]
+        self.console.print(f"[{c}]✓ Scan depth set to {i} {depth}[/{c}]")
+        self.console.print()
+        _show_stats(depth)
+
+    def _handle_scan_depth(self, command: str):
+        """Set scan depth: fast / normal / deep"""
+        import modules.bugbounty.payload_loader as pl
+        from modules.bugbounty.payload_loader import payload_stats
+        from modules.bugbounty.dirbuster_bridge import WORDLISTS
+        from pathlib import Path
+        from rich.table import Table
+
+        parts = command.split()
+
+        def _show_stats(depth):
+            stats = payload_stats()
+            total_payloads = sum(stats.values())
+            wl_paths = WORDLISTS.get(depth, [])
+            wl_found = next((w for w in wl_paths if w and Path(w).exists()), None)
+            wl_name  = Path(wl_found).name if wl_found else ('built-in' if depth == 'FAST' else '[red]not found[/red]')
+            wl_sizes = {'FAST': '~50 paths', 'NORMAL': '~4,700 paths', 'DEEP': '~20,000 paths'}
+
+            t = Table(show_header=True, header_style='bold', border_style='dim')
+            t.add_column('Type',    style='dim',  width=22)
+            t.add_column('Count',   justify='right', width=10)
+            t.add_column('Source',  style='dim')
+            for ptype in ['sqli','xss','lfi','path_traversal','ssrf','rce','nosql','xxe']:
+                t.add_row(ptype, str(stats.get(ptype, 0)), 'sentinel_proxy/payloads/')
+            t.add_row('─'*20, '─'*8, '─'*25)
+            t.add_row('[bold]Total payloads[/bold]', f'[bold]{total_payloads}[/bold]', 'all vuln types')
+            t.add_row('[bold]Dir wordlist[/bold]',   f'[bold]{wl_sizes[depth]}[/bold]', wl_name)
+            self.console.print(t)
+
+        if len(parts) < 2:
+            colors = {'FAST': 'green', 'NORMAL': 'cyan', 'DEEP': 'red'}
+            icons  = {'FAST': '⚡', 'NORMAL': '⚖', 'DEEP': '🔍'}
+            c = colors.get(pl.SCAN_DEPTH, 'cyan')
+            i = icons.get(pl.SCAN_DEPTH, '⚖')
+            self.console.print(f"[bold]Current scan depth:[/bold] [{c}]{i} {pl.SCAN_DEPTH}[/{c}]")
+            self.console.print()
+            self.console.print("  [green]fast[/green]   ⚡  built-in ~50 paths   · top 8-15 payloads   (~30 sec/target)")
+            self.console.print("  [cyan]normal[/cyan] ⚖  common.txt ~4.7K      · top 25-50 payloads  (~2-3 min/target) [default]")
+            self.console.print("  [red]deep[/red]   🔍  big.txt ~20K          · full wordlist       (~10+ min/target)")
+            self.console.print()
+            _show_stats(pl.SCAN_DEPTH)
+            return
+
+        depth = parts[-1].upper()
+        if depth not in ('FAST', 'NORMAL', 'DEEP'):
+            self.console.print("[red]Invalid depth. Use: fast | normal | deep[/red]")
+            return
+        pl.SCAN_DEPTH = depth
+        pl._load_file.cache_clear()
+        colors = {'FAST': 'green', 'NORMAL': 'cyan', 'DEEP': 'red'}
+        icons  = {'FAST': '⚡', 'NORMAL': '⚖', 'DEEP': '🔍'}
+        self.console.print(f"[{colors[depth]}]✓ Scan depth set to {icons[depth]} {depth}[/{colors[depth]}]")
+        self.console.print()
+        _show_stats(depth)
+
+    def _handle_scheduler(self, command: str):
+        """Task scheduler commands."""
+        parts = command.split()
+        subcmd = parts[1] if len(parts) > 1 else 'list'
+        try:
+            from sentinel_brain.agents.scheduler_agent import SchedulerAgent
+            agent = SchedulerAgent()
+            if subcmd == 'list':
+                tasks = agent.list_schedules()
+                if tasks:
+                    for t in tasks:
+                        self.console.print(f"  [cyan]{t.get('name','')}[/cyan] — {t.get('mode','')} every {t.get('interval_hours',0)}h")
+                else:
+                    self.console.print("[dim]No scheduled tasks.[/dim]")
+            elif subcmd == 'add' and len(parts) >= 4:
+                name, target = parts[2], parts[3]
+                mode = parts[4] if len(parts) > 4 else 'full'
+                agent.add(name, target, mode)
+                self.console.print(f"[green]✓ Task '{name}' scheduled for {target}[/green]")
+            elif subcmd == 'remove' and len(parts) > 2:
+                agent.remove(parts[2])
+                self.console.print(f"[green]✓ Task removed[/green]")
+            elif subcmd == 'start':
+                agent.start()
+                self.console.print("[green]✓ Scheduler started[/green]")
+            else:
+                self.console.print("[dim]Usage: scheduler list | add <name> <target> [mode] | remove <name> | start[/dim]")
+        except Exception as e:
+            self.console.print(f"[red]Scheduler error: {e}[/red]")
+
+    def _handle_credential(self, command: str):
+        """Credential management commands."""
+        parts = command.split()
+        subcmd = parts[1] if len(parts) > 1 else 'list'
+        try:
+            from sentinel_brain.agents.credential_agent import CredentialAgent
+            agent = CredentialAgent()
+            if subcmd == 'list':
+                creds = agent.read_env()
+                if creds:
+                    for k, v in creds.items():
+                        masked = v[:4] + '****' if v and len(v) > 4 else '****'
+                        self.console.print(f"  [cyan]{k}[/cyan]: {masked}")
+                else:
+                    self.console.print("[dim]No credentials stored.[/dim]")
+            elif subcmd in ('add', 'set') and len(parts) >= 4:
+                key, value = parts[2], ' '.join(parts[3:])
+                if agent.set_key(key, value):
+                    self.console.print(f"[green]✓ Key '{key}' stored[/green]")
+                else:
+                    self.console.print(f"[red]Failed to store key[/red]")
+            elif subcmd == 'remove' and len(parts) > 2:
+                if agent.remove_key(parts[2]):
+                    self.console.print(f"[green]✓ Key removed[/green]")
+            elif subcmd == 'validate':
+                result = agent.validate_all()
+                for k, v in result.items():
+                    status = '[green]✓[/green]' if v else '[red]✗[/red]'
+                    self.console.print(f"  {status} {k}")
+            else:
+                self.console.print("[dim]Usage: cred list | add <key> <value> | remove <key> | validate[/dim]")
+        except Exception as e:
+            self.console.print(f"[red]Credential error: {e}[/red]")
+
+    def _handle_sysmon(self, command: str):
+        """System monitor commands."""
+        try:
+            from sentinel_brain.agents.system_monitor_agent import SystemMonitorAgent
+            agent = SystemMonitorAgent()
+            stats = agent.get_stats()
+            from rich.table import Table
+            t = Table(title="System Monitor", border_style="cyan")
+            t.add_column("Metric", style="bold")
+            t.add_column("Value", justify="right")
+            t.add_row("CPU Usage",    f"{stats.get('cpu_percent', 0):.1f}%")
+            t.add_row("RAM Usage",    f"{stats.get('ram_percent', 0):.1f}%")
+            t.add_row("RAM Used",     f"{stats.get('ram_used_gb', 0):.2f} GB")
+            t.add_row("Disk Usage",   f"{stats.get('disk_percent', 0):.1f}%")
+            t.add_row("Disk Free",    f"{stats.get('disk_free_gb', 0):.1f} GB")
+            t.add_row("Network Sent", f"{stats.get('net_sent_mb', 0):.1f} MB")
+            t.add_row("Network Recv", f"{stats.get('net_recv_mb', 0):.1f} MB")
+            self.console.print(t)
+        except Exception as e:
+            # Fallback with psutil directly
+            try:
+                import psutil
+                self.console.print(f"CPU: {psutil.cpu_percent()}%  RAM: {psutil.virtual_memory().percent}%  Disk: {psutil.disk_usage('/').percent}%")
+            except Exception:
+                self.console.print(f"[red]Sysmon error: {e}[/red]")
+
+    def _handle_correlate(self, command: str):
+        """Finding correlation commands."""
+        parts = command.split(' ', 1)
+        target = parts[1].strip() if len(parts) > 1 else ''
+        if not target:
+            self.console.print("[red]Usage: correlate <target>[/red]")
+            return
+        try:
+            from sentinel_brain.agents.correlation_agent import CorrelationAgent
+            from sentinel_brain.memory import Memory
+            memory = Memory()
+            agent  = CorrelationAgent(memory)
+            self.console.print(f"[cyan]Correlating findings for: {target}[/cyan]")
+            result = agent.run(target=target)
+            if result:
+                risk = result.get('risk_trend', {})
+                self.console.print(f"[bold]Risk Trend:[/bold] {risk.get('trend','N/A')} (score: {risk.get('current_score',0)})")
+                anomalies = result.get('anomalies', [])
+                if anomalies:
+                    self.console.print(f"[yellow]Anomalies: {len(anomalies)}[/yellow]")
+                    for a in anomalies[:5]:
+                        self.console.print(f"  [dim]{a}[/dim]")
+            else:
+                self.console.print("[dim]No correlations found.[/dim]")
+        except Exception as e:
+            self.console.print(f"[red]Correlate error: {e}[/red]")
+
+    def _handle_filesystem(self, command: str):
+        """Filesystem evidence collection commands."""
+        parts = command.split(' ', 1)
+        path = parts[1].strip() if len(parts) > 1 else '.'
+        try:
+            from sentinel_brain.agents.filesystem_agent import FileSystemAgent
+            agent = FileSystemAgent()
+            self.console.print(f"[cyan]Collecting filesystem evidence: {path}[/cyan]")
+            result = agent.disk_usage_report()
+            if result:
+                self.console.print(f"[bold]Disk Usage Report[/bold]")
+                for k, v in result.items():
+                    self.console.print(f"  [cyan]{k}[/cyan]: {v}")
+            # Also find sensitive files
+            sensitive = agent.find_sensitive_files(path)
+            if sensitive:
+                self.console.print(f"\n[yellow]Sensitive files found: {len(sensitive)}[/yellow]")
+                for f in sensitive[:10]:
+                    self.console.print(f"  [dim]{f}[/dim]")
+        except Exception as e:
+            self.console.print(f"[red]Filesystem error: {e}[/red]")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        prog='sentinel-pro',
+        description='The Sentinel Pro - Professional OSINT & Bug Bounty Platform',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python3 main.py                          # Interactive mode
+  python3 main.py --bugbounty example.com  # Direct bug bounty scan
+  python3 main.py --recon example.com      # Direct recon scan
+  python3 main.py --breach user@email.com  # Direct breach check
+  python3 main.py --email user@email.com   # Direct email OSINT
+  python3 main.py --scan-all example.com   # Run all scans
+        """
+    )
+    parser.add_argument('--version', action='version', version='The Sentinel Pro v2.1')
+    parser.add_argument('--bugbounty', metavar='DOMAIN',  help='Run bug bounty scan on domain')
+    parser.add_argument('--recon',     metavar='DOMAIN',  help='Run passive recon on domain')
+    parser.add_argument('--breach',    metavar='TARGET',  help='Check email/username in breach databases')
+    parser.add_argument('--email',     metavar='EMAIL',   help='Run full email OSINT')
+    parser.add_argument('--phone',     metavar='PHONE',   help='Run phone number OSINT')
+    parser.add_argument('--person',    metavar='QUERY',   help='Run person OSINT (name/email/phone)')
+    parser.add_argument('--image',     metavar='PATH',    help='Run image OSINT (reverse search + face)')
+    parser.add_argument('--scan-all',  metavar='DOMAIN',  help='Run recon + bugbounty + breach on domain')
+    parser.add_argument('--bulk',      metavar='FILE',    help='Bulk scan from file (use with --mode)')
+    parser.add_argument('--mode',      metavar='MODE',    help='Scan mode for --bulk: bugbounty/recon/breach/email/phone/all', default='all')
+
+    args = parser.parse_args()
+    sentinel_pro = TheSentinelPro()
+
+    # Non-interactive mode — run single command and exit
+    if args.bugbounty:
+        sentinel_pro._handle_bugbounty(f'bugbounty {args.bugbounty}')
+    elif args.recon:
+        sentinel_pro._handle_recon(f'recon {args.recon}')
+    elif args.breach:
+        sentinel_pro._handle_breach(f'breach {args.breach}')
+    elif args.email:
+        sentinel_pro._handle_email(f'email {args.email}')
+    elif args.phone:
+        sentinel_pro._handle_phone(f'phone {args.phone}')
+    elif args.person:
+        sentinel_pro._handle_person(f'person {args.person}')
+    elif args.image:
+        sentinel_pro._handle_image(f'image {args.image}')
+    elif args.scan_all:
+        domain = args.scan_all
+        sentinel_pro.console.print(f"[bold cyan]Running full scan on: {domain}[/bold cyan]")
+        sentinel_pro._handle_recon(f'recon {domain}')
+        sentinel_pro._handle_bugbounty(f'bugbounty {domain}')
+        sentinel_pro._handle_breach(f'breach {domain}')
+    elif args.bulk:
+        sentinel_pro._handle_bulk(f'bulk {args.bulk} {args.mode}')
+    else:
+        # Interactive mode
+        sentinel_pro.run()

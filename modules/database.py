@@ -29,7 +29,8 @@ from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path('/home/kali/osints/data/sentinel.db')
+import config as _cfg
+DB_PATH = _cfg.BASE_DIR / 'data' / 'sentinel.db'
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(f'sqlite:///{DB_PATH}', echo=False,
@@ -124,6 +125,29 @@ class ToolStat(Base):
 
 
 Base.metadata.create_all(engine)
+
+# Auto-migration: add missing columns to existing tables
+def _run_migrations():
+    """Add missing columns to existing DB without dropping data."""
+    import sqlite3 as _sqlite3
+    conn = _sqlite3.connect(str(DB_PATH))
+    cur  = conn.cursor()
+    migrations = [
+        # (table, column, definition)
+        ('decisions', 'agent',   "VARCHAR DEFAULT 'unknown'"),
+        ('decisions', 'outcome', "TEXT DEFAULT ''"),
+        ('scans',     'raw_data',"TEXT DEFAULT ''"),
+        ('findings',  'evidence',"TEXT DEFAULT ''"),
+    ]
+    for table, col, defn in migrations:
+        try:
+            cur.execute(f'ALTER TABLE {table} ADD COLUMN {col} {defn}')
+            conn.commit()
+        except _sqlite3.OperationalError:
+            pass  # column already exists
+    conn.close()
+
+_run_migrations()
 
 
 class SentinelDB:

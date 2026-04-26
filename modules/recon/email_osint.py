@@ -1,7 +1,13 @@
+"""
+Email OSINT - Email address investigation
+Domain validation, social profile hints, breach check, disposable detection
+"""
+
 import logging
 import re
 import requests
 import dns.resolver
+from datetime import datetime
 from modules.utils import rate_limited_get
 
 logger = logging.getLogger(__name__)
@@ -33,6 +39,7 @@ class EmailOSINT:
             'disposable': False,
             'risk_level': 'LOW',
             'risk_flags': [],
+            'timestamp': datetime.now().isoformat(),
             'error': None
         }
 
@@ -100,8 +107,11 @@ class EmailOSINT:
         result['social_hints'] = hints
 
     def _breach_check(self, result: dict):
-        resp = rate_limited_get('https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-login',
-                                namespace='breach', params={'username': result['email']})
+        # HudsonRock — correct email endpoint
+        resp = rate_limited_get(
+            'https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-email',
+            namespace='breach', params={'email': result['email']}
+        )
         if resp and resp.status_code == 200:
             data     = resp.json()
             stealers = data.get('stealers', [])

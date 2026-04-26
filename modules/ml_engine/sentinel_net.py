@@ -757,7 +757,10 @@ class SentinelSeq2Seq(nn.Module):
                 T = tgt_ids.size(1)
                 causal = torch.triu(torch.ones(T, T, device=src.device), diagonal=1).bool()
                 out    = self.decoder(tgt_emb, enc_out, tgt_mask=causal)
-                nxt    = self.out_proj(out[:, -1, :]).argmax(-1).item()
+                logits = self.out_proj(out[:, -1, :])
+                # UNK suppress karo
+                logits[:, tok.UNK] = float('-inf')
+                nxt = logits.argmax(-1).item()
                 if nxt == tok.EOS:
                     break
                 generated.append(nxt)
@@ -781,6 +784,8 @@ class SentinelSeq2Seq(nn.Module):
                 causal = torch.triu(torch.ones(T, T, device=src.device), diagonal=1).bool()
                 out    = self.decoder(tgt_emb, enc_out, tgt_mask=causal)
                 logits = self.out_proj(out[:, -1, :]) / temperature
+                # UNK suppress karo
+                logits[:, tok.UNK] = float('-inf')
                 if top_k > 0:
                     vals, _ = torch.topk(logits, top_k)
                     logits[logits < vals[:, -1:]] = float('-inf')

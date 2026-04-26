@@ -31,8 +31,9 @@ class ForensicsToolkit:
     """
     
     def __init__(self):
-        self.evidence_dir = Path("/tmp/sentinel_evidence")
-        self.evidence_dir.mkdir(exist_ok=True)
+        import config as _cfg
+        self.evidence_dir = _cfg.EVIDENCE_DIR / 'forensics_cases'
+        self.evidence_dir.mkdir(parents=True, exist_ok=True)
         
         # Forensics tools configuration
         self.tools = {

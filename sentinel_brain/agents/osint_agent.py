@@ -19,17 +19,9 @@ class OsintAgent:
         self.memory   = memory
         self.sentinel = sentinel
         self.terminal = kali
-        self._groq    = self._load_groq()
-        
-    def _load_groq(self):
-        try:
-            from modules.ml_engine.groq_llm import GroqLLM
-            if GroqLLM.is_available():
-                g = GroqLLM()
-                return g if g.is_ready else None
-        except Exception:
-            pass
-        return None
+        # Groq singleton — person profile summary ke liye
+        from modules.ml_engine.groq_llm import get_groq
+        self._groq = get_groq()
 
     def run(self, target: str, target_type: str = None) -> dict:
         target_type = target_type or self._detect_type(target)
@@ -95,6 +87,24 @@ class OsintAgent:
         result['_agent_summary'] = summary
         result['_risk']          = risk
         result['_target_type']   = target_type
+
+        # Groq — person profile ke liye threat narrative banao
+        if self._groq and target_type == 'person':
+            profiles = result.get('social_profiles', [])
+            if profiles:
+                try:
+                    platform_list = ', '.join(p['platform'] for p in profiles[:5])
+                    groq_summary = self._groq.ask(
+                        f"OSINT target found on: {platform_list}. "
+                        f"Risk level: {risk}. "
+                        f"In 1 sentence: what is the OSINT threat profile of this person?",
+                        max_tokens=80
+                    )
+                    if groq_summary:
+                        result['_groq_profile'] = groq_summary
+                except Exception as e:
+                    logger.debug(f"[OsintAgent] Groq profile failed: {e}")
+
         return result
 
     def _detect_type(self, target: str) -> str:

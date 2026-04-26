@@ -1,7 +1,7 @@
 """
 Groq LLM Integration — SentinelLM Thinking Layer
 ==================================================
-Groq API se Llama-3.1-70B use karo — free tier available.
+Groq API se Llama-3.3-70B use karo — free tier available.
 Brain ke liye reasoning, planning, aur natural language understanding.
 
 Author: @who_is_the_black_hat
@@ -11,7 +11,7 @@ import json
 import logging
 import re
 import time
-from pathlib import Path
+import threading
 
 import config
 
@@ -22,13 +22,10 @@ TOOLS = [
     'amass', 'subfinder', 'whatweb', 'wafw00f', 'sslscan',
     'theHarvester', 'searchsploit', 'commix', 'wpscan',
     'enum4linux', 'hydra', 'masscan', 'hashcat', 'john',
-    # Metasploit tools
     'msfconsole', 'msfvenom', 'msfdb',
-    # Forensics tools
     'volatility', 'autopsy', 'sleuthkit', 'foremost', 'scalpel',
     'binwalk', 'yara', 'strings', 'dd', 'tcpdump', 'wireshark',
-    # Additional security tools
-    'aircrack-ng', 'airmon-ng', 'reaver', 'ettercap', 'hping3'
+    'aircrack-ng', 'airmon-ng', 'reaver', 'ettercap', 'hping3',
 ]
 
 SYSTEM_PROMPT = """You are SentinelLM, an autonomous security AI running on Kali Linux.
@@ -49,7 +46,7 @@ Rules:
 
 class GroqLLM:
     """
-    Groq API wrapper — Llama-3.1-70B-Versatile.
+    Groq API wrapper — Llama-3.3-70B-Versatile.
 
     Usage:
         llm = GroqLLM()
@@ -61,7 +58,7 @@ class GroqLLM:
     """
 
     MODEL    = 'llama-3.3-70b-versatile'
-    FALLBACK = 'llama-3.1-8b-instant'   # agar 70b rate limit ho
+    FALLBACK = 'llama-3.1-8b-instant'
 
     def __init__(self):
         self._client  = None
@@ -138,7 +135,6 @@ class GroqLLM:
             {'role': 'user',   'content': prompt},
         ]
         out = self._call(messages, max_tokens=100, temperature=0.2)
-        # Sirf command return karo — backticks hata do
         out = re.sub(r'^```\w*\n?', '', out).rstrip('`').strip()
         return out.split('\n')[0].strip()
 
@@ -155,7 +151,6 @@ class GroqLLM:
             {'role': 'user',   'content': prompt},
         ]
         out = self._call(messages, max_tokens=10, temperature=0.1)
-        # Sirf tool name extract karo
         out = out.strip().lower().split()[0] if out.strip() else ''
         return out if out in TOOLS else ''
 
@@ -189,13 +184,11 @@ class GroqLLM:
         ]
         out = self._call(messages, max_tokens=300, temperature=0.3)
         try:
-            # JSON extract karo
             m = re.search(r'\{.*\}', out, re.DOTALL)
             if m:
                 return json.loads(m.group())
         except Exception:
             pass
-        # Fallback — tools list extract karo
         tools_found = [t for t in TOOLS if t in out.lower()]
         return {'steps': tools_found or ['nmap', 'nikto', 'nuclei'],
                 'reason': out[:200]}
@@ -232,3 +225,31 @@ class GroqLLM:
     def is_available() -> bool:
         key = getattr(config, 'GROQ_API_KEY', '')
         return bool(key)
+
+
+# ── Singleton — ek baar load, sab jagah use ───────────────────────────────────
+# Sab agents yahi use karein: from modules.ml_engine.groq_llm import get_groq
+_groq_instance = None
+_groq_lock     = threading.Lock()
+
+def get_groq():
+    """
+    Shared GroqLLM instance — lazy init, thread-safe.
+    Returns None if GROQ_API_KEY not set or groq package missing.
+    """
+    global _groq_instance
+    if _groq_instance is not None:
+        return _groq_instance
+    with _groq_lock:
+        if _groq_instance is not None:
+            return _groq_instance
+        try:
+            if not GroqLLM.is_available():
+                return None
+            g = GroqLLM()
+            if g.is_ready:
+                _groq_instance = g
+                logger.info('get_groq(): singleton initialized')
+        except Exception as e:
+            logger.debug(f'get_groq() init failed: {e}')
+    return _groq_instance

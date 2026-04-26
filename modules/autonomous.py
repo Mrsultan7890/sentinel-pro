@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from modules.database import DB
+from modules.database import SentinelDB as DB
 
 logger = logging.getLogger(__name__)
 
@@ -367,7 +367,7 @@ class AutonomousAgent:
 
         # DB save
         for a in unique:
-            DB.save_decision(a['target'], a['type'], a['reason'], a['priority'])
+            DB.save_decision(a['target'], 'AutonomousAgent', a['type'], a['reason'], a['priority'])
 
         return unique[:4]
 

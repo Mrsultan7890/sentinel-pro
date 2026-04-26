@@ -5,7 +5,7 @@ Fetches cookies from HTTP/HTTPS and audits security flags.
 
 import logging
 import requests
-from modules.utils import rate_limited_get
+from modules.utils import tor_session
 
 logger = logging.getLogger(__name__)
 
@@ -38,15 +38,27 @@ class CookieAnalyzer:
             try:
                 resp = requests.get(url, timeout=10, allow_redirects=True,
                                     headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+                # requests.cookies object se cookies lo
                 for c in resp.cookies:
                     if c.name not in cookies_seen:
                         cookies_seen[c.name] = c
-                # Also parse Set-Cookie headers directly for flag accuracy
-                for raw in resp.headers.get_all('Set-Cookie') if hasattr(resp.headers, 'get_all') else [resp.headers.get('Set-Cookie', '')]:
+
+                # Set-Cookie headers directly parse karo — more accurate flags
+                # requests mein get_all nahi hoti, urllib3 raw headers use karo
+                raw_headers = resp.raw.headers.getlist('Set-Cookie') if hasattr(resp.raw, 'headers') and hasattr(resp.raw.headers, 'getlist') else []
+                if not raw_headers:
+                    # Fallback: single Set-Cookie header
+                    sc = resp.headers.get('Set-Cookie', '')
+                    raw_headers = [sc] if sc else []
+
+                for raw in raw_headers:
                     if raw:
                         parsed = self._parse_set_cookie(raw)
                         if parsed and parsed['name'] not in cookies_seen:
                             cookies_seen[parsed['name']] = parsed
+
+                if cookies_seen:
+                    break  # https pe cookies mile, http skip karo
             except Exception as e:
                 logger.debug(f"CookieAnalyzer {scheme}://{domain}: {e}")
 

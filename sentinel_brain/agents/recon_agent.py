@@ -17,19 +17,10 @@ class ReconAgent:
         self.kali     = kali
         self.memory   = memory
         self.sentinel = sentinel
-        # backward compat
         self.terminal = kali
-        self._groq    = self._load_groq()
-        
-    def _load_groq(self):
-        try:
-            from modules.ml_engine.groq_llm import GroqLLM
-            if GroqLLM.is_available():
-                g = GroqLLM()
-                return g if g.is_ready else None
-        except Exception:
-            pass
-        return None
+        # Groq singleton — recon findings ka context analysis
+        from modules.ml_engine.groq_llm import get_groq
+        self._groq = get_groq()
 
     def run(self, target: str, skip_nmap: bool = False) -> dict:
         logger.info(f"[ReconAgent] {target}{' (nmap skipped — already done)' if skip_nmap else ''}")
@@ -63,6 +54,21 @@ class ReconAgent:
 
         result['_agent_summary'] = summary
         result['_risk'] = risk
+
+        # Groq — high-value recon findings ka next-step suggest karo
+        if self._groq and (gh > 0 or cloud > 0):
+            try:
+                context = f"Recon on {target}: {subs} subdomains, {cloud} cloud assets, {gh} GitHub secrets"
+                next_step = self._groq.ask(
+                    f"{context}. In 1 sentence: what is the most critical next pentest step?",
+                    max_tokens=60
+                )
+                if next_step:
+                    result['_groq_next_step'] = next_step
+                    logger.info(f"[ReconAgent] Groq next step: {next_step[:80]}")
+            except Exception as e:
+                logger.debug(f"[ReconAgent] Groq suggestion failed: {e}")
+
         return result
 
     def _kali_recon(self, target: str, skip_nmap: bool = False) -> dict:

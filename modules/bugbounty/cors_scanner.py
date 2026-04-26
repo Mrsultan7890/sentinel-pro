@@ -7,13 +7,14 @@ import logging
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from modules.utils import tor_session
+from modules.bugbounty.payload_loader import load_payloads
 
 logger = logging.getLogger(__name__)
 
-TEST_ORIGINS = [
-    'https://evil.com',
-    'https://attacker.com',
-    'null',
+# Load CORS test origins from payload file
+_cors_raw  = load_payloads('cors')
+TEST_ORIGINS = _cors_raw[:10] if _cors_raw else [
+    'https://evil.com', 'https://attacker.com', 'null'
 ]
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (compatible; SentinelPro/2.1)'}

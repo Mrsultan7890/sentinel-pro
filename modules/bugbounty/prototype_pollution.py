@@ -11,11 +11,13 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from modules.utils import tor_session
+from modules.bugbounty.payload_loader import load_payloads
 
 logger = logging.getLogger(__name__)
 
-# Payloads that pollute Object.prototype if eval'd server-side
-PP_PARAMS = [
+# Load prototype pollution params from payload file (39 payloads)
+_pp_raw  = load_payloads('prototype_pollution')
+PP_PARAMS = _pp_raw if _pp_raw else [
     '__proto__[sentinel]=polluted',
     '__proto__.sentinel=polluted',
     'constructor[prototype][sentinel]=polluted',

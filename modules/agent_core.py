@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 from modules.tool_registry import ToolRegistry, ToolResult
-from modules.database import DB
+from modules.database import SentinelDB as DB
 
 logger = logging.getLogger(__name__)
 
@@ -154,13 +154,14 @@ class SentinelAgent:
             # ── Save to DB ──
             DB.save_decision(
                 target=args.get('target', task[:50]),
+                agent='SentinelAgent',
                 action=action,
                 reason=thought[:200],
                 priority=self._priority_from_threat(threat_ctx)
             )
 
             # Store raw data in history for risk calculation
-            if hasattr(result, 'data') and isinstance(result.data, dict):
+            if hasattr(result, 'data') and isinstance(result.data, dict) and self._history:
                 self._history[-1]['data'] = result.data
 
             # ── Update context ──
@@ -242,7 +243,7 @@ class SentinelAgent:
         last_action = self._history[-1].get('action', '') if self._history else ''
 
         # After recon — check what was found
-        if last_action == 'recon':
+        if last_action == 'recon' and self._history:
             data = self._history[-1].get('observation', '')
             # GitHub secrets → bugbounty
             if 'github secrets' in data.lower() and 'secrets=0' not in data.lower():
@@ -264,7 +265,7 @@ class SentinelAgent:
                             f"Model: {label} risk ({threat_type}) — vuln scan needed. {reasoning}")
 
         # After bugbounty — check vulns
-        if last_action == 'bugbounty':
+        if last_action == 'bugbounty' and self._history:
             data = self._history[-1].get('observation', '')
             if 'risk=critical' in data.lower() or 'risk=high' in data.lower():
                 # Notify

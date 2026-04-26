@@ -8,8 +8,16 @@ import requests
 from urllib.parse import urlencode, urlparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from modules.utils import tor_session
+from modules.bugbounty.payload_loader import load_payloads
 
 logger = logging.getLogger(__name__)
+
+# Load redirect payloads from proxy payloads (341) → SecLists → fallback
+_redir_raw = load_payloads('open_redirect')
+PAYLOADS   = _redir_raw[:20] if _redir_raw else [
+    'https://evil.com', '//evil.com', '///evil.com',
+    'https://evil.com%2F@legitimate.com', '/\\evil.com',
+]
 
 REDIRECT_PARAMS = [
     'next', 'url', 'redirect', 'redirect_url', 'redirect_uri',
@@ -17,14 +25,6 @@ REDIRECT_PARAMS = [
     'dest', 'destination', 'target', 'redir', 'r', 'u',
     'link', 'forward', 'continue', 'callback', 'back',
     'location', 'ref', 'referer', 'out', 'view', 'to',
-]
-
-PAYLOADS = [
-    'https://evil.com',
-    '//evil.com',
-    '///evil.com',
-    'https://evil.com%2F@legitimate.com',
-    '/\\evil.com',
 ]
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (compatible; SentinelPro/2.1)'}

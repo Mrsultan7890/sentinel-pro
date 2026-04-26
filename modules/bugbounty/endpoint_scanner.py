@@ -261,9 +261,100 @@ DANGEROUS_METHODS = ['PUT', 'DELETE', 'TRACE', 'CONNECT', 'PATCH']
 
 class EndpointScanner:
 
+    # Wordlist priority order
+    WORDLISTS = [
+        '/usr/share/seclists/Discovery/Web-Content/common.txt',
+        '/usr/share/seclists/Discovery/Web-Content/big.txt',
+        '/usr/share/wordlists/dirb/common.txt',
+        '/usr/share/wordlists/dirb/big.txt',
+    ]
+
+    # CMS/Framework specific paths
+    TECH_PATHS = {
+        'WordPress': [
+            '/wp-login.php', '/wp-admin/', '/wp-config.php', '/wp-json/wp/v2/users',
+            '/wp-json/wp/v2/posts', '/wp-content/debug.log', '/xmlrpc.php',
+            '/wp-includes/wlwmanifest.xml', '/wp-cron.php', '/readme.html',
+        ],
+        'Laravel': [
+            '/telescope', '/horizon', '/nova', '/.env', '/storage/logs/laravel.log',
+            '/artisan', '/routes/web.php', '/config/app.php',
+        ],
+        'Django': [
+            '/admin/', '/admin/login/', '/api/schema/', '/api/schema.json',
+            '/__debug__/', '/static/admin/',
+        ],
+        'Rails': [
+            '/rails/info', '/rails/mailers', '/rails/routes',
+            '/sidekiq', '/resque', '/delayed_job',
+        ],
+        'Drupal': [
+            '/user/login', '/admin/config', '/sites/default/settings.php',
+            '/CHANGELOG.txt', '/sites/default/files/',
+        ],
+        'Joomla': [
+            '/administrator/', '/administrator/index.php',
+            '/configuration.php', '/joomla.xml',
+        ],
+        'Spring': [
+            '/actuator', '/actuator/env', '/actuator/heapdump',
+            '/actuator/mappings', '/actuator/beans', '/actuator/shutdown',
+            '/jolokia', '/jolokia/list',
+        ],
+        'Node': [
+            '/package.json', '/.env', '/node_modules/', '/server.js',
+            '/app.js', '/config.js',
+        ],
+    }
+
     def __init__(self):
         self.session = tor_session(pool_size=30)
         self.session.headers.update(HEADERS)
+
+    def _get_paths(self, tech: dict) -> list:
+        """Smart path list: SENSITIVE_PATHS + wordlist + tech-specific."""
+        paths = list(SENSITIVE_PATHS)
+
+        # Get depth-based wordlist limit
+        try:
+            from modules.bugbounty.payload_loader import SCAN_DEPTH
+        except Exception:
+            SCAN_DEPTH = 'NORMAL'
+
+        WORDLIST_LIMITS = {'FAST': 200, 'NORMAL': 1000, 'DEEP': 0}
+        wl_limit = WORDLIST_LIMITS.get(SCAN_DEPTH, 1000)
+
+        # Add wordlist paths
+        for wl in self.WORDLISTS:
+            try:
+                from pathlib import Path as _P
+                if _P(wl).exists():
+                    lines = _P(wl).read_text(errors='ignore').splitlines()
+                    count = 0
+                    for line in lines:
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        path = line if line.startswith('/') else '/' + line
+                        if path not in paths:
+                            paths.append(path)
+                            count += 1
+                            if wl_limit and count >= wl_limit:
+                                break
+                    logger.info(f'Wordlist loaded: {wl} ({count} paths, depth={SCAN_DEPTH})')
+                    break
+            except Exception:
+                pass
+
+        # Add technology-specific paths
+        for tech_name, tech_paths in self.TECH_PATHS.items():
+            if tech_name.lower() in str(tech).lower():
+                for p in tech_paths:
+                    if p not in paths:
+                        paths.append(p)
+                logger.info(f'Tech paths added: {tech_name} ({len(tech_paths)} paths)')
+
+        return paths
 
     def run(self, domain: str) -> dict:
         base = f"https://{domain}" if not domain.startswith('http') else domain
@@ -276,6 +367,10 @@ class EndpointScanner:
             'dangerous_methods': self._test_http_methods(base),
             'timestamp': datetime.now().isoformat()
         }
+
+        # Smart path list — wordlist + tech-specific
+        paths = self._get_paths(result['technologies'])
+        logger.info(f'EndpointScanner: {len(paths)} paths to check for {domain}')
 
         def check(path):
             try:
@@ -305,7 +400,7 @@ class EndpointScanner:
             return None
 
         with ThreadPoolExecutor(max_workers=30) as ex:
-            futures = {ex.submit(check, p): p for p in SENSITIVE_PATHS}
+            futures = {ex.submit(check, p): p for p in paths}
             for f in as_completed(futures):
                 r = f.result()
                 if r:

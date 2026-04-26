@@ -1,0 +1,123 @@
+"""
+Interceptor — Real flow hold/forward/drop engine
+=================================================
+Properly blocks mitmproxy flows until UI decision.
+"""
+
+import threading
+import logging
+import time
+
+logger = logging.getLogger(__name__)
+
+
+class Interceptor:
+    """
+    Thread-safe intercept queue.
+    mitmproxy addon calls hold(flow) — blocks until forward() or drop().
+    UI calls forward() or drop() to release.
+    """
+
+    def __init__(self):
+        self._lock    = threading.Lock()
+        self._queue   = []          # list of pending InterceptedFlow
+        self._on_new  = None        # callback(flow_dict) when new flow held
+
+    def set_callback(self, fn):
+        self._on_new = fn
+
+    def hold(self, flow) -> bool:
+        """
+        Called from mitmproxy thread.
+        Blocks until forward or drop is called.
+        Returns True = forward, False = drop.
+        Uses polling to avoid blocking mitmproxy event loop.
+        """
+        event  = threading.Event()
+        action = [True]   # default: forward
+
+        entry = {
+            'flow':   flow,
+            'event':  event,
+            'action': action,
+        }
+        with self._lock:
+            self._queue.append(entry)
+
+        if self._on_new:
+            try:
+                self._on_new(entry)
+            except Exception:
+                pass
+
+        # Poll in small increments so mitmproxy loop stays responsive
+        deadline = time.time() + 120
+        while time.time() < deadline:
+            if event.wait(timeout=0.1):
+                break
+
+        with self._lock:
+            if entry in self._queue:
+                self._queue.remove(entry)
+
+        return action[0]
+
+    def forward(self, entry=None):
+        """Forward the oldest (or specific) held flow."""
+        with self._lock:
+            target = entry or (self._queue[0] if self._queue else None)
+        if target:
+            target['action'][0] = True
+            target['event'].set()
+
+    def drop(self, entry=None):
+        """Drop the oldest (or specific) held flow."""
+        with self._lock:
+            target = entry or (self._queue[0] if self._queue else None)
+        if target:
+            target['action'][0] = False
+            target['event'].set()
+
+    def forward_all(self):
+        with self._lock:
+            entries = list(self._queue)
+        for e in entries:
+            e['action'][0] = True
+            e['event'].set()
+
+    def pending_count(self) -> int:
+        with self._lock:
+            return len(self._queue)
+
+    def get_pending(self) -> list:
+        """Return list of pending flow dicts for UI display."""
+        with self._lock:
+            result = []
+            for entry in self._queue:
+                try:
+                    req = entry['flow'].request
+                    result.append({
+                        'entry':   entry,
+                        'method':  req.method,
+                        'url':     req.pretty_url,
+                        'host':    req.pretty_host,
+                        'path':    req.path,
+                        'headers': dict(req.headers),
+                        'body':    req.content.decode('utf-8', errors='replace')[:5000],
+                    })
+                except Exception:
+                    pass
+            return result
+
+    def update_flow(self, entry: dict, new_headers: dict, new_body: str):
+        """Modify a held flow before forwarding (edit-and-forward)."""
+        try:
+            flow = entry['flow']
+            if new_headers:
+                flow.request.headers.clear()
+                for k, v in new_headers.items():
+                    flow.request.headers[k] = v
+            if new_body is not None:
+                flow.request.content = new_body.encode('utf-8', errors='replace')
+        except Exception as e:
+            logger.debug(f'update_flow error: {e}')

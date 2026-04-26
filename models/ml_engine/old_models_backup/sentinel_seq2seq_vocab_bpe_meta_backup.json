@@ -1,1 +1,0 @@
-{"type": "BPE", "vocab_size": 8000, "PAD": 0, "BOS": 1, "EOS": 2, "UNK": 3, "bpe_file": "/home/kali/osints/models/ml_engine/sentinel_seq2seq_vocab_bpe.json"}

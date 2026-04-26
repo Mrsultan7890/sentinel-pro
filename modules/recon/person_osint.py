@@ -248,6 +248,27 @@ class PersonOSINT:
                 )
 
                 if resp and resp.status_code == 200 and any(m in resp.text for m in markers):
+
+                    # Telegram false positive filter
+                    # Default Telegram page = no real user
+                    if platform == 'telegram':
+                        tg_false = [
+                            'Fast. Secure. Powerful.',
+                            'Telegram Messenger',
+                            'tgme_page_extra',  # empty profile indicator
+                        ]
+                        # Real profile hona chahiye — tgme_page_title class
+                        has_real_profile = 'tgme_page_title' in resp.text
+                        is_default_page  = any(fp in resp.text for fp in tg_false) and not has_real_profile
+                        if is_default_page:
+                            continue
+
+                    # GitHub default page filter
+                    if platform == 'github':
+                        if 'GitHub is where' in resp.text and 'builds software' in resp.text:
+                            # Generic GitHub page — no real bio
+                            pass  # still valid, just generic
+
                     profile = {
                         'platform': platform,
                         'username': username,
@@ -277,9 +298,23 @@ class PersonOSINT:
                         'url': url,
                     }
 
-                    # Extract emails from page
+                    # Extract emails from page — strict filter
                     emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', resp.text)
                     for email in emails:
+                        # Image filenames filter karo — @2x, @3x, retina suffixes
+                        if re.search(r'@[23]x\.(png|jpg|jpeg|gif|svg|webp)$', email, re.I):
+                            continue
+                        # Common false positives skip karo
+                        if any(fp in email.lower() for fp in [
+                            '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp',
+                            '.css', '.js', '.ico', 'example.com', 'domain.com',
+                            'email.com', 'test.com', 'your@', 'user@',
+                        ]):
+                            continue
+                        # Valid TLD check — min 2 chars, max 6
+                        tld = email.rsplit('.', 1)[-1]
+                        if not (2 <= len(tld) <= 6):
+                            continue
                         if email not in result['emails_found']:
                             result['emails_found'].append(email)
                             result['entities'][f"email_{email}"] = {'type': 'email', 'value': email, 'source': platform}
@@ -577,13 +612,16 @@ class PersonOSINT:
                 }
                 # NLP risk level se main risk update karo
                 nlp_risk = nlp_result.get('risk_level', 'LOW')
+                ml_label = nlp_result.get('ml_threat', {}).get('label', 'LOW')
+                # Sirf HIGH/CRITICAL pe flag lagao, LOW/MEDIUM pe nahi
                 risk_order = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
                 if risk_order.index(nlp_risk) > risk_order.index(result.get('risk_level', 'LOW')):
                     result['risk_level'] = nlp_risk
+                if nlp_risk in ('HIGH', 'CRITICAL'):
                     result['risk_flags'].append({
                         'severity': nlp_risk,
                         'flag': 'ML NLP threat detected',
-                        'detail': f"NLP analysis: {nlp_risk} risk — {nlp_result.get('ml_threat', {}).get('label', 'N/A')}"
+                        'detail': f"NLP analysis: {nlp_risk} risk | ThreatClassifier: {ml_label}"
                     })
 
             # 2. FakeDetector — har profile ke liye fake score

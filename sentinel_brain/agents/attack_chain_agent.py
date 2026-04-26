@@ -27,17 +27,8 @@ class AttackChainAgent:
         self.kali     = kali
         self.memory   = memory
         self.sentinel = sentinel
-        self._groq    = self._load_groq()
-
-    def _load_groq(self):
-        try:
-            from modules.ml_engine.groq_llm import GroqLLM
-            if GroqLLM.is_available():
-                g = GroqLLM()
-                return g if g.is_ready else None
-        except Exception:
-            pass
-        return None
+        from modules.ml_engine.groq_llm import get_groq
+        self._groq = get_groq()
 
     def run(self, target: str, recon_data: dict = None,
             threat_intel: dict = None, auto: bool = False) -> dict:

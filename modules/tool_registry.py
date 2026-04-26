@@ -326,7 +326,7 @@ class ToolRegistry:
         if not target:
             return ToolResult('db_query', False, 'target required')
         try:
-            from modules.database import DB
+            from modules.database import SentinelDB as DB
             history  = DB.get_target_history(target)
             findings = DB.get_findings(target)
             ioc      = DB.check_ioc(target)

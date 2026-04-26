@@ -10,19 +10,20 @@ import logging
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from modules.utils import tor_session
+from modules.bugbounty.payload_loader import load_payloads
 
 logger = logging.getLogger(__name__)
 
-SSTI_PROBES = [
-    ('{{7*7}}',       '49',        'Jinja2/Twig/generic',  'CRITICAL'),
-    ('${7*7}',        '49',        'Freemarker/Velocity',  'CRITICAL'),
-    ('#{7*7}',        '49',        'Ruby ERB / Pebble',    'CRITICAL'),
-    ('<%= 7*7 %>',    '49',        'ERB/EJS',              'CRITICAL'),
-    ("{{7*'7'}}",     '7777777',   'Jinja2',               'CRITICAL'),
-    ('{7*7}',         '49',        'Smarty',               'CRITICAL'),
-    ('{{config}}',    'SECRET_KEY','Jinja2 config leak',   'CRITICAL'),
-    ('{{self.__dict__}}', '__dict__', 'Jinja2 object dump','HIGH'),
-    ('#set($x=7*7)$x','49',        'Velocity',             'CRITICAL'),
+# SSTI probes are math-evaluation tuples — loaded from payload_loader
+# payload_loader returns (payload, expected, engine) — add severity
+_raw_probes = load_payloads('ssti')
+SSTI_PROBES = [(p, e, eng, 'CRITICAL') for p, e, eng in _raw_probes] if _raw_probes else [
+    ('{{7*7}}', '49', 'Jinja2/Twig/generic', 'CRITICAL'),
+    ('${7*7}',  '49', 'Freemarker/Velocity', 'CRITICAL'),
+    ('#{7*7}',  '49', 'Ruby ERB / Pebble',   'CRITICAL'),
+    ("{{7*'7'}}", '7777777', 'Jinja2',       'CRITICAL'),
+    ('{{13*37}}', '481', 'Jinja2 confirm',   'CRITICAL'),
+    ('#set($x=7*7)$x', '49', 'Velocity',     'CRITICAL'),
 ]
 
 SSTI_PARAMS = [

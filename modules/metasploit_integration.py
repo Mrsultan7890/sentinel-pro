@@ -130,8 +130,8 @@ class MetasploitFramework:
             
             # Create MSF resource script
             with tempfile.NamedTemporaryFile(mode='w', suffix='.rc', delete=False) as f:
-                f.write(f"search {search_query}\\n")
-                f.write("exit\\n")
+                f.write(f"search {search_query}\n")
+                f.write("exit\n")
                 resource_file = f.name
             
             try:
@@ -232,12 +232,12 @@ class MetasploitFramework:
         try:
             # Create listener resource script
             with tempfile.NamedTemporaryFile(mode='w', suffix='.rc', delete=False) as f:
-                f.write(f"use exploit/multi/handler\\n")
-                f.write(f"set payload {payload}\\n")
-                f.write(f"set LHOST {lhost}\\n")
-                f.write(f"set LPORT {lport}\\n")
-                f.write(f"exploit -j\\n")  # Run as job
-                f.write(f"jobs\\n")  # List jobs
+                f.write(f"use exploit/multi/handler\n")
+                f.write(f"set payload {payload}\n")
+                f.write(f"set LHOST {lhost}\n")
+                f.write(f"set LPORT {lport}\n")
+                f.write(f"exploit -j\n")
+                f.write(f"jobs\n")
                 resource_file = f.name
             
             try:
@@ -280,20 +280,19 @@ class MetasploitFramework:
         try:
             # Create exploit resource script
             with tempfile.NamedTemporaryFile(mode='w', suffix='.rc', delete=False) as f:
-                f.write(f"use {exploit_name}\\n")
-                f.write(f"set RHOSTS {target_host}\\n")
-                f.write(f"set RPORT {target_port}\\n")
+                f.write(f"use {exploit_name}\n")
+                f.write(f"set RHOSTS {target_host}\n")
+                f.write(f"set RPORT {target_port}\n")
                 
                 if payload:
-                    f.write(f"set payload {payload}\\n")
+                    f.write(f"set payload {payload}\n")
                 
-                # Set additional options
                 if options:
                     for key, value in options.items():
-                        f.write(f"set {key} {value}\\n")
+                        f.write(f"set {key} {value}\n")
                 
-                f.write("check\\n")  # Check if target is vulnerable
-                f.write("exploit\\n")
+                f.write("check\n")
+                f.write("exploit\n")
                 resource_file = f.name
             
             try:
@@ -338,8 +337,8 @@ class MetasploitFramework:
         """List active Meterpreter sessions."""
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.rc', delete=False) as f:
-                f.write("sessions -l\\n")
-                f.write("exit\\n")
+                f.write("sessions -l\n")
+                f.write("exit\n")
                 resource_file = f.name
             
             try:
@@ -381,14 +380,14 @@ class MetasploitFramework:
         """Execute post-exploitation module on session."""
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.rc', delete=False) as f:
-                f.write(f"use {module_name}\\n")
-                f.write(f"set SESSION {session_id}\\n")
+                f.write(f"use {module_name}\n")
+                f.write(f"set SESSION {session_id}\n")
                 
                 if options:
                     for key, value in options.items():
-                        f.write(f"set {key} {value}\\n")
+                        f.write(f"set {key} {value}\n")
                 
-                f.write("run\\n")
+                f.write("run\n")
                 resource_file = f.name
             
             try:
@@ -420,9 +419,9 @@ class MetasploitFramework:
         """Get detailed information about an exploit."""
         try:
             with tempfile.NamedTemporaryFile(mode='w', suffix='.rc', delete=False) as f:
-                f.write(f"use {exploit_name}\\n")
-                f.write("info\\n")
-                f.write("exit\\n")
+                f.write(f"use {exploit_name}\n")
+                f.write("info\n")
+                f.write("exit\n")
                 resource_file = f.name
             
             try:
@@ -473,11 +472,14 @@ class MetasploitFramework:
     
     def status(self) -> Dict:
         """Get Metasploit framework status."""
+        msf_available = Path(self.msf_path).exists() or bool(
+            subprocess.run(['which', 'msfconsole'], capture_output=True).returncode == 0
+        )
         return {
             'msf_path': self.msf_path,
-            'msf_available': Path(self.msf_path).exists(),
+            'msf_available': msf_available,
             'db_initialized': self.db_initialized,
-            'active_sessions': len(self.list_sessions()),
+            'active_sessions': len(self.sessions),  # cached — no msfconsole spawn
             'exploit_categories': list(self.exploit_categories.keys()),
             'payload_platforms': list(self.common_payloads.keys())
         }

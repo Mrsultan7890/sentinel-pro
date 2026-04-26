@@ -26,6 +26,11 @@ API_PATHS = [
     '/api/v1/profile', '/api/v1/me', '/api/v1/whoami',
     '/api/v1/keys', '/api/v1/tokens', '/api/v1/secrets',
     '/api/v1/logs', '/api/v1/debug', '/api/v1/health',
+    # Juice Shop / OWASP specific
+    '/rest/products/search', '/rest/user/login', '/rest/user/whoami',
+    '/rest/basket', '/rest/products', '/rest/challenges',
+    '/api/Challenges', '/api/Users', '/api/Products',
+    '/api/BasketItems', '/api/Feedbacks', '/api/Complaints',
     # GraphQL
     '/graphql', '/graphiql', '/api/graphql', '/v1/graphql',
     # Swagger / OpenAPI
@@ -38,8 +43,60 @@ API_PATHS = [
     '/api/schema', '/api/schema.json',
 ]
 
+# ── Wordlist-based API path loading ──────────────────────────────────────────
+
+API_WORDLISTS = [
+    '/usr/share/seclists/Discovery/Web-Content/api/api-endpoints.txt',
+    '/usr/share/seclists/Discovery/Web-Content/api/api-seen-in-wild.txt',
+    '/usr/share/seclists/Discovery/Web-Content/common-api-endpoints-mazen160.txt',
+    '/usr/share/seclists/Discovery/Web-Content/common.txt',
+    '/usr/share/wordlists/dirb/common.txt',
+]
+
+def _load_api_paths() -> list:
+    """Wordlists se API paths load karo + hardcoded paths merge karo."""
+    paths = list(API_PATHS)
+    seen  = set(paths)
+
+    # Depth-based limit
+    try:
+        from modules.bugbounty.payload_loader import SCAN_DEPTH
+    except Exception:
+        SCAN_DEPTH = 'NORMAL'
+    LIMITS = {'FAST': 0, 'NORMAL': 500, 'DEEP': 0}  # FAST = hardcoded only
+    limit = LIMITS.get(SCAN_DEPTH, 500)
+
+    if SCAN_DEPTH == 'FAST':
+        return paths  # hardcoded API_PATHS only — fast enough
+
+    added = 0
+    for wl in API_WORDLISTS:
+        try:
+            from pathlib import Path as _P
+            if not _P(wl).exists():
+                continue
+            for line in _P(wl).read_text(errors='ignore').splitlines():
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                path = line if line.startswith('/') else '/' + line
+                if path not in seen:
+                    paths.append(path)
+                    seen.add(path)
+                    added += 1
+                    if limit and added >= limit:
+                        break
+            logger.debug(f'API wordlist loaded: {wl} ({added} paths, depth={SCAN_DEPTH})')
+            if limit and added >= limit:
+                break
+        except Exception:
+            pass
+    return paths
+
+
+API_PATHS = API_PATHS  # noqa — keep reference
+
 SENSITIVE_PATTERNS = [
-    (r'"password"\s*:\s*"[^"]+"',          'CRITICAL', 'Password in API response'),
     (r'"secret"\s*:\s*"[^"]+"',            'CRITICAL', 'Secret in API response'),
     (r'"api_key"\s*:\s*"[^"]+"',           'CRITICAL', 'API key in response'),
     (r'"token"\s*:\s*"[A-Za-z0-9._-]{20,}', 'CRITICAL', 'Token in API response'),
@@ -75,8 +132,12 @@ class APIScanner:
 
         base = f"https://{domain}"
 
+        # Wordlist-based paths load karo
+        all_api_paths = _load_api_paths()
+        logger.info(f'APIScanner: {len(all_api_paths)} paths for {domain}')
+
         # ── 1. Discover API endpoints ─────────────────────────────────────────
-        for path in API_PATHS:
+        for path in all_api_paths:
             url = base + path
             try:
                 r = session.get(url, timeout=7, allow_redirects=False)
