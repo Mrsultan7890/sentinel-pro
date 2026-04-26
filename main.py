@@ -497,6 +497,11 @@ class TheSentinelPro:
 [green]proxy stop[/green]          - Stop SentinelProxy
 [green]proxy restart[/green]       - Kill stale + fresh start (use when site not loading)
 [green]proxy status[/green]        - Check if proxy is running
+[green]cred list[/green]           - List all API keys (masked)
+[green]cred show[/green]           - Show API keys with preview
+[green]cred add <KEY> <value>[/green] - Add or update an API key
+[green]cred remove <KEY>[/green]   - Remove an API key
+[green]cred validate[/green]       - Validate all keys (live test)
 [green]depth fast[/green]          - ⚡ Set scan depth: fast (~30 sec)
 [green]depth normal[/green]        - ⚖ Set scan depth: normal (~2-3 min) [default]
 [green]depth deep[/green]          - 🔍 Set scan depth: deep (full wordlist)
@@ -4424,10 +4429,40 @@ Anti-Detection: [green]ACTIVE[/green]
             elif subcmd == 'validate':
                 result = agent.validate_all()
                 for k, v in result.items():
-                    status = '[green]✓[/green]' if v else '[red]✗[/red]'
-                    self.console.print(f"  {status} {k}")
+                    status = '[green]✓[/green]' if v.get('valid') else '[red]✗[/red]'
+                    detail = v.get('status', '')
+                    preview = v.get('preview', '')
+                    self.console.print(f"  {status} {k:<30} [{detail}] {preview}")
+            elif subcmd == 'show':
+                creds = agent.read_env()
+                if creds:
+                    from rich.table import Table
+                    t = Table(title="API Keys", border_style="cyan")
+                    t.add_column("Key", style="bold cyan")
+                    t.add_column("Status", justify="center")
+                    t.add_column("Preview", style="dim")
+                    for k, v in creds.items():
+                        if v and v not in ('', 'your_key_here'):
+                            masked = v[:6] + '****' + v[-2:] if len(v) > 8 else '****'
+                            t.add_row(k, "[green]SET[/green]", masked)
+                        else:
+                            t.add_row(k, "[red]EMPTY[/red]", "")
+                    self.console.print(t)
+                else:
+                    self.console.print("[dim]No credentials in .env[/dim]")
             else:
-                self.console.print("[dim]Usage: cred list | add <key> <value> | remove <key> | validate[/dim]")
+                self.console.print("[bold cyan]Credential Manager[/bold cyan]")
+                self.console.print("  [green]cred list[/green]                    — list all keys (masked)")
+                self.console.print("  [green]cred show[/green]                    — show keys with preview")
+                self.console.print("  [green]cred add <KEY> <value>[/green]       — add/update a key")
+                self.console.print("  [green]cred remove <KEY>[/green]            — remove a key")
+                self.console.print("  [green]cred validate[/green]                — validate all keys (live test)")
+                self.console.print("")
+                self.console.print("  [dim]Examples:[/dim]")
+                self.console.print("  [dim]  cred add GROQ_API_KEY gsk_xxxx[/dim]")
+                self.console.print("  [dim]  cred add TELEGRAM_BOT_TOKEN 123:xxx[/dim]")
+                self.console.print("  [dim]  cred add SHODAN_API_KEY xxxx[/dim]")
+                self.console.print("  [dim]  cred remove SHODAN_API_KEY[/dim]")
         except Exception as e:
             self.console.print(f"[red]Credential error: {e}[/red]")
 
