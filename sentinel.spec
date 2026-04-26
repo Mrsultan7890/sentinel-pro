@@ -156,6 +156,8 @@ DATAS = [
     (str(BASE / 'models' / 'ml_engine' / 'sentinellm_vocab.json'),     'models/ml_engine'),
     # Payloads (34K — 2.7MB)
     (str(BASE / 'sentinel_proxy' / 'payloads'),  'sentinel_proxy/payloads'),
+    # sentinel_proxy main.py — proxy start command ke liye
+    (str(BASE / 'sentinel_proxy' / 'main.py'),   'sentinel_proxy'),
     # SentinelProxy icons
     (str(BASE / 'sentinel_proxy' / 'sentinel_proxy_icon.png'),     'sentinel_proxy'),
     (str(BASE / 'sentinel_proxy' / 'sentinel_proxy_icon.ico'),     'sentinel_proxy'),

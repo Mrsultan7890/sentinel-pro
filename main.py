@@ -3618,13 +3618,21 @@ Anti-Detection: [green]ACTIVE[/green]
         """SentinelProxy commands — start / stop / restart / status"""
         import subprocess
         from pathlib import Path
+        import sys as _sys
 
         parts   = command.strip().split()
         subcmd  = parts[1] if len(parts) > 1 else 'start'
 
-        proxy_main   = Path('/home/kali/osints/sentinel_proxy/main.py')
-        venv_python  = Path('/home/kali/osints/venv/bin/python3')
-        python       = str(venv_python) if venv_python.exists() else 'python3'
+        # Binary-safe paths
+        if getattr(_sys, 'frozen', False):
+            _base      = Path(_sys.executable).resolve().parent
+            proxy_main = _base / '_internal' / 'sentinel_proxy' / 'main.py'
+            python     = str(_sys.executable)  # binary khud hi Python hai
+        else:
+            _base      = Path(__file__).resolve().parent
+            proxy_main = _base / 'sentinel_proxy' / 'main.py'
+            venv_python = _base / 'venv' / 'bin' / 'python3'
+            python      = str(venv_python) if venv_python.exists() else 'python3'
 
         def _kill_port():
             try:
@@ -3657,7 +3665,7 @@ Anti-Detection: [green]ACTIVE[/green]
             try:
                 subprocess.Popen(
                     [python, str(proxy_main)],
-                    cwd='/home/kali/osints',
+                    cwd=str(_base),
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -3681,7 +3689,7 @@ Anti-Detection: [green]ACTIVE[/green]
             try:
                 subprocess.Popen(
                     [python, str(proxy_main)],
-                    cwd='/home/kali/osints',
+                    cwd=str(_base),
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
