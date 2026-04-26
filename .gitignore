@@ -7,6 +7,12 @@
 data/.encryption_key
 data/file_registry.json
 
+# ── IDE / AI assistant internal files ────────────────────────────────────────
+.amazonq/
+.idea/
+.vscode/
+.cursor/
+
 # ── Databases (user data) ─────────────────────────────────────────────────────
 data/sentinel.db
 data/sentinel.db-shm
