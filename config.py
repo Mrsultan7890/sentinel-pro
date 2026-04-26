@@ -21,8 +21,11 @@ def _get_base_dir() -> Path:
 
 BASE_DIR = _get_base_dir()
 
-# Load .env from BASE_DIR
-load_dotenv(BASE_DIR / '.env')
+# Load .env from BASE_DIR only — parent directories mein mat dhundho
+_env_file = BASE_DIR / '.env'
+if _env_file.exists():
+    load_dotenv(_env_file, override=True)
+# Agar .env nahi hai toh koi env load mat karo — system env variables use honge
 
 def get_base_dir() -> Path:
     """Har module se BASE_DIR lene ka safe tarika."""
