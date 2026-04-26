@@ -3,8 +3,13 @@ use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
 
-const CA_CERT: &str = "/home/kali/.mitmproxy/sentinel-ca-cert.pem";
-const CA_KEY:  &str = "/home/kali/.mitmproxy/sentinel-ca.key";
+fn ca_dir() -> std::path::PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    std::path::PathBuf::from(home).join(".mitmproxy")
+}
+
+fn ca_cert() -> std::path::PathBuf { ca_dir().join("sentinel-ca-cert.pem") }
+fn ca_key()  -> std::path::PathBuf { ca_dir().join("sentinel-ca.key") }
 
 #[derive(Clone)]
 pub struct CertStore {
@@ -19,22 +24,20 @@ impl CertStore {
 
     /// Generate CA with openssl if not exists
     fn ensure_ca() {
-        if Path::new(CA_CERT).exists() && Path::new(CA_KEY).exists() {
+        if ca_cert().exists() && ca_key().exists() {
             return;
         }
-        let _ = std::fs::create_dir_all("/home/kali/.mitmproxy");
+        let _ = std::fs::create_dir_all(ca_dir());
 
-        // Generate CA key
         Command::new("openssl")
-            .args(["genrsa", "-out", CA_KEY, "2048"])
+            .args(["genrsa", "-out", ca_key().to_str().unwrap(), "2048"])
             .output().ok();
 
-        // Generate CA cert with all required extensions
         Command::new("openssl")
             .args([
                 "req", "-new", "-x509", "-days", "3650",
-                "-key",  CA_KEY,
-                "-out",  CA_CERT,
+                "-key",  ca_key().to_str().unwrap(),
+                "-out",  ca_cert().to_str().unwrap(),
                 "-subj", "/CN=SentinelProxy CA v2.0/O=SentinelProxy",
                 "-addext", "basicConstraints=critical,CA:TRUE",
                 "-addext", "keyUsage=critical,keyCertSign,cRLSign",
@@ -99,8 +102,8 @@ impl CertStore {
             .args([
                 "x509", "-req", "-days", "825",
                 "-in",      &tmp_csr,
-                "-CA",      CA_CERT,
-                "-CAkey",   CA_KEY,
+                "-CA",      ca_cert().to_str().unwrap(),
+                "-CAkey",   ca_key().to_str().unwrap(),
                 "-CAcreateserial",
                 "-out",     &tmp_cert,
                 "-extfile", &tmp_ext,

@@ -3241,7 +3241,7 @@ class SentinelProxyApp:
 
     def _show_cert_window(self):
         import subprocess
-        cert = Path.home() / '.mitmproxy' / 'mitmproxy-ca-cert.pem'
+        cert = Path.home() / '.mitmproxy' / 'sentinel-ca-cert.pem'
 
         w = tk.Toplevel(self.root)
         w.title('Install CA Certificate')
@@ -3325,14 +3325,14 @@ class SentinelProxyApp:
     def _install_cert_system(self, cert):
         import shutil, subprocess
         try:
-            dst = Path('/usr/local/share/ca-certificates/mitmproxy-ca.crt')
+            dst = Path('/usr/local/share/ca-certificates/sentinel-ca.crt')
             shutil.copy2(cert, dst)
             subprocess.run(['update-ca-certificates'], check=True, capture_output=True)
             messagebox.showinfo('Done', 'System CA certificate updated successfully!')
         except Exception:
             messagebox.showerror('Error',
                 f"Run manually:\n"
-                f"sudo cp {cert} /usr/local/share/ca-certificates/mitmproxy-ca.crt\n"
+                f"sudo cp {cert} /usr/local/share/ca-certificates/sentinel-ca.crt\n"
                 f"sudo update-ca-certificates")
 
     # ── Run ───────────────────────────────────────────────────────────────────

@@ -32,11 +32,20 @@ logger = logging.getLogger(__name__)
 
 # Paths
 import sys as _sys
-_sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[3]))
-import config as _config
-_PROXY_DIR   = __import__('pathlib').Path(__file__).resolve().parents[1]
+import os as _os
+
+if getattr(_sys, 'frozen', False):
+    _BASE = __import__('pathlib').Path(_sys.executable).resolve().parent
+    _PROXY_DIR   = _BASE / '_internal' / 'sentinel_proxy'
+    _MODELS_DIR  = _BASE / '_internal' / 'models' / 'ml_engine'
+    _sys.path.insert(0, str(_BASE / '_internal'))
+else:
+    _BASE = __import__('pathlib').Path(__file__).resolve().parents[3]
+    _PROXY_DIR   = __import__('pathlib').Path(__file__).resolve().parents[1]
+    _MODELS_DIR  = _BASE / 'models' / 'ml_engine'
+    _sys.path.insert(0, str(_BASE))
+
 _PAYLOAD_DIR = _PROXY_DIR / 'payloads'
-_MODELS_DIR  = _config.get_base_dir() / 'models' / 'ml_engine'
 _PROXY_MODELS_DIR = _PROXY_DIR / 'models'
 _PROXY_MODELS_DIR.mkdir(exist_ok=True)
 
