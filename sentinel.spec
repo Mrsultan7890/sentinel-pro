@@ -181,8 +181,19 @@ RUNTIME_HOOKS = []
 
 # ── Excludes ──────────────────────────────────────────────────────────────────
 EXCLUDES = [
-    'test', 'unittest', 'pydoc', 'doctest',
-    'tkinter',   # SentinelProxy alag process mein chalti hai
+    'tkinter',
+]
+
+# ── Additional hidden imports for sklearn ─────────────────────────────────────
+ADDITIONAL = [
+    'inspect', 'dis', 'pydoc', 'doctest', 'difflib',
+    'sklearn.utils._chunking',
+    'sklearn.utils._param_validation',
+    'sklearn.utils._tags',
+    'sklearn.utils.multiclass',
+    'sklearn.utils.validation',
+    'sklearn.utils._encode',
+    'sklearn.utils.fixes',
 ]
 
 # ── Analysis ──────────────────────────────────────────────────────────────────
@@ -191,7 +202,7 @@ a = Analysis(
     pathex=[str(BASE)],
     binaries=[],
     datas=DATAS,
-    hiddenimports=HIDDEN_IMPORTS,
+    hiddenimports=HIDDEN_IMPORTS + ADDITIONAL,
     hookspath=[str(BASE / 'hooks')],
     hooksconfig={},
     runtime_hooks=RUNTIME_HOOKS,
