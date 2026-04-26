@@ -11,7 +11,13 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-FUZZER_BIN = Path(__file__).parents[1] / 'rust_fuzzer' / 'target' / 'release' / 'sentinel_fuzzer'
+import sys
+from pathlib import Path
+
+if getattr(sys, 'frozen', False):
+    FUZZER_BIN = Path(sys.executable).resolve().parent / 'sentinel_fuzzer'
+else:
+    FUZZER_BIN = Path(__file__).parents[1] / 'rust_fuzzer' / 'target' / 'release' / 'sentinel_fuzzer'
 
 
 class RustFuzzerBridge:

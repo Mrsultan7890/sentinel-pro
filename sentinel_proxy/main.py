@@ -19,7 +19,17 @@ from pathlib import Path
 
 warnings.filterwarnings('ignore')
 urllib3.disable_warnings()
-sys.path.insert(0, '/home/kali/osints')
+
+# ── Path setup — binary aur source dono ke liye ─────────────────────────────────
+if getattr(sys, 'frozen', False):
+    # PyInstaller binary — executable ki directory
+    _BASE = Path(sys.executable).resolve().parent
+else:
+    # Normal Python — sentinel_proxy/main.py ka parent = osints/
+    _BASE = Path(__file__).resolve().parent.parent
+
+if str(_BASE) not in sys.path:
+    sys.path.insert(0, str(_BASE))
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -27,7 +37,12 @@ logger = logging.getLogger(__name__)
 PROXY_HOST  = '127.0.0.1'
 PROXY_PORT  = 8082
 SOCK_PATH   = '/tmp/sentinel_proxy_v2.sock'
-RUST_BIN    = Path(__file__).parent / 'rust_core' / 'target' / 'release' / 'sentinel_proxy_core'
+
+# Rust binary path — binary ke saath same folder mein
+if getattr(sys, 'frozen', False):
+    RUST_BIN = _BASE / 'sentinel_proxy_core'
+else:
+    RUST_BIN = _BASE / 'sentinel_proxy' / 'rust_core' / 'target' / 'release' / 'sentinel_proxy_core'
 
 _rust_proc  = None
 

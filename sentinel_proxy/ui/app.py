@@ -1815,9 +1815,13 @@ class SentinelProxyApp:
             # Start Rust core + bridge from UI button
             import subprocess, threading, time, os
             from sentinel_proxy.core.rust_bridge import RustCoreBridge
+            import sys as _sys
             from pathlib import Path
 
-            rust_bin = Path(__file__).parents[1] / 'rust_core' / 'target' / 'release' / 'sentinel_proxy_core'
+            if getattr(_sys, 'frozen', False):
+                rust_bin = Path(_sys.executable).resolve().parent / 'sentinel_proxy_core'
+            else:
+                rust_bin = Path(__file__).parents[1] / 'rust_core' / 'target' / 'release' / 'sentinel_proxy_core'
             socket_path = '/tmp/sentinel_proxy_v2.sock'
 
             if not rust_bin.exists():
@@ -2529,7 +2533,12 @@ class SentinelProxyApp:
         if not fname:
             return []
         try:
-            fpath = Path(__file__).parent.parent / 'payloads' / fname
+            import sys as _sys
+            if getattr(_sys, 'frozen', False):
+                _proxy_base = Path(_sys.executable).resolve().parent / '_internal' / 'sentinel_proxy'
+            else:
+                _proxy_base = Path(__file__).parent.parent
+            fpath = _proxy_base / 'payloads' / fname
             lines = fpath.read_text(errors='ignore').splitlines()
             return [l for l in lines if l.strip()][:2000]
         except Exception:

@@ -329,8 +329,13 @@ class AIPayloadTab:
         if not fname:
             return []
         try:
+            import sys as _sys
             from pathlib import Path
-            fpath = Path(__file__).parents[2] / 'payloads' / fname
+            if getattr(_sys, 'frozen', False):
+                _proxy_base = Path(_sys.executable).resolve().parent / '_internal' / 'sentinel_proxy'
+            else:
+                _proxy_base = Path(__file__).parents[2]
+            fpath = _proxy_base / 'payloads' / fname
             lines = fpath.read_text(errors='ignore').splitlines()
             return [l for l in lines if l.strip()][:count]
         except Exception:
