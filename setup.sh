@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🛡️  The Sentinel Pro v2.1 — Setup"
+echo "🛡️  The Sentinel Pro v3.0 — Setup"
 echo "==================================="
 
 # ── OS check ──────────────────────────────────────────────────────────────────
@@ -106,6 +106,8 @@ build_rust() {
 build_rust analyzer
 build_rust media_analyzer
 build_rust fuzzer
+build_rust sentinel_proxy/rust_core
+build_rust sentinel_proxy/rust_fuzzer
 
 # ── Chromium check ────────────────────────────────────────────────────────────
 echo ""
@@ -171,6 +173,12 @@ echo "🚀 Quick Start:"
 echo "   source venv/bin/activate"
 echo "   python3 main.py"
 echo ""
+echo "🔒 SentinelProxy v2.0 (Rust Core):"
+echo "   python3 sentinel_proxy/main.py"
+echo "   Or from CLI: sentinel-pro> proxy start"
+echo "   Browser proxy: 127.0.0.1:8082"
+echo "   CA cert: ~/.mitmproxy/sentinel-ca-cert.pem"
+echo ""
 echo "⚡ Direct CLI:"
 echo "   python3 main.py --bugbounty example.com"
 echo "   python3 main.py --recon example.com"
@@ -192,3 +200,5 @@ echo "   nlp <text>            → NLP profiling + writing fingerprint"
 echo "   nlp session           → Analyze collected session data"
 echo ""
 echo "📄 See README.md for full documentation"
+echo ""
+echo "⚠️  IMPORTANT: Edit .env and add your API keys before first run"

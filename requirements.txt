@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════
-#  The Sentinel Pro v2.1 — Requirements
+#  The Sentinel Pro v3.0 — Requirements
 #  Install: pip install -r requirements.txt
 # ══════════════════════════════════════════════════════════════
 
@@ -96,7 +96,7 @@ tokenizers>=0.19.0
 # Browser automation (optional)
 playwright>=1.40.0
 
-# System monitoring (optional)
+# System monitoring
 psutil>=5.9.0
 
 # Security & Privilege Management
@@ -104,6 +104,15 @@ keyring>=24.0.0
 
 # Seaborn (visualization)
 seaborn>=0.13.0
-# Secure File Manager Dependencies
+
+# Secure File Manager
 cryptography>=41.0.0
 python-magic>=0.4.27
+
+# LightGBM (ML engine — log analysis)
+lightgbm>=4.0.0
+
+# SentinelProxy UI
+# (tkinter is stdlib — no install needed)
+# websocket-client for WS replay tab
+websocket-client>=1.6.0

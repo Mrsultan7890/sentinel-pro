@@ -53,7 +53,12 @@ fuzzer/target/
 media_analyzer/target/
 sentinel_proxy/rust_core/target/
 sentinel_proxy/rust_fuzzer/target/
-Cargo.lock
+
+# Cargo.lock — ignore for libraries, keep for binaries
+analyzer/Cargo.lock
+fuzzer/Cargo.lock
+media_analyzer/Cargo.lock
+# sentinel_proxy Cargo.lock kept — needed for reproducible proxy builds
 
 # ── Go build artifacts ────────────────────────────────────────────────────────
 scraper/scraper
