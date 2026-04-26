@@ -47,7 +47,7 @@ rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
 # Python binary
-cp -r dist/sentinel/* "$OUT_DIR/"
+cp -r dist/sentinel/. "$OUT_DIR/"
 
 # Go binaries
 for bin in scraper/scraper dirbuster/dirbuster network_mapper/network_mapper \
