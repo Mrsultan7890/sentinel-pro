@@ -14,7 +14,8 @@ from pathlib import Path
 from datetime import datetime
 
 # Add project to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+_base = Path(__file__).parent.parent if not getattr(sys, 'frozen', False) else Path(sys.executable).parent
+sys.path.insert(0, str(_base))
 
 import config
 from sentinel_brain.monitor import SentinelMonitor

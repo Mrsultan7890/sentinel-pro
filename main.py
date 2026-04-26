@@ -937,6 +937,13 @@ class TheSentinelPro:
         )
         self.console.print(tor_table)
 
+        # Wordlist status
+        try:
+            from modules.wordlist_manager import wordlist_status_table
+            self.console.print(wordlist_status_table())
+        except Exception:
+            pass
+
         # Session info
         if self.session_data:
             sess_table = Table(title="[bold]Current Session[/bold]", border_style="blue")

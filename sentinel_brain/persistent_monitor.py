@@ -25,7 +25,9 @@ class PersistentMonitor:
         self.config_file = Path.home() / '.sentinel_monitor_config.json'
         self.service_name = 'sentinel-monitor'
         self.service_file = f'/etc/systemd/system/{self.service_name}.service'
-        self.script_path = Path(__file__).parent / 'monitor_daemon.py'
+        import config as _cfg
+        self.base_dir   = _cfg.get_base_dir()
+        self.script_path = self.base_dir / 'sentinel_brain' / 'monitor_daemon.py'
         
     def install_service(self) -> bool:
         """System service install karo jo boot time pe start hogi."""
@@ -39,8 +41,8 @@ Wants=network.target
 [Service]
 Type=simple
 User={os.getenv('USER', 'kali')}
-WorkingDirectory={Path(__file__).parent.parent}
-Environment=PYTHONPATH={Path(__file__).parent.parent}
+WorkingDirectory={self.base_dir}
+Environment=PYTHONPATH={self.base_dir}
 Environment=DISPLAY=:0
 ExecStart=/usr/bin/python3 {self.script_path}
 Restart=always

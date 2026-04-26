@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 import config as _config
 DIRBUSTER_BIN = _config.get_base_dir() / 'dirbuster' / 'dirbuster'
 
+from modules.wordlist_manager import find_wordlist, wordlist_status_table
+
 # Wordlist priority per depth
 # FAST   — small curated list (~200 paths, ~10 sec)
 # NORMAL — common.txt (~4700 paths, ~1-2 min)   [DEFAULT]
@@ -115,10 +117,16 @@ class DirBusterBridge:
             tmp_file = _write_fast_wordlist()
             wl = str(tmp_file)
         else:
-            wl = _find_wordlist(depth)
+            depth_key = f'dirbust_{depth.lower()}'
+            wl_path, source = find_wordlist(depth_key)
+            wl = wl_path
 
         if not wl:
-            result['error'] = 'No wordlist found. Install seclists: apt install seclists'
+            result['error'] = (
+                f'No wordlist found for depth={depth}.\n'
+                f'Install with: sudo apt install seclists'
+            )
+            logger.warning(result['error'])
             return result
 
         result['wordlist'] = wl
