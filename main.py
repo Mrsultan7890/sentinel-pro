@@ -243,6 +243,22 @@ class TheSentinelPro:
         p()
         self._startup_animation()
 
+    def _check_license_startup(self):
+        """Startup pe license check karo."""
+        from modules.license_manager import check_license, PLANS
+        info = check_license()
+
+        if info['valid']:
+            plan_name = PLANS.get(info['plan'], info['plan'])
+            expiry_str = f"expires {info['expiry']}" if info['expiry'] != 'lifetime' else 'lifetime'
+            self.console.print(
+                f"  [green]\u2713 Licensed[/green] — [cyan]{plan_name}[/cyan] · [dim]{expiry_str}[/dim]\n"
+            )
+        else:
+            self.console.print("  [yellow]\u26a0  No license found[/yellow]")
+            self.console.print("  [dim]Run: [bold]activate <KEY>[/bold] to activate your license[/dim]")
+            self.console.print("  [dim]Get a license: https://github.com/Mrsultan7890/osints[/dim]\n")
+
     def _startup_animation(self):
         """Hacking style startup animation"""
         import time
@@ -281,6 +297,7 @@ class TheSentinelPro:
     def run(self):
         """Enhanced main execution loop with rich interface"""
         self.display_banner()
+        self._check_license_startup()
         
         while True:
             try:
