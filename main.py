@@ -401,6 +401,8 @@ class TheSentinelPro:
                     self._handle_privilege(command)
                 elif command == 'proxy' or command.startswith('proxy') or command.startswith('sentinelproxy'):
                     self._handle_proxy(command)
+                elif command.startswith('activate'):
+                    self._handle_activate(command)
                 elif command.startswith('profile'):
                     self._handle_profile(command)
                 else:
@@ -3613,6 +3615,31 @@ Anti-Detection: [green]ACTIVE[/green]
             return
 
         self.console.print("[dim]Usage: train status | train collect | train run | train save | train eval[/dim]")
+
+    def _handle_activate(self, command: str):
+        """License key activate karo."""
+        parts = command.split(' ', 1)
+        if len(parts) < 2 or not parts[1].strip():
+            from modules.license_manager import check_license, PLANS
+            info = check_license()
+            if info['valid']:
+                plan_name = PLANS.get(info['plan'], info['plan'])
+                self.console.print(f"[green]\u2713 License ACTIVE[/green]")
+                self.console.print(f"  Plan   : [cyan]{plan_name}[/cyan]")
+                self.console.print(f"  Email  : {info['email']}")
+                self.console.print(f"  Expiry : {info['expiry']}")
+                self.console.print(f"  Issued : {info['issued']}")
+            else:
+                self.console.print(f"[red]\u2717 No valid license[/red] \u2014 {info['reason']}")
+                self.console.print("[dim]Usage: activate <LICENSE-KEY>[/dim]")
+            return
+        key = parts[1].strip()
+        from modules.license_manager import activate
+        result = activate(key)
+        if result['success']:
+            self.console.print(f"[bold green]\u2713 {result['message']}[/bold green]")
+        else:
+            self.console.print(f"[red]\u2717 Activation failed: {result['message']}[/red]")
 
     def _handle_proxy(self, command: str = 'proxy'):
         """SentinelProxy commands — start / stop / restart / status"""
