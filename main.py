@@ -252,12 +252,35 @@ class TheSentinelPro:
             plan_name = PLANS.get(info['plan'], info['plan'])
             expiry_str = f"expires {info['expiry']}" if info['expiry'] != 'lifetime' else 'lifetime'
             self.console.print(
-                f"  [green]\u2713 Licensed[/green] — [cyan]{plan_name}[/cyan] · [dim]{expiry_str}[/dim]\n"
+                f"  [green]\u2713 Licensed[/green] \u2014 [cyan]{plan_name}[/cyan] \u00b7 [dim]{expiry_str}[/dim]\n"
             )
         else:
-            self.console.print("  [yellow]\u26a0  No license found[/yellow]")
-            self.console.print("  [dim]Run: [bold]activate <KEY>[/bold] to activate your license[/dim]")
+            self.console.print("  [yellow]\u26a0  No active license[/yellow]")
+            self.console.print("  [dim]Run: [bold]activate <KEY>[/bold] to activate[/dim]")
             self.console.print("  [dim]Get a license: https://github.com/Mrsultan7890/osints[/dim]\n")
+            self.console.print("[red]Tool locked. Activate a license to continue.[/red]\n")
+            self._locked_mode()
+
+    def _locked_mode(self):
+        """Bina license ke sirf activate command allow karo."""
+        while True:
+            try:
+                raw = self.console.input("\n[bold red]locked>[/bold red] ").strip()
+                cmd = raw.split(' ', 1)
+                if cmd[0].lower() in ('exit', 'quit', 'q'):
+                    raise SystemExit(0)
+                elif raw.lower().startswith('activate'):
+                    self._handle_activate(raw)
+                    # Agar activate successful hua toh locked mode se bahar
+                    from modules.license_manager import check_license
+                    if check_license()['valid']:
+                        self.console.print("[green]Restarting tool...[/green]")
+                        import os, sys
+                        os.execv(sys.executable, [sys.executable] + sys.argv)
+                else:
+                    self.console.print("[red]Tool locked.[/red] Run: [bold]activate <KEY>[/bold]")
+            except (KeyboardInterrupt, EOFError):
+                raise SystemExit(0)
 
     def _startup_animation(self):
         """Hacking style startup animation"""
