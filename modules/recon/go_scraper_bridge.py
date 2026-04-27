@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 import config as _config
 BASE_DIR    = _config.get_base_dir()
-SCRAPER_BIN = BASE_DIR / 'scraper' / 'scraper'
+SCRAPER_BIN = _config.SCRAPER_BIN
 
 
 class GoScraperBridge:

@@ -42,13 +42,21 @@ LOGS_DIR = BASE_DIR / "logs"
 for directory in [INVESTIGATIONS_DIR, REPORTS_DIR, MODELS_DIR, EVIDENCE_DIR, LOGS_DIR]:
     directory.mkdir(exist_ok=True)
 
-# Binary paths
-SCRAPER_BIN        = BASE_DIR / "scraper" / "scraper"
-PREDICTOR_BIN      = BASE_DIR / "predictor" / "predictor"
-ANALYZER_BIN       = BASE_DIR / "analyzer" / "target" / "release" / "analyzer"
-NETWORK_MAPPER_BIN = BASE_DIR / "network_mapper" / "network_mapper"
-STEALTH_PROXY_BIN  = BASE_DIR / "stealth_proxy" / "stealth_proxy"
-MEDIA_ANALYZER_BIN = BASE_DIR / "media_analyzer" / "target" / "release" / "media_analyzer"
+# Binary paths — frozen (binary) mein root mein hain, source mein subdirs mein
+if getattr(sys, 'frozen', False):
+    SCRAPER_BIN        = BASE_DIR / "scraper"
+    PREDICTOR_BIN      = BASE_DIR / "predictor"
+    ANALYZER_BIN       = BASE_DIR / "analyzer"
+    NETWORK_MAPPER_BIN = BASE_DIR / "network_mapper"
+    STEALTH_PROXY_BIN  = BASE_DIR / "stealth_proxy"
+    MEDIA_ANALYZER_BIN = BASE_DIR / "media_analyzer"
+else:
+    SCRAPER_BIN        = BASE_DIR / "scraper" / "scraper"
+    PREDICTOR_BIN      = BASE_DIR / "predictor" / "predictor"
+    ANALYZER_BIN       = BASE_DIR / "analyzer" / "target" / "release" / "analyzer"
+    NETWORK_MAPPER_BIN = BASE_DIR / "network_mapper" / "network_mapper"
+    STEALTH_PROXY_BIN  = BASE_DIR / "stealth_proxy" / "stealth_proxy"
+    MEDIA_ANALYZER_BIN = BASE_DIR / "media_analyzer" / "target" / "release" / "media_analyzer"
 
 # Screenshots directory
 SCREENSHOTS_DIR = BASE_DIR / "screenshots"
