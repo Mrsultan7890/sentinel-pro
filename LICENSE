@@ -1,30 +1,45 @@
-MIT License
+Sentinel Pro v3.0 — Software License Agreement
+===============================================
 
-Copyright (c) 2024 The Sentinel Pro
+Copyright (c) 2026 @who_is_the_black_hat. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+IMPORTANT: READ THIS LICENSE AGREEMENT CAREFULLY BEFORE USING THIS SOFTWARE.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. OWNERSHIP
+   This software, "Sentinel Pro", including all source code, binaries, models,
+   documentation, and associated files, is the exclusive property of
+   @who_is_the_black_hat. All intellectual property rights are reserved.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. PERMITTED USE
+   A valid license key is required to use this software. Licensed users may:
+   - Install and use the software on one machine per license
+   - Use the software for authorized security testing and OSINT research
+   - Use the software for personal or commercial security work
 
----
+3. RESTRICTIONS
+   You may NOT:
+   - Copy, distribute, or share this software without written permission
+   - Reverse engineer, decompile, or disassemble the software
+   - Remove or alter copyright notices or license headers
+   - Create derivative works based on this software
+   - Sublicense, sell, or transfer your license to another party
+   - Use this software for illegal activities
 
-LEGAL NOTICE
+4. INTELLECTUAL PROPERTY
+   All custom neural networks (SentinelNet, Seq2Seq, SentinelLM), algorithms,
+   ML models, and code in this software are original works protected by
+   copyright law. Unauthorized reproduction is a violation of applicable law.
 
-This tool is intended for authorized security testing and OSINT research only.
-Always obtain proper written authorization before scanning any target.
-Unauthorized use against systems you do not own or have explicit permission to
-test is illegal and unethical. The authors are not responsible for misuse.
+5. DISCLAIMER
+   THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND.
+   THE AUTHOR SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM USE.
+
+6. LEGAL NOTICE
+   Unauthorized copying or distribution of this software may result in
+   civil and criminal penalties under applicable copyright law.
+
+7. CONTACT
+   For licensing: https://github.com/Mrsultan7890/osints
+   Author: @who_is_the_black_hat
+
+By using this software, you agree to the terms of this license.

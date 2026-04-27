@@ -9,6 +9,7 @@ data/file_registry.json
 
 # ── Seller tools (private) ──────────────────────────────────────────────────
 generate_key.py
+add_copyright.py
 
 # ── IDE / AI assistant internal files ────────────────────────────────────────
 .amazonq/
