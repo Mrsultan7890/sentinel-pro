@@ -7,6 +7,9 @@
 data/.encryption_key
 data/file_registry.json
 
+# ── Seller tools (private) ──────────────────────────────────────────────────
+generate_key.py
+
 # ── IDE / AI assistant internal files ────────────────────────────────────────
 .amazonq/
 .idea/
