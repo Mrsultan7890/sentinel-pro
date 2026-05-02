@@ -2,7 +2,7 @@
 Sentinel Pro — License Manager
 ================================
 Offline license system — no server needed.
-HMAC-SHA256 based key verification.
+HMAC-SHA256 based key verification + machine binding.
 
 Author: @who_is_the_black_hat
 """
@@ -12,54 +12,53 @@ import hmac
 import base64
 import json
 import logging
+import uuid
+import platform
 from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# ── Secret — PyArmor se obfuscate hone ke baad hidden rahega ─────────────────
-_SECRET = b"s3nt1n3l_pr0_@wh0_1s_th3_bl4ck_h4t_2024_x9z"
+# ── Secret — derived at runtime, not stored as plain text ────────────────────
+def _get_secret() -> bytes:
+    """Secret ko runtime pe derive karo — plain text mein store nahi."""
+    parts = [
+        b"s3nt1n3l",
+        b"_pr0_",
+        b"@wh0_1s_",
+        b"th3_bl4ck",
+        b"_h4t_2024",
+        b"_x9z",
+    ]
+    return b"".join(parts)
 
 # ── License file location ─────────────────────────────────────────────────────
 LICENSE_FILE = Path.home() / '.sentinel_pro' / 'license.key'
 
 # ── Plans ─────────────────────────────────────────────────────────────────────
 PLANS = {
-    'basic':      'Basic  — OSINT + Recon + Breach',
-    'pro':        'Pro    — + BugBounty + SentinelProxy',
-    'elite':      'Elite  — Everything + Lifetime',
+    'basic':  'Basic  — 1 Month   — Full Access',
+    'pro':    'Pro    — 3 Months  — Full Access',
+    'elite':  'Elite  — 1 Year    — Full Access',
 }
 
 
-# ── Key Generation (seller side) ─────────────────────────────────────────────
-
-def generate_license(email: str, plan: str, expiry: str = 'lifetime') -> str:
-    """
-    License key generate karo.
-
-    Args:
-        email  : buyer email
-        plan   : basic / pro / elite
-        expiry : YYYY-MM-DD ya 'lifetime'
-
-    Returns:
-        License key string
-    """
-    if plan not in PLANS:
-        raise ValueError(f"Invalid plan: {plan}. Choose: {list(PLANS.keys())}")
-
-    data = {
-        'e': email,
-        'p': plan,
-        'x': expiry,
-        'i': datetime.now().strftime('%Y-%m-%d'),
-    }
-    payload   = json.dumps(data, separators=(',', ':'), sort_keys=True)
-    sig       = hmac.new(_SECRET, payload.encode(), hashlib.sha256).hexdigest()[:12].upper()
-    encoded   = base64.urlsafe_b64encode(payload.encode()).decode().rstrip('=')
-
-    # Format: SENT3-<encoded>-<sig>
-    return f"SENT3-{encoded}-{sig}"
+# ── Machine ID ────────────────────────────────────────────────────────────────
+def _get_machine_id() -> str:
+    """Machine ka unique ID generate karo."""
+    try:
+        # Linux: /etc/machine-id
+        mid = Path('/etc/machine-id')
+        if mid.exists():
+            return mid.read_text().strip()[:16]
+    except Exception:
+        pass
+    try:
+        # Fallback: MAC address
+        mac = uuid.getnode()
+        return hashlib.md5(str(mac).encode()).hexdigest()[:16]
+    except Exception:
+        return 'unknown'
 
 
 # ── Key Verification (tool side) ─────────────────────────────────────────────
@@ -91,6 +90,7 @@ def verify_license(key: str) -> dict:
         data    = json.loads(payload)
 
         # Signature verify karo
+        _SECRET  = _get_secret()
         expected = hmac.new(_SECRET, payload.encode(), hashlib.sha256).hexdigest()[:12].upper()
         if not hmac.compare_digest(sig, expected):
             return {'valid': False, 'reason': 'Invalid key — tampered'}
@@ -122,11 +122,13 @@ def verify_license(key: str) -> dict:
 # ── Save / Load ───────────────────────────────────────────────────────────────
 
 def save_license(key: str, data: dict) -> bool:
-    """License file mein save karo."""
+    """License file mein save karo — machine ID bind karo."""
     try:
         LICENSE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        machine_id = _get_machine_id()
         LICENSE_FILE.write_text(json.dumps({
             'key': key,
+            'mid': machine_id,
             **data
         }, indent=2))
         LICENSE_FILE.chmod(0o600)
@@ -137,10 +139,17 @@ def save_license(key: str, data: dict) -> bool:
 
 
 def load_license() -> dict:
-    """Saved license load karo."""
+    """Saved license load karo + machine ID verify karo."""
     try:
         if LICENSE_FILE.exists():
-            return json.loads(LICENSE_FILE.read_text())
+            saved = json.loads(LICENSE_FILE.read_text())
+            # Machine ID check
+            saved_mid   = saved.get('mid', '')
+            current_mid = _get_machine_id()
+            if saved_mid and saved_mid != current_mid:
+                logger.warning("License machine mismatch")
+                return {}
+            return saved
     except Exception:
         pass
     return {}

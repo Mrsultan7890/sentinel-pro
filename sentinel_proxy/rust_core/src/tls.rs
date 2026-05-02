@@ -1,3 +1,11 @@
+// ============================================================================
+// Sentinel Pro v3.0 — Professional OSINT & Bug Bounty Platform
+// Copyright (c) 2026 @who_is_the_black_hat. All rights reserved.
+//
+// Unauthorized copying, distribution, or modification of this software,
+// via any medium, is strictly prohibited without written permission.
+// ============================================================================
+
 use crate::cert_store::CertStore;
 use rustls::{ClientConfig, RootCertStore, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys, rsa_private_keys};

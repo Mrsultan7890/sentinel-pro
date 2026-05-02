@@ -1,3 +1,11 @@
+// ============================================================================
+// Sentinel Pro v3.0 — Professional OSINT & Bug Bounty Platform
+// Copyright (c) 2026 @who_is_the_black_hat. All rights reserved.
+//
+// Unauthorized copying, distribution, or modification of this software,
+// via any medium, is strictly prohibited without written permission.
+// ============================================================================
+
 /// SentinelProxy Parallel Fuzzer v2.0
 /// Input  (stdin): JSON config
 /// Output (stdout): JSONL results (one per line)

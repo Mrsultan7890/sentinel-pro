@@ -18,6 +18,8 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from modules.report_signature import sign_json, get_html_footer, get_txt_footer
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,12 +39,12 @@ class PersonReport:
         # JSON
         full_data = {'person': person_result, 'graph': graph}
         json_path = Path(str(base) + '.json')
-        json_path.write_text(json.dumps(full_data, indent=2, ensure_ascii=False), encoding='utf-8')
+        json_path.write_text(json.dumps(sign_json(full_data), indent=2, ensure_ascii=False), encoding='utf-8')
         paths['json'] = str(json_path)
 
         # Summary text
         summary_path = Path(str(base) + '_summary.txt')
-        summary_path.write_text(self._build_summary(query, person_result, graph), encoding='utf-8')
+        summary_path.write_text(self._build_summary(query, person_result, graph) + get_txt_footer(), encoding='utf-8')
         paths['summary'] = str(summary_path)
 
         # HTML
@@ -260,4 +262,5 @@ class PersonReport:
 <h2>🧠 ML Engine Analysis</h2>
 {self._build_ml_html(result)}
 
+{get_html_footer()}
 </body></html>"""

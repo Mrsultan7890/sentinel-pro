@@ -1,14 +1,3 @@
-# ============================================================================
-# Sentinel Pro v3.0 — Professional OSINT & Bug Bounty Platform
-# Copyright (c) 2026 @who_is_the_black_hat. All rights reserved.
-#
-# Unauthorized copying, distribution, or modification of this software,
-# via any medium, is strictly prohibited without written permission.
-#
-# Licensed users may use this software under the terms of their license.
-# For licensing: https://github.com/Mrsultan7890/osints
-# ============================================================================
-
 """
 Autonomous Decision Engine — Sentinel Intelligence Core
 =======================================================
@@ -32,8 +21,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-import config as _config
-STATE_FILE = _config.get_base_dir() / 'models' / 'ml_engine' / 'training_data' / 'autonomous_decisions.jsonl'
+STATE_FILE = Path(__file__).resolve().parents[2] / 'models' / 'ml_engine' / 'training_data' / 'autonomous_decisions.jsonl'
 
 
 class DecisionEngine:

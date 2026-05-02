@@ -27,12 +27,64 @@ VAULT_FILE  = config.BASE_DIR / 'data' / 'secrets_vault.json'
 
 # Known API key patterns
 KEY_PATTERNS = {
-    'GROQ_API_KEY':         r'^gsk_[a-zA-Z0-9]{50,}$',
-    'SHODAN_API_KEY':       r'^[a-zA-Z0-9]{32}$',
-    'GITHUB_TOKEN':         r'^gh[ps]_[a-zA-Z0-9]{36,}$',
-    'TELEGRAM_BOT_TOKEN':   r'^\d+:[a-zA-Z0-9_-]{35}$',
-    'HIBP_API_KEY':         r'^[a-zA-Z0-9-]{30,}$',
-    'NVD_API_KEY':          r'^[a-zA-Z0-9-]{36}$',
+    # Core Services
+    'GROQ_API_KEY':              r'^gsk_[a-zA-Z0-9]{50,}$',
+    'TELEGRAM_BOT_TOKEN':        r'^\d+:[a-zA-Z0-9_-]{35}$',
+    'TELEGRAM_CHAT_ID':          r'^\d+$',
+    
+    # Security & Vulnerability
+    'SHODAN_API_KEY':            r'^[a-zA-Z0-9]{32}$',
+    'NVD_API_KEY':               r'^[a-zA-Z0-9-]{36}$',
+    'VIRUSTOTAL_API_KEY':        r'^[a-zA-Z0-9]{64}$',
+    'VULNDB_API_KEY':            r'^[a-zA-Z0-9-]{36,}$',
+    'VULNERS_API_KEY':           r'^[a-zA-Z0-9]{40,}$',
+    
+    # Breach & Leaks
+    'HIBP_API_KEY':              r'^[a-zA-Z0-9-]{30,}$',
+    'DEHASHED_API_KEY':          r'^[a-zA-Z0-9]{32,}$',
+    'DEHASHED_EMAIL':            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    'INTELX_API_KEY':            r'^[a-zA-Z0-9-]{36,}$',
+    'LEAKCHECK_API_KEY':         r'^[a-zA-Z0-9]{32,}$',
+    'SNUSBASE_API_KEY':          r'^[a-zA-Z0-9]{32,}$',
+    
+    # OSINT & Intelligence
+    'HUNTER_API_KEY':            r'^[a-zA-Z0-9]{40}$',
+    'PIPL_API_KEY':              r'^[a-zA-Z0-9-]{36,}$',
+    'FULLCONTACT_API_KEY':       r'^[a-zA-Z0-9]{32,}$',
+    'CLEARBIT_API_KEY':          r'^sk_[a-zA-Z0-9]{32}$',
+    
+    # Network & Infrastructure
+    'SECURITYTRAILS_API_KEY':    r'^[a-zA-Z0-9]{32,}$',
+    'CENSYS_API_ID':             r'^[a-zA-Z0-9-]{36}$',
+    'CENSYS_API_SECRET':         r'^[a-zA-Z0-9]{32,}$',
+    'URLSCAN_API_KEY':           r'^[a-zA-Z0-9-]{36}$',
+    'BUILTWITH_API_KEY':         r'^[a-zA-Z0-9]{32,}$',
+    
+    # Threat Intelligence
+    'ABUSEIPDB_API_KEY':         r'^[a-zA-Z0-9]{80}$',
+    'GREYNOISE_API_KEY':         r'^[a-zA-Z0-9]{32,}$',
+    'PHISHTANK_API_KEY':         r'^[a-zA-Z0-9]{64}$',
+    'CHECKPHISH_API_KEY':        r'^[a-zA-Z0-9-]{36,}$',
+    
+    # Malware Analysis
+    'MALSHARE_API_KEY':          r'^[a-zA-Z0-9]{64}$',
+    'HYBRIDANALYSIS_API_KEY':    r'^[a-zA-Z0-9]{64}$',
+    
+    # Development & Search
+    'GITHUB_TOKEN':              r'^gh[ps]_[a-zA-Z0-9]{36,}$',
+    'SERPAPI_KEY':               r'^[a-zA-Z0-9]{64}$',
+    
+    # Phone Validation
+    'NUMVERIFY_API_KEY':         r'^[a-zA-Z0-9]{32}$',
+    'ABSTRACTAPI_PHONE_KEY':     r'^[a-zA-Z0-9]{32}$',
+    
+    # Blockchain & Crypto
+    'ETHERSCAN_API_KEY':         r'^[A-Z0-9]{34}$',
+    'WHALE_ALERT_API_KEY':       r'^[a-zA-Z0-9]{32,}$',
+    
+    # Business Intelligence
+    'CRUNCHBASE_API_KEY':        r'^[a-zA-Z0-9]{32,}$',
+    'COMPANIES_HOUSE_API_KEY':   r'^[a-zA-Z0-9_-]{32,}$',
 }
 
 

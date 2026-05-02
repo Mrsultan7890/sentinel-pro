@@ -19,6 +19,8 @@ from pathlib import Path
 
 import config
 
+from modules.report_signature import sign_json, get_html_footer, get_txt_footer
+
 logger = logging.getLogger(__name__)
 
 REPORTS_DIR = config.REPORTS_DIR
@@ -121,6 +123,7 @@ class SentinelReportBuilder:
 
         # Save files
         paths = {}
+        report = sign_json(report)
         paths['json']    = self._save_json(report, str(base))
         paths['summary'] = self._save_summary(report, str(base))
         paths['html']    = self._save_html(report, str(base), chart_path)
@@ -312,7 +315,7 @@ class SentinelReportBuilder:
             f"Standards: {', '.join(report['standards'])}",
         ]
         with open(path, 'w') as f:
-            f.write('\n'.join(lines))
+            f.write('\n'.join(lines) + get_txt_footer())
         return path
 
     def _save_html(self, report: dict, base: str, chart_path: str) -> str:
@@ -445,6 +448,7 @@ class SentinelReportBuilder:
   <p class="meta">Generated: {report['timestamp']} | Tool: {report['tool']}</p>
 </div>
 
+{get_html_footer()}
 </body>
 </html>"""
 

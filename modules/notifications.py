@@ -57,16 +57,80 @@ class TelegramNotifier:
 
     # ── public helpers ──────────────────────────────────────────────────────
 
-    def alert_bugbounty(self, domain: str, data: dict) -> bool:
+    def alert_bugbounty(self, domain: str, data: dict, max_findings: int = None) -> bool:
+        """Send bug bounty alert with ALL findings (no limit by default)."""
         if not self.enabled:
             return False
+        
+        # Check if unified report format (has 'findings' array)
+        if 'findings' in data and isinstance(data['findings'], list):
+            findings_list = data['findings']
+            total_count = len(findings_list)
+            
+            # If no findings, send success message
+            if total_count == 0:
+                lines = [
+                    f"✅ BUG BOUNTY SCAN COMPLETE",
+                    f"Target : {domain}",
+                    f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                    f"Status : [green]No vulnerabilities found[/green]",
+                    f"",
+                    f"🛡️ All security checks passed!",
+                    f"",
+                    f"Sentinel Pro — @who_is_the_black_hat"
+                ]
+                return self._send('\n'.join(lines))
+            
+            # Apply limit only if specified
+            display_findings = findings_list[:max_findings] if max_findings else findings_list
+            
+            lines = [
+                f"🚨 BUG BOUNTY ALERT",
+                f"Target : {domain}",
+                f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                f"Found  : {total_count} issue(s)",
+                f"",
+                f"ALL FINDINGS:",
+            ]
+            
+            for finding in display_findings:
+                severity = finding.get('severity', 'MEDIUM')
+                title = finding.get('title', 'Unknown')
+                detail = finding.get('detail', '')[:80]
+                
+                icon = {'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(severity, '⚪')
+                lines.append(f"{icon} [{severity}] {title}")
+                if detail:
+                    lines.append(f"  {detail}")
+            
+            if max_findings and total_count > max_findings:
+                lines.append(f"")
+                lines.append(f"... and {total_count - max_findings} more findings")
+            
+            lines.append(f"")
+            lines.append(f"Sentinel Pro — @who_is_the_black_hat")
+            return self._send('\n'.join(lines))
+        
+        # Old format (individual scanner results)
         criticals = self._extract_bugbounty_criticals(data)
-        # Also alert if fuzzer found sensitive files (even if main risk shows MEDIUM)
         fuzz_count = data.get('fuzzer', {}).get('total_findings', 0)
         smug_count = len(data.get('smuggling', {}).get('findings', []))
         lfi_count  = data.get('lfi', {}).get('total', 0)
+        
         if not criticals and not fuzz_count and not smug_count and not lfi_count:
-            return False
+            # Send success message for old format too
+            lines = [
+                f"✅ BUG BOUNTY SCAN COMPLETE",
+                f"Target : {domain}",
+                f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                f"Status : No critical/high issues found",
+                f"",
+                f"🛡️ Target appears secure!",
+                f"",
+                f"Sentinel Pro — @who_is_the_black_hat"
+            ]
+            return self._send('\n'.join(lines))
+        
         # Deduplicate by type
         seen_types, unique = set(), []
         for c in criticals:
@@ -74,42 +138,68 @@ class TelegramNotifier:
             if t not in seen_types:
                 seen_types.add(t)
                 unique.append(c)
+        
+        display_findings = unique[:max_findings] if max_findings else unique
+        total_count = len(unique)
+        
         lines = [
             f"🚨 BUG BOUNTY ALERT",
             f"Target : {domain}",
             f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-            f"Found  : {len(criticals)} critical/high issues",
+            f"Found  : {total_count} issue(s)",
             f"",
-            f"TOP FINDINGS:",
+            f"ALL FINDINGS:",
         ]
-        for item in unique[:8]:
-            # Clean brackets and make readable
+        
+        for item in display_findings:
             import re
             sev  = re.search(r'\[([A-Z]+)\]', item)
             rest = re.sub(r'\[[A-Z]+\]\s*', '', item).strip()
-            icon = '🔴' if sev and sev.group(1) == 'CRITICAL' else '🟠'
-            lines.append(f"{icon} {rest[:80]}")
+            icon = {'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(
+                sev.group(1) if sev else 'MEDIUM', '⚪'
+            )
+            lines.append(f"{icon} {rest[:100]}")
+        
+        if max_findings and total_count > max_findings:
+            lines.append(f"")
+            lines.append(f"... and {total_count - max_findings} more findings")
+        
         lines.append(f"")
         lines.append(f"Sentinel Pro — @who_is_the_black_hat")
         return self._send('\n'.join(lines))
 
-    def alert_recon(self, domain: str, data: dict) -> bool:
+    def alert_recon(self, domain: str, data: dict, max_findings: int = None) -> bool:
+        """Send recon alert with ALL findings (no limit by default)."""
         if not self.enabled:
             return False
         criticals = self._extract_recon_criticals(data)
         if not criticals:
             return False
+        
+        display_findings = criticals[:max_findings] if max_findings else criticals
+        total_count = len(criticals)
+        
         lines = [
             f"🔍 RECON ALERT",
             f"Target : {domain}",
             f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"Found  : {total_count} finding(s)",
             f"",
-            f"FINDINGS:",
+            f"ALL FINDINGS:",
         ]
-        for item in criticals[:8]:
+        for item in display_findings:
             import re
+            sev  = re.search(r'\[([A-Z]+)\]', item)
             rest = re.sub(r'\[[A-Z]+\]\s*', '', item).strip()
-            lines.append(f"⚠️  {rest[:80]}")
+            icon = {'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(
+                sev.group(1) if sev else 'MEDIUM', '⚠️'
+            )
+            lines.append(f"{icon} {rest[:100]}")
+        
+        if max_findings and total_count > max_findings:
+            lines.append(f"")
+            lines.append(f"... and {total_count - max_findings} more findings")
+        
         lines.append(f"")
         lines.append(f"Sentinel Pro — @who_is_the_black_hat")
         return self._send('\n'.join(lines))
@@ -141,8 +231,9 @@ class TelegramNotifier:
     # ── private extractors ──────────────────────────────────────────────────
 
     def _extract_bugbounty_criticals(self, data: dict) -> list:
+        """Extract ALL findings (CRITICAL, HIGH, MEDIUM, LOW)."""
         items = []
-        _sev = {'CRITICAL', 'HIGH'}
+        _sev = {'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'}  # Include all severities
 
         def _add(label, findings, key='severity', msg_key='evidence'):
             for f in (findings or []):
@@ -201,8 +292,9 @@ class TelegramNotifier:
         return items
 
     def _extract_recon_criticals(self, data: dict) -> list:
+        """Extract ALL findings (CRITICAL, HIGH, MEDIUM, LOW)."""
         items = []
-        _sev = {'CRITICAL', 'HIGH'}
+        _sev = {'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'}  # Include all severities
 
         for rf in data.get('whois', {}).get('risk_flags', []):
             if rf.get('severity') in _sev:

@@ -89,6 +89,12 @@ ABSTRACTAPI_PHONE_KEY  = os.getenv('ABSTRACTAPI_PHONE_KEY', '')
 # Groq LLM API
 GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
 
+# Sentinel Intel Graph Platform API Keys
+INTEL_GRAPH_ENABLED = os.getenv('INTEL_GRAPH_ENABLED', 'true').lower() == 'true'
+INTEL_AUTO_LAYOUT = os.getenv('INTEL_AUTO_LAYOUT', 'true').lower() == 'true'
+INTEL_MAX_NODES = int(os.getenv('INTEL_MAX_NODES', '500'))
+INTEL_MAX_EDGES = int(os.getenv('INTEL_MAX_EDGES', '1000'))
+
 # API Keys - read from environment variables
 SHODAN_API_KEY         = os.getenv('SHODAN_API_KEY', '')
 GITHUB_TOKEN           = os.getenv('GITHUB_TOKEN', '')

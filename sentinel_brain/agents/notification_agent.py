@@ -199,10 +199,22 @@ class NotificationAgent:
         )
 
     def new_monitor_finding(self, target: str, findings: list):
-        top = findings[0] if findings else {}
+        sorted_findings = sorted(
+            findings,
+            key=lambda x: {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}.get(x.get('severity', 'LOW'), 4)
+        )
+        top = sorted_findings[0] if sorted_findings else {}
+
+        details = []
+        for f in sorted_findings:
+            icon = {'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(f.get('severity', 'LOW'), '⚪')
+            details.append(f"{icon} {f.get('title', 'Unknown')}: {f.get('detail', '')[:80]}")
+
+        message = f"Target: {target}\n\nALL FINDINGS:\n" + "\n".join(details)
+
         self.alert(
             f'Monitor Alert — {len(findings)} new finding(s)',
-            f'Target: {target}\n{top.get("title","")}: {top.get("detail","")[:80]}',
+            message,
             severity=top.get('severity', 'MEDIUM'),
             channels=['desktop', 'telegram', 'sound'],
         )

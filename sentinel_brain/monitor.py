@@ -239,7 +239,7 @@ print(f"[Monitor-Child] Scan complete for {target}")
                 return
 
             _sev = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
-            top  = sorted(findings, key=lambda x: _sev.get(x['severity'], 4))[:6]
+            sorted_findings = sorted(findings, key=lambda x: _sev.get(x['severity'], 4))
 
             lines = [
                 f"🔔 MONITOR ALERT",
@@ -247,11 +247,11 @@ print(f"[Monitor-Child] Scan complete for {target}")
                 f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
                 f"New    : {len(findings)} finding(s)",
                 "",
-                "NEW FINDINGS:",
+                "ALL NEW FINDINGS:",
             ]
-            for f in top:
-                icon = '🔴' if f['severity'] == 'CRITICAL' else '🟠' if f['severity'] == 'HIGH' else '🟡'
-                lines.append(f"{icon} {f['title']} — {f['detail'][:60]}")
+            for f in sorted_findings:
+                icon = {'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(f['severity'], '⚪')
+                lines.append(f"{icon} {f['title']} — {f['detail'][:80]}")
             lines.append("")
             lines.append("Sentinel Pro — @who_is_the_black_hat")
             notifier.send('\n'.join(lines))

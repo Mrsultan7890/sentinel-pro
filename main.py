@@ -24,6 +24,7 @@ import json
 import re
 import logging
 import argparse
+import readline
 from datetime import datetime
 from pathlib import Path
 from rich.console import Console
@@ -39,7 +40,7 @@ from modules.cli_interface import EnhancedCLI
 from modules.digital_footprint import AdvancedFootprintCollector
 from modules.anomaly_analyzer import PredictiveAnalyzer
 from modules.reporting_engine import LegalReportingEngine
-from modules.stealth_manager import StealthManager
+# StealthManager removed - Tor integration is sufficient (config.TOR_PROXY)
 from modules.darkweb_crawler import DarkWebCrawler
 from modules.evidence_manager import EvidenceManager
 from modules.semantic_analyzer import SemanticAnalyzer
@@ -136,7 +137,7 @@ class TheSentinelPro:
         self.collector = AdvancedFootprintCollector()
         self.analyzer = PredictiveAnalyzer()
         self.reporter = LegalReportingEngine()
-        self.stealth = StealthManager()
+        # StealthManager removed - use Tor commands instead (tor on/off/status)
         self.darkweb = DarkWebCrawler()
         self.evidence = EvidenceManager()
         self.semantic = SemanticAnalyzer()
@@ -144,6 +145,9 @@ class TheSentinelPro:
         self.financial = FinancialAnalyzer()
         self.fake_detector = FakeProfileDetector()
         self.bugbounty = BugBountyScanner()
+        
+        # Setup command history with readline
+        self._setup_command_history()
         # New modular components
         self.whois       = WhoisLookup()
         self.subdomain   = SubdomainEnum()
@@ -208,6 +212,38 @@ class TheSentinelPro:
 
         # Validate binaries on startup
         self._validate_environment()
+    
+    def _setup_command_history(self):
+        """Setup readline for command history with arrow keys (like Kali terminal)"""
+        try:
+            # History file path
+            history_file = config.BASE_DIR / '.sentinel_history'
+            
+            # Load existing history
+            if history_file.exists():
+                readline.read_history_file(str(history_file))
+            
+            # Set history length (last 1000 commands)
+            readline.set_history_length(1000)
+            
+            # Enable tab completion (optional)
+            readline.parse_and_bind('tab: complete')
+            
+            # Save history file path for later
+            self._history_file = history_file
+            
+            logger.debug(f"Command history enabled: {history_file}")
+        except Exception as e:
+            logger.warning(f"Could not setup command history: {e}")
+            self._history_file = None
+    
+    def _save_command_history(self):
+        """Save command history to file"""
+        try:
+            if self._history_file:
+                readline.write_history_file(str(self._history_file))
+        except Exception as e:
+            logger.debug(f"Could not save command history: {e}")
         
     def _validate_environment(self):
         """Validate environment and binaries"""
@@ -265,11 +301,13 @@ class TheSentinelPro:
             self.console.print(
                 f"  [green]\u2713 Licensed[/green] \u2014 [cyan]{plan_name}[/cyan] \u00b7 [dim]{expiry_str}[/dim]\n"
             )
+            self._license_plan = info['plan']
         else:
             self.console.print("  [yellow]\u26a0  No active license[/yellow]")
             self.console.print("  [dim]Run: [bold]activate <KEY>[/bold] to activate[/dim]")
             self.console.print("  [dim]Get a license: https://github.com/Mrsultan7890/osints[/dim]\n")
             self.console.print("[red]Tool locked. Activate a license to continue.[/red]\n")
+            self._license_plan = None
             self._locked_mode()
 
     def _locked_mode(self):
@@ -298,17 +336,78 @@ class TheSentinelPro:
         import time
         p = self.console.print
 
-        boot_msgs = [
-            ("[bold green][+][/bold green]", "Initializing core engine...",            0.3),
-            ("[bold green][+][/bold green]", "Loading OSINT modules (40+ platforms)",  0.25),
-            ("[bold green][+][/bold green]", "Mounting ML engine (spaCy + sklearn)...",0.25),
-            ("[bold green][+][/bold green]", "Establishing stealth protocols...",      0.3),
-            ("[bold green][+][/bold green]", "Loading evidence vault...",              0.3),
-            ("[bold yellow][!][/bold yellow]", "Tor routing : INACTIVE  (use 'tor on')",0.2),
-            ("[bold green][+][/bold green]", "All systems operational.",               0.4),
-        ]
-
-        for icon, msg, delay in boot_msgs:
+        # Dynamic Tor status check
+        tor_status_msg = "Tor routing : 🧅 ACTIVE" if config.is_tor_active() else "Tor routing : INACTIVE  (use 'tor on')"
+        tor_icon = "[bold green][+][/bold green]" if config.is_tor_active() else "[bold yellow][!][/bold yellow]"
+        
+        # Real system checks
+        boot_checks = []
+        
+        # 1. Core databases
+        db_main = (config.BASE_DIR / 'data' / 'sentinel.db').exists()
+        db_memory = (config.BASE_DIR / 'data' / 'sentinel_memory.db').exists()
+        db_icon = "[bold green][+]" if (db_main and db_memory) else "[bold yellow][!]"
+        db_msg = f"Core databases: {'✓ READY' if (db_main and db_memory) else '⚠ MISSING'}"
+        boot_checks.append((db_icon, db_msg, 0.2))
+        
+        # 2. OSINT modules
+        osint_modules = ['recon', 'breach', 'bugbounty']
+        osint_ok = all((config.BASE_DIR / 'modules' / m).exists() for m in osint_modules)
+        osint_icon = "[bold green][+]" if osint_ok else "[bold yellow][!]"
+        osint_msg = f"OSINT modules (40+ platforms): {'✓ LOADED' if osint_ok else '⚠ INCOMPLETE'}"
+        boot_checks.append((osint_icon, osint_msg, 0.2))
+        
+        # 3. ML Engine
+        try:
+            import spacy
+            import sklearn
+            ml_ok = True
+        except ImportError:
+            ml_ok = False
+        ml_icon = "[bold green][+]" if ml_ok else "[bold yellow][!]"
+        ml_msg = f"ML engine (spaCy + sklearn): {'✓ MOUNTED' if ml_ok else '⚠ NOT INSTALLED'}"
+        boot_checks.append((ml_icon, ml_msg, 0.2))
+        
+        # 4. Evidence vault
+        evidence_dir = config.BASE_DIR / 'evidence'
+        evidence_ok = evidence_dir.exists() and evidence_dir.is_dir()
+        evidence_icon = "[bold green][+]" if evidence_ok else "[bold yellow][!]"
+        evidence_msg = f"Evidence vault: {'✓ READY' if evidence_ok else '⚠ NOT FOUND'}"
+        boot_checks.append((evidence_icon, evidence_msg, 0.2))
+        
+        # 5. SentinelProxy
+        proxy_main = (config.BASE_DIR / 'sentinel_proxy' / 'main.py').exists()
+        proxy_db = (config.BASE_DIR / 'data' / 'sentinel_proxy.db').exists()
+        proxy_ok = proxy_main and proxy_db
+        proxy_icon = "[bold green][+]" if proxy_ok else "[bold yellow][!]"
+        proxy_msg = f"SentinelProxy v2.0: {'✓ READY' if proxy_ok else '⚠ INCOMPLETE'}"
+        boot_checks.append((proxy_icon, proxy_msg, 0.2))
+        
+        # 6. SentinelIntel
+        intel_main = (config.BASE_DIR / 'sentinel_intel' / 'main.py').exists()
+        intel_engines = (config.BASE_DIR / 'sentinel_intel' / 'core').exists()
+        intel_ok = intel_main and intel_engines
+        intel_icon = "[bold green][+]" if intel_ok else "[bold yellow][!]"
+        intel_msg = f"SentinelIntel (13 engines): {'✓ READY' if intel_ok else '⚠ INCOMPLETE'}"
+        boot_checks.append((intel_icon, intel_msg, 0.2))
+        
+        # 7. Tor routing
+        boot_checks.append((tor_icon, tor_status_msg, 0.2))
+        
+        # 8. Final status
+        all_ok = all([
+            db_main and db_memory,
+            osint_ok,
+            ml_ok,
+            evidence_ok,
+            proxy_ok,
+            intel_ok
+        ])
+        final_icon = "[bold green][+]" if all_ok else "[bold yellow][!]"
+        final_msg = "All systems operational." if all_ok else "Some components need attention (check above)."
+        boot_checks.append((final_icon, final_msg, 0.3))
+        
+        for icon, msg, delay in boot_checks:
             p(f"  {icon} [dim]{msg}[/dim]")
             time.sleep(delay)
 
@@ -336,16 +435,30 @@ class TheSentinelPro:
         while True:
             try:
                 # Enhanced prompt with status indicators
+                # Print status panel BEFORE prompt to avoid overwrite
                 status_panel = self._create_status_panel()
                 self.console.print(status_panel)
                 
-                raw_command = self.console.input("\n[bold blue]sentinel-pro>[/bold blue] ").strip()
+                # Add empty line for visual separation
+                # This prevents arrow key navigation from overwriting the panel
+                self.console.print()
+                
+                # Use input() with ANSI color codes for readline support
+                # readline doesn't work with Rich's console.input()
+                try:
+                    raw_command = input("\033[1;34msentinel-pro>\033[0m ").strip()
+                except EOFError:
+                    # Handle Ctrl+D gracefully
+                    self.console.print("\n[yellow]Shutting down The Sentinel Pro...[/yellow]")
+                    self._save_command_history()
+                    break
                 # Sirf command keyword lowercase karo, arguments (paths etc.) preserve karo
                 parts = raw_command.split(' ', 1)
                 command = parts[0].lower() + (' ' + parts[1] if len(parts) > 1 else '')
                 
                 if command in ['exit', 'quit', 'q']:
                     self.console.print("[yellow]Shutting down The Sentinel Pro...[/yellow]")
+                    self._save_command_history()  # Save history before exit
                     break
                 elif command in ['help', '?']:
                     self._show_enhanced_help()
@@ -421,8 +534,7 @@ class TheSentinelPro:
                     self._handle_telegram(command)
                 elif command == 'pdf':
                     self._handle_pdf()
-                elif command == 'stealth':
-                    self._configure_stealth()
+                # stealth command removed - use 'tor' commands instead
                 elif command == 'evidence':
                     self._manage_evidence()
                 elif command == 'clear':
@@ -456,9 +568,17 @@ class TheSentinelPro:
                     self._handle_activate(command)
                 elif command.startswith('profile'):
                     self._handle_profile(command)
+                elif command.startswith('intel') or command.startswith('sentinel-intel'):
+                    self._handle_sentinel_intel(command)
                 else:
-                    self.console.print(f"[red]Unknown command: {command}[/red]")
-                    self.console.print("Type 'help' for available commands")
+                    # Fuzzy command matching for typos
+                    suggestion = self._suggest_command(command.split()[0] if command else '')
+                    if suggestion:
+                        self.console.print(f"[red]Unknown command: {command}[/red]")
+                        self.console.print(f"[yellow]Did you mean: [bold]{suggestion}[/bold]?[/yellow]")
+                    else:
+                        self.console.print(f"[red]Unknown command: {command}[/red]")
+                        self.console.print("Type 'help' for available commands")
                     
             except KeyboardInterrupt:
                 self.console.print("\n[yellow]Operation interrupted by user[/yellow]")
@@ -472,12 +592,8 @@ class TheSentinelPro:
         table.add_column("Value", style="bold")
         
         # System status indicators
-        stealth_status = "[green]ACTIVE[/green]" if self.stealth.is_active() else "[red]INACTIVE[/red]"
-        proxy_count = len(self.stealth.get_proxy_list())
+        # Stealth status removed - Tor status shown separately
         evidence_count = len(self.evidence.get_evidence_list())
-        
-        table.add_row("Stealth Mode:", stealth_status)
-        table.add_row("Active Proxies:", f"[cyan]{proxy_count}[/cyan]")
         table.add_row("Evidence Items:", f"[yellow]{evidence_count}[/yellow]")
         
         tor_status = "[green]🧅 TOR ON[/green]" if config.is_tor_active() else "[dim]🔓 TOR OFF[/dim]"
@@ -505,7 +621,6 @@ class TheSentinelPro:
 [bold cyan]OSINT COMMANDS[/bold cyan]
 [green]collect <target>[/green]     - Multi-source data collection (40+ platforms)
 [green]darkweb <target>[/green]     - Deep/dark web investigation
-[green]stealth[/green]              - Configure stealth & proxy settings
 
 [bold cyan]BUG BOUNTY & RECON COMMANDS[/bold cyan]  [bold yellow]🆕[/bold yellow]
 [green]brain <task>[/green]         - 🧠 Autonomous brain: ReAct loop, full Kali control
@@ -573,8 +688,11 @@ class TheSentinelPro:
 [green]train eval[/green]          - Model accuracy evaluate karo
 [green]pdf[/green]                 - Export last scan report to PDF
 [green]secure stats[/green]        - Show secure file system statistics
+[green]secure list[/green]         - List all registered files
+[green]secure chains[/green]       - List all evidence chains
 [green]secure verify <id>[/green]  - Verify evidence chain integrity
 [green]secure backup <file>[/green] - Create encrypted backup
+[green]secure restore <backup>[/green] - Restore from encrypted backup
 [green]secure cleanup[/green]      - Clean temporary files
 [green]secure audit[/green]        - Show file operation audit log
 [green]metasploit search <target>[/green] - Search for exploits
@@ -582,14 +700,20 @@ class TheSentinelPro:
 [green]metasploit sessions[/green] - List active sessions
 [green]metasploit status[/green]   - Show Metasploit status
 [green]forensics case <name>[/green] - Create forensics case
+[green]forensics evidence <case> <file>[/green] - Add evidence to case
 [green]forensics memory <case> <dump>[/green] - Analyze memory dump
+[green]forensics carve <case> <image>[/green] - Carve files from disk image
+[green]forensics network <case> <pcap>[/green] - Analyze network capture
+[green]forensics yara <case> <target>[/green] - YARA malware scanning
+[green]forensics report <case>[/green] - Generate case report
 [green]forensics status[/green]    - Show forensics tools status
 [green]privilege status[/green]    - Show privilege manager status
 [green]privilege test[/green]      - Test sudo access
 [green]privilege clear[/green]     - Clear password cache
 [green]profile list[/green]        - List available scanning profiles
-[green]profile <name>[/green]      - Switch to scanning profile (stealth/fast/balanced/monitoring)
+[green]profile <name>[/green]      - Switch to scanning profile (fast/balanced/monitoring)
 [green]profile current[/green]     - Show current profile settings
+[green]intel[/green]               - Launch Sentinel Intel (PyQt6 graph-based OSINT investigation platform)
 [green]clear[/green]               - Clear screen
 [green]help / ?[/green]            - This help menu
 [green]exit / quit / q[/green]     - Exit
@@ -636,9 +760,8 @@ class TheSentinelPro:
             
             collect_task = progress.add_task("[cyan]Collecting intelligence...", total=100)
             
-            # Enhanced collection with stealth
-            progress.update(collect_task, advance=20, description="[cyan]Initializing stealth protocols...")
-            self.stealth.activate()
+            # Data collection
+            progress.update(collect_task, advance=20, description="[cyan]Initializing collection...")
             
             progress.update(collect_task, advance=30, description="[cyan]Scraping surface web...")
             surface_data = self.collector.collect_surface_data(target)
@@ -654,7 +777,7 @@ class TheSentinelPro:
                 'surface_data': surface_data,
                 'social_data': social_data,
                 'timestamp': datetime.now().isoformat(),
-                'stealth_used': True,
+                'tor_available': config.is_tor_active(),
                 'user_folder': str(user_folder)  # Convert Path to string
             }
             
@@ -916,7 +1039,7 @@ class TheSentinelPro:
         status_table.add_column("Details", style="dim")
 
         components = [
-            ("Stealth Manager",  "🟢 ACTIVE"   if self.stealth.is_active() else "🔴 INACTIVE", f"{len(self.stealth.get_proxy_list())} proxies"),
+            # Stealth Manager removed - Tor integration available via 'tor' commands
             ("Dark Web Crawler", "🟢 READY",    "Tor integration available"),
             ("Evidence Vault",   "🟢 SECURE",   f"{len(self.evidence.get_evidence_list())} items"),
             ("AI Threat Engine", "🟢 LOADED",   "Predictive models ready"),
@@ -1137,20 +1260,7 @@ class TheSentinelPro:
             except Exception as e:
                 self.console.print(f"[red]✗ {e}[/red]")
 
-    def _configure_stealth(self):
-        """Configure stealth and proxy settings"""
-        stealth_panel = Panel("""
-[bold cyan]Stealth Configuration[/bold cyan]
-
-Current Status: [green]ACTIVE[/green] if self.stealth.is_active() else [red]INACTIVE[/red]
-Proxy Rotation: [green]ENABLED[/green]
-Tor Integration: [green]AVAILABLE[/green]
-Anti-Detection: [green]ACTIVE[/green]
-
-[dim]Stealth features are automatically managed for optimal security.[/dim]
-        """, title="[bold]Stealth Manager[/bold]", border_style="green")
-        
-        self.console.print(stealth_panel)
+    # _configure_stealth() removed - use 'tor' commands instead (tor on/off/status/newip)
 
     def _manage_evidence(self):
         """Evidence management interface"""
@@ -1662,6 +1772,7 @@ Anti-Detection: [green]ACTIVE[/green]
             )
             result = agent.run(task)
             self.session_data['agent'] = result
+            self.evidence.add_evidence('agent', result)
 
             # Feed to ML
             self._feed_to_ml('agent', result)
@@ -1694,6 +1805,7 @@ Anti-Detection: [green]ACTIVE[/green]
                                      console=self.console.print)
             result = agent.run()
             self.session_data['autonomous'] = result
+            self.evidence.add_evidence('autonomous', result)
             self._feed_to_ml('autonomous', result)
         except Exception as e:
             self.console.print(f"[red]Autonomous error: {e}[/red]")
@@ -1731,6 +1843,7 @@ Anti-Detection: [green]ACTIVE[/green]
 
             # Save to session
             self.session_data['attackchain'] = result
+            self.evidence.add_evidence('attackchain', result)
 
         except Exception as e:
             self.console.print(f"[red]AttackChain error: {e}[/red]")
@@ -2969,6 +3082,7 @@ Anti-Detection: [green]ACTIVE[/green]
                 self.console.print(f"      [dim]{flag['detail']}[/dim]")
 
         # Continuous learning
+        self.evidence.add_evidence('nlp_analysis', nlp_result)
         self._feed_to_ml('nlp', nlp_result)
 
 
@@ -3154,6 +3268,7 @@ Anti-Detection: [green]ACTIVE[/green]
             progress.update(task, advance=30, description="[cyan]Reverse image search...")
             progress.update(task, advance=30, description="[cyan]Face detection...")
             result = self.image_osint.run(image_path)
+            self.evidence.add_evidence('image_osint', result)
             progress.update(task, completed=100, description="[green]Image OSINT complete")
 
         if result.get('error'):
@@ -3302,6 +3417,7 @@ Anti-Detection: [green]ACTIVE[/green]
             kali   = KaliController()
             self.console.print(f"[bold cyan]RL Autonomous Scan: {target}[/bold cyan]\n")
             result = self._rl_agent.run(target, kali, print_fn=self.console.print)
+            self.evidence.add_evidence('rl_scan', result)
             self.console.print(f"\n[bold]Result:[/bold]")
             self.console.print(f"  Risk     : [{'red' if result['risk'] == 'CRITICAL' else 'yellow'}]{result['risk']}[/{'red' if result['risk'] == 'CRITICAL' else 'yellow'}]")
             self.console.print(f"  Findings : {len(result['findings'])}")
@@ -3334,6 +3450,7 @@ Anti-Detection: [green]ACTIVE[/green]
                 self._brain = SentinelBrain(sentinel=self, console=self.console.print)
             result = self._brain.run(task)
             self.session_data['brain'] = result
+            self.evidence.add_evidence('brain_scan', result)
         except Exception as e:
             self.console.print(f"[red]Brain error: {e}[/red]")
             logger.exception("Brain error")
@@ -3792,7 +3909,7 @@ Anti-Detection: [green]ACTIVE[/green]
         parts = command.split()
         if len(parts) < 2:
             self.console.print("[red]Usage: secure <subcommand>[/red]")
-            self.console.print("[dim]Subcommands: stats | verify <chain_id> | backup <file> | cleanup | audit[/dim]")
+            self.console.print("[dim]Subcommands: stats | list | chains | verify <chain_id> | backup <file> | restore <backup> | cleanup | audit[/dim]")
             return
             
         subcmd = parts[1]
@@ -3820,6 +3937,65 @@ Anti-Detection: [green]ACTIVE[/green]
                     cat_table.add_row(category, str(count))
                     
                 self.console.print(cat_table)
+        
+        elif subcmd == 'list':
+            registry = self.secure_files.file_registry
+            files = registry.get('files', {})
+            
+            if not files:
+                self.console.print("[yellow]No files registered[/yellow]")
+                return
+            
+            file_table = Table(title="[bold]Registered Files[/bold]", border_style="cyan")
+            file_table.add_column("File ID", style="dim")
+            file_table.add_column("Path", style="cyan")
+            file_table.add_column("Category", style="yellow")
+            file_table.add_column("Classification", style="red")
+            file_table.add_column("Size", justify="right")
+            file_table.add_column("Encrypted", justify="center")
+            
+            for file_id, info in list(files.items())[:20]:
+                encrypted_icon = "🔒" if info.get('encrypted') else "🔓"
+                size_kb = info['size'] / 1024
+                file_table.add_row(
+                    file_id[:16] + '...',
+                    Path(info['path']).name,
+                    info['category'],
+                    info['classification'],
+                    f"{size_kb:.1f} KB",
+                    encrypted_icon
+                )
+            
+            self.console.print(file_table)
+            if len(files) > 20:
+                self.console.print(f"[dim]... and {len(files)-20} more files[/dim]")
+        
+        elif subcmd == 'chains':
+            registry = self.secure_files.file_registry
+            chains = registry.get('evidence_chain', {})
+            
+            if not chains:
+                self.console.print("[yellow]No evidence chains found[/yellow]")
+                return
+            
+            chain_table = Table(title="[bold]Evidence Chains[/bold]", border_style="green")
+            chain_table.add_column("Chain ID", style="cyan")
+            chain_table.add_column("Target", style="yellow")
+            chain_table.add_column("Scan Type", style="magenta")
+            chain_table.add_column("Files", justify="center")
+            chain_table.add_column("Created", style="dim")
+            
+            for chain_id, info in chains.items():
+                created_date = info['created'][:10] if 'created' in info else 'N/A'
+                chain_table.add_row(
+                    chain_id[:30] + '...' if len(chain_id) > 30 else chain_id,
+                    info.get('target', 'N/A'),
+                    info.get('scan_type', 'N/A'),
+                    str(info.get('file_count', 0)),
+                    created_date
+                )
+            
+            self.console.print(chain_table)
                 
         elif subcmd == 'verify' and len(parts) >= 3:
             chain_id = parts[2]
@@ -3864,24 +4040,108 @@ Anti-Detection: [green]ACTIVE[/green]
             self.console.print("[cyan]Cleaning up temporary files...[/cyan]")
             cleaned = self.secure_files.cleanup_temp_files()
             self.console.print(f"[green]✓ Cleaned {cleaned} temporary files[/green]")
+        
+        elif subcmd == 'restore' and len(parts) >= 3:
+            backup_path = parts[2]
+            self.console.print(f"[cyan]Restoring from backup: {backup_path}[/cyan]")
+            
+            try:
+                backup = Path(backup_path)
+                if not backup.exists():
+                    self.console.print(f"[red]Backup file not found: {backup_path}[/red]")
+                    return
+                
+                with open(backup, 'rb') as f:
+                    encrypted_content = f.read()
+                
+                decrypted_content = self.secure_files.cipher.decrypt(encrypted_content)
+                
+                original_name = backup.stem.replace('.backup', '')
+                restore_path = backup.parent / original_name
+                
+                with open(restore_path, 'wb') as f:
+                    f.write(decrypted_content)
+                
+                self.console.print(f"[green]✓ Restored to: {restore_path}[/green]")
+                
+            except Exception as e:
+                self.console.print(f"[red]Restore failed: {e}[/red]")
             
         elif subcmd == 'audit':
             audit_file = self.secure_files.audit_log
             if audit_file.exists():
-                self.console.print(f"[cyan]Recent audit log entries:[/cyan]")
                 try:
                     with open(audit_file, 'r') as f:
                         lines = f.readlines()
-                        for line in lines[-10:]:  # Last 10 entries
-                            self.console.print(f"[dim]{line.strip()}[/dim]")
+                    
+                    if not lines:
+                        self.console.print("[yellow]Audit log is empty (no file operations yet)[/yellow]")
+                        return
+                    
+                    self.console.print(f"[cyan]Recent audit log entries (last 15):[/cyan]\n")
+                    
+                    # Parse and display in table format
+                    audit_table = Table(title="[bold]File Operations Audit Log[/bold]", border_style="yellow")
+                    audit_table.add_column("Time", style="dim", width=19)
+                    audit_table.add_column("Operation", style="cyan", width=15)
+                    audit_table.add_column("File", style="white", width=30)
+                    audit_table.add_column("Result", justify="center", width=10)
+                    audit_table.add_column("Details", style="dim", width=30)
+                    
+                    for line in lines[-15:]:
+                        if '|' in line:
+                            parts = line.strip().split(' - ', 2)
+                            if len(parts) >= 3:
+                                timestamp = parts[0]
+                                log_parts = parts[2].split(' | ')
+                                
+                                operation = ''
+                                file_path = ''
+                                result = ''
+                                details = ''
+                                
+                                for part in log_parts:
+                                    if part.startswith('OPERATION='):
+                                        operation = part.split('=', 1)[1]
+                                    elif part.startswith('FILE='):
+                                        file_path = part.split('=', 1)[1]
+                                        # Show only filename
+                                        file_path = Path(file_path).name if len(file_path) > 30 else file_path
+                                    elif part.startswith('RESULT='):
+                                        result = part.split('=', 1)[1]
+                                    elif part.startswith('DETAILS='):
+                                        details = part.split('=', 1)[1][:30]
+                                
+                                # Color code result
+                                if result == 'SUCCESS':
+                                    result_text = f"[green]{result}[/green]"
+                                elif result == 'FAILED':
+                                    result_text = f"[yellow]{result}[/yellow]"
+                                elif result == 'ERROR':
+                                    result_text = f"[red]{result}[/red]"
+                                else:
+                                    result_text = result
+                                
+                                audit_table.add_row(
+                                    timestamp,
+                                    operation,
+                                    file_path,
+                                    result_text,
+                                    details
+                                )
+                    
+                    self.console.print(audit_table)
+                    self.console.print(f"\n[dim]Full log: {audit_file}[/dim]")
+                    
                 except Exception as e:
                     self.console.print(f"[red]Failed to read audit log: {e}[/red]")
             else:
                 self.console.print("[yellow]No audit log found[/yellow]")
+                self.console.print(f"[dim]Log will be created at: {self.secure_files.audit_log}[/dim]")
                 
         else:
             self.console.print("[red]Unknown secure subcommand[/red]")
-            self.console.print("[dim]Available: stats | verify <chain_id> | backup <file> | cleanup | audit[/dim]")
+            self.console.print("[dim]Available: stats | list | chains | verify <chain_id> | backup <file> | restore <backup> | cleanup | audit[/dim]")
     def _handle_groq(self, command: str):
         """Groq LLM commands for AI-powered analysis"""
         parts = command.split(' ', 1)
@@ -3997,6 +4257,56 @@ Anti-Detection: [green]ACTIVE[/green]
                 
         except Exception as e:
             self.console.print(f"[red]Groq error: {e}[/red]")
+    def _suggest_command(self, input_cmd: str) -> str:
+        """Fuzzy match typos to correct commands using Levenshtein distance"""
+        if not input_cmd:
+            return ''
+        
+        # All valid commands
+        valid_commands = [
+            'help', 'collect', 'analyze', 'darkweb', 'semantic', 'media', 'financial',
+            'network', 'fakecheck', 'rl', 'brain', 'osint', 'monitor', 'agent',
+            'auto', 'autonomous', 'attackchain', 'bugbounty', 'depth', 'recon',
+            'breach', 'phone', 'person', 'image', 'nlp', 'email', 'bulk', 'report',
+            'status', 'tor', 'telegram', 'pdf', 'evidence', 'clear', 'train',
+            'scheduler', 'schedule', 'credential', 'cred', 'sysmon', 'system',
+            'correlate', 'correlation', 'filesystem', 'secure', 'security', 'groq',
+            'llm', 'metasploit', 'msf', 'forensics', 'forensic', 'privilege', 'sudo',
+            'proxy', 'sentinelproxy', 'activate', 'profile', 'intel', 'sentinel-intel',
+            'exit', 'quit'
+        ]
+        
+        # Simple Levenshtein distance calculation
+        def levenshtein(s1: str, s2: str) -> int:
+            if len(s1) < len(s2):
+                return levenshtein(s2, s1)
+            if len(s2) == 0:
+                return len(s1)
+            previous_row = range(len(s2) + 1)
+            for i, c1 in enumerate(s1):
+                current_row = [i + 1]
+                for j, c2 in enumerate(s2):
+                    insertions = previous_row[j + 1] + 1
+                    deletions = current_row[j] + 1
+                    substitutions = previous_row[j] + (c1 != c2)
+                    current_row.append(min(insertions, deletions, substitutions))
+                previous_row = current_row
+            return previous_row[-1]
+        
+        # Find closest match
+        input_lower = input_cmd.lower()
+        best_match = None
+        best_distance = float('inf')
+        
+        for cmd in valid_commands:
+            distance = levenshtein(input_lower, cmd)
+            # Only suggest if distance is small (1-2 characters different)
+            if distance < best_distance and distance <= 2:
+                best_distance = distance
+                best_match = cmd
+        
+        return best_match if best_match else ''
+    
     def _handle_profile(self, command: str):
         """Profile management - load/switch scanning profiles"""
         parts = command.split()
@@ -4084,6 +4394,43 @@ Anti-Detection: [green]ACTIVE[/green]
             self.console.print(f"[red]Profile '{subcmd}' not found[/red]")
             self.console.print("[dim]Use 'profile list' to see available profiles[/dim]")
 
+    def _handle_sentinel_intel(self, command: str):
+        """Launch Sentinel Intel - Graph-based OSINT investigation platform"""
+        self.console.print("[cyan]Launching Sentinel Intel...[/cyan]")
+        self.console.print("[dim]Graph-based OSINT investigation platform with 13 intelligence engines[/dim]")
+        
+        try:
+            import subprocess
+            import sys
+            from pathlib import Path
+            
+            # Get paths
+            base_dir = Path(__file__).parent
+            intel_main = base_dir / 'sentinel_intel' / 'main.py'
+            venv_python = base_dir / 'venv' / 'bin' / 'python3'
+            
+            if not intel_main.exists():
+                self.console.print(f"[red]Sentinel Intel not found at: {intel_main}[/red]")
+                return
+            
+            # Use venv python if available
+            python_cmd = str(venv_python) if venv_python.exists() else sys.executable
+            
+            # Launch in background
+            subprocess.Popen(
+                [python_cmd, str(intel_main)],
+                cwd=str(base_dir),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            
+            self.console.print("[green]✓ Sentinel Intel launched[/green]")
+            self.console.print("[dim]Features: 13 engines | 69 transforms | ML clustering | Graph visualization[/dim]")
+            
+        except Exception as e:
+            self.console.print(f"[red]Launch failed: {e}[/red]")
+            logger.exception("Sentinel Intel launch error")
+    
     def _handle_metasploit(self, command: str):
         """Metasploit Framework commands"""
         parts = command.split(' ', 1)
@@ -4183,10 +4530,15 @@ Anti-Detection: [green]ACTIVE[/green]
                 
         except Exception as e:
             self.console.print(f"[red]Metasploit error: {e}[/red]")
+        
+        # Evidence vault
+        if 'result' in locals():
+            self.evidence.add_evidence('metasploit', result)
     
     def _handle_forensics(self, command: str):
         """Digital forensics commands"""
         parts = command.split(' ', 1)
+        result = {'command': command, 'timestamp': datetime.now().isoformat()}
         if len(parts) < 2:
             self.console.print("[red]Usage: forensics <subcommand>[/red]")
             self.console.print("[dim]Subcommands: case | evidence | memory | carve | network | yara | report[/dim]")
@@ -4259,13 +4611,139 @@ Anti-Detection: [green]ACTIVE[/green]
                 self.console.print(status_table)
                 self.console.print(f"\n[dim]Evidence directory: {status['evidence_dir']}[/dim]")
                 self.console.print(f"[dim]Active cases: {status['active_cases']}[/dim]")
+            
+            elif subcmd == 'evidence' and len(subcmd_parts) >= 2:
+                args = subcmd_parts[1].split()
+                if len(args) >= 2:
+                    case_name, evidence_path = args[0], args[1]
+                    description = ' '.join(args[2:]) if len(args) > 2 else ""
+                    
+                    self.console.print(f"[cyan]Adding evidence to case: {case_name}[/cyan]")
+                    
+                    result = forensics.add_evidence_item(case_name, evidence_path, description)
+                    
+                    if result['success']:
+                        self.console.print(f"[green]✓ Evidence added: {result['evidence_id']}[/green]")
+                        self.console.print(f"[dim]SHA256: {result['sha256'][:16]}...[/dim]")
+                        self.console.print(f"[dim]Size: {result['size']:,} bytes[/dim]")
+                    else:
+                        self.console.print(f"[red]Failed: {result['error']}[/red]")
+                else:
+                    self.console.print("[red]Usage: forensics evidence <case_name> <file_path> [description][/red]")
+            
+            elif subcmd == 'carve' and len(subcmd_parts) >= 2:
+                args = subcmd_parts[1].split()
+                if len(args) >= 2:
+                    case_name, image_path = args[0], args[1]
+                    file_types = args[2:] if len(args) > 2 else None
+                    
+                    self.console.print(f"[cyan]Carving files from: {image_path}[/cyan]")
+                    
+                    with Progress(SpinnerColumn(), TextColumn("[cyan]Running file carving..."),
+                                console=self.console) as progress:
+                        task = progress.add_task("", total=None)
+                        result = forensics.carve_files(case_name, image_path, file_types)
+                        progress.update(task, completed=True)
+                    
+                    if result['success']:
+                        self.console.print(f"[green]✓ File carving complete[/green]")
+                        self.console.print(f"[dim]Output: {result['output_dir']}[/dim]")
+                        
+                        for file_type, count in result['files_carved'].items():
+                            if count > 0:
+                                self.console.print(f"  {file_type}: [cyan]{count} files[/cyan]")
+                    else:
+                        self.console.print(f"[red]Carving failed: {result['error']}[/red]")
+                else:
+                    self.console.print("[red]Usage: forensics carve <case_name> <image_path> [file_types...][/red]")
+            
+            elif subcmd == 'network' and len(subcmd_parts) >= 2:
+                args = subcmd_parts[1].split()
+                if len(args) >= 2:
+                    case_name, pcap_path = args[0], args[1]
+                    
+                    self.console.print(f"[cyan]Analyzing network capture: {pcap_path}[/cyan]")
+                    
+                    with Progress(SpinnerColumn(), TextColumn("[cyan]Analyzing PCAP..."),
+                                console=self.console) as progress:
+                        task = progress.add_task("", total=None)
+                        result = forensics.analyze_network_capture(case_name, pcap_path)
+                        progress.update(task, completed=True)
+                    
+                    if result['success']:
+                        self.console.print(f"[green]✓ Network analysis complete[/green]")
+                        stats = result['statistics']
+                        self.console.print(f"  Packets: [cyan]{stats['total_packets']}[/cyan]")
+                        self.console.print(f"  Protocols: {', '.join(f"{k}({v})" for k,v in stats['protocols'].items())}")
+                        
+                        if result['suspicious_ips']:
+                            self.console.print(f"  [red]Suspicious IPs: {len(result['suspicious_ips'])}[/red]")
+                    else:
+                        self.console.print(f"[red]Analysis failed: {result['error']}[/red]")
+                else:
+                    self.console.print("[red]Usage: forensics network <case_name> <pcap_path>[/red]")
+            
+            elif subcmd == 'yara' and len(subcmd_parts) >= 2:
+                args = subcmd_parts[1].split()
+                if len(args) >= 2:
+                    case_name, target_path = args[0], args[1]
+                    rules_path = args[2] if len(args) > 2 else None
+                    
+                    self.console.print(f"[cyan]YARA scanning: {target_path}[/cyan]")
+                    
+                    with Progress(SpinnerColumn(), TextColumn("[cyan]Running YARA scan..."),
+                                console=self.console) as progress:
+                        task = progress.add_task("", total=None)
+                        result = forensics.scan_with_yara(case_name, target_path, rules_path)
+                        progress.update(task, completed=True)
+                    
+                    if result['success']:
+                        matches = result['matches']
+                        if matches:
+                            self.console.print(f"[red]⚠ {len(matches)} YARA matches found[/red]")
+                            for match in matches[:10]:
+                                self.console.print(f"  [red]{match['rule']}[/red]: {match['file']}")
+                        else:
+                            self.console.print(f"[green]✓ No YARA matches (clean)[/green]")
+                    else:
+                        self.console.print(f"[red]YARA scan failed: {result['error']}[/red]")
+                else:
+                    self.console.print("[red]Usage: forensics yara <case_name> <target_path> [rules_path][/red]")
+            
+            elif subcmd == 'report' and len(subcmd_parts) >= 2:
+                case_name = subcmd_parts[1].strip()
+                
+                self.console.print(f"[cyan]Generating forensics report for: {case_name}[/cyan]")
+                
+                with Progress(SpinnerColumn(), TextColumn("[cyan]Compiling report..."),
+                            console=self.console) as progress:
+                    task = progress.add_task("", total=None)
+                    result = forensics.generate_case_report(case_name)
+                    progress.update(task, completed=True)
+                
+                if result['success']:
+                    self.console.print(f"[green]✓ Report generated[/green]")
+                    self.console.print(f"  HTML: [cyan]{result['html_report']}[/cyan]")
+                    self.console.print(f"  JSON: [dim]{result['json_report']}[/dim]")
+                    
+                    summary = result['summary']
+                    self.console.print(f"\n[bold]Case Summary:[/bold]")
+                    self.console.print(f"  Evidence items: {summary['evidence_count']}")
+                    self.console.print(f"  Analyses: {summary['analyses_count']}")
+                    self.console.print(f"  Timeline events: {summary['timeline_events']}")
+                else:
+                    self.console.print(f"[red]Report generation failed: {result['error']}[/red]")
                 
             else:
                 self.console.print("[red]Unknown forensics subcommand[/red]")
-                self.console.print("[dim]Available: case <name> [description] | memory <case> <dump> | status[/dim]")
+                self.console.print("[dim]Available: case <name> | evidence <case> <file> | memory <case> <dump> | carve <case> <image> | network <case> <pcap> | yara <case> <target> | report <case> | status[/dim]")
                 
         except Exception as e:
             self.console.print(f"[red]Forensics error: {e}[/red]")
+            result['error'] = str(e)
+        
+        # Evidence vault
+        self.evidence.add_evidence('forensics', result)
 
     def _handle_privilege(self, command: str):
         """Privilege management commands"""
@@ -4337,78 +4815,6 @@ Anti-Detection: [green]ACTIVE[/green]
                 
         except Exception as e:
             self.console.print(f"[red]Privilege error: {e}[/red]")
-
-    # ── Missing Handlers + Scan Depth ──────────────────────────────────────────────────────────────────────────────
-
-
-        import modules.bugbounty.payload_loader as pl
-        from modules.bugbounty.payload_loader import payload_stats
-        from modules.bugbounty.dirbuster_bridge import WORDLISTS
-        from pathlib import Path
-        from rich.table import Table
-
-        parts = command.split()
-
-        def _show_stats(depth):
-            """Show payload + wordlist stats for given depth."""
-            stats = payload_stats()
-            total_payloads = sum(stats.values())
-
-            # Wordlist info
-            wl_map = {
-                'FAST':   ('Built-in fast list', f'{len(pl.FAST_PATHS) if hasattr(pl, "FAST_PATHS") else 50} paths'),
-                'NORMAL': ('/usr/share/seclists/common.txt', '~4,700 paths'),
-                'DEEP':   ('/usr/share/seclists/big.txt', '~20,000 paths'),
-            }
-            # Check actual wordlist availability
-            wl_paths = WORDLISTS.get(depth, [])
-            wl_found = next((w for w in wl_paths if w and Path(w).exists()), None)
-            wl_name  = Path(wl_found).name if wl_found else ('built-in' if depth == 'FAST' else 'not found')
-            wl_size  = wl_map.get(depth, ('', ''))[1]
-
-            t = Table(show_header=True, header_style='bold', border_style='dim')
-            t.add_column('Category',  style='dim',  width=22)
-            t.add_column('Count',     justify='right', width=10)
-            t.add_column('Source',    style='dim')
-
-            # Top payload types
-            for ptype in ['sqli','xss','lfi','path_traversal','ssrf','rce']:
-                t.add_row(ptype, str(stats.get(ptype, 0)), 'sentinel_proxy/payloads/')
-            t.add_row('─'*20, '─'*8, '─'*20)
-            t.add_row('[bold]Total payloads[/bold]', f'[bold]{total_payloads}[/bold]', 'all types')
-            t.add_row('[bold]Dir wordlist[/bold]',   f'[bold]{wl_size}[/bold]', wl_name)
-
-            self.console.print(t)
-
-        if len(parts) < 2:
-            colors = {'FAST': 'green', 'NORMAL': 'cyan', 'DEEP': 'red'}
-            icons  = {'FAST': '⚡', 'NORMAL': '⚖', 'DEEP': '🔍'}
-            c = colors.get(pl.SCAN_DEPTH, 'cyan')
-            i = icons.get(pl.SCAN_DEPTH, '⚖')
-            self.console.print(f"[bold]Current scan depth:[/bold] [{c}]{i} {pl.SCAN_DEPTH}[/{c}]")
-            self.console.print()
-            self.console.print("  [green]fast[/green]   ⚡  built-in ~50 paths   · top 8-15 payloads   (~30 sec/target)")
-            self.console.print("  [cyan]normal[/cyan] ⚖  common.txt ~4.7K      · top 25-50 payloads  (~2-3 min/target) [default]")
-            self.console.print("  [red]deep[/red]   🔍  big.txt ~20K          · full wordlist       (~10+ min/target)")
-            self.console.print()
-            _show_stats(pl.SCAN_DEPTH)
-            return
-
-        depth = parts[-1].upper()
-        if depth not in ('FAST', 'NORMAL', 'DEEP'):
-            self.console.print("[red]Invalid depth. Use: fast | normal | deep[/red]")
-            return
-
-        pl.SCAN_DEPTH = depth
-        pl._load_file.cache_clear()
-
-        colors = {'FAST': 'green', 'NORMAL': 'cyan', 'DEEP': 'red'}
-        icons  = {'FAST': '⚡', 'NORMAL': '⚖', 'DEEP': '🔍'}
-        c = colors[depth]
-        i = icons[depth]
-        self.console.print(f"[{c}]✓ Scan depth set to {i} {depth}[/{c}]")
-        self.console.print()
-        _show_stats(depth)
 
     def _handle_scan_depth(self, command: str):
         """Set scan depth: fast / normal / deep"""
