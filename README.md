@@ -102,6 +102,7 @@ sentinel-pro> brain investigate target.com
 |----------|-------------|
 | **Autonomous Brain** | ReAct loop, adaptive planning, retry logic, ML-driven decisions |
 | **18 Agents** | recon, exploit, osint, breach, report, darkweb, network, terminal, scheduler, credential, system_monitor, correlation, filesystem, monitor, notification, browser, attack_chain, threat_intel |
+| **Sentinel Intel** | Maltego-style graph intelligence platform · 13 engines (Email, Phone, IP, Domain, Person, Username, Hash, Cryptocurrency, CVE, Breach, Company, Malware, URL) · 40+ transforms · PyQt6 GUI · AI-powered auto-chaining · Risk visualization |
 | **RL Agent** | Q-Learning, 19 tools, 171 states learned, epsilon-greedy |
 | **SentinelNet v5.0** | CNN+Transformer, F1=0.83, threat/type/action/confidence |
 | **Seq2Seq v2.0** | CNN Encoder + Transformer Decoder, cmd_gen/chain_gen/report_gen |
@@ -117,6 +118,9 @@ sentinel-pro> brain investigate target.com
 | **Forensics** | Metasploit integration · privilege manager · secure file manager · evidence vault · YARA · memory analysis |
 | **Legal** | Chain of custody · evidence manager · court-grade HTML/PDF reports · digital footprint |
 | **SentinelProxy v2.0** | Rust core · 200K req/sec · HTTP/2 · WebSocket · Intercept · Match&Replace · Parallel Fuzzer · 22 tabs · AI analysis · 34K+ payloads |
+| **License Manager** | Offline HMAC-SHA256 license system · Machine binding · No server required · Basic/Pro/Elite plans |
+| **Wordlist Manager** | Central wordlist resolution · Bundled payloads · SecLists integration · Auto-install instructions · Depth control (fast/normal/deep) |
+| **Report Builder** | Groq executive summary · MITRE ATT&CK mapping · Severity charts · Evidence hash · Digital signature |
 
 ---
 
@@ -370,12 +374,457 @@ sentinel-pro> profile <name>                 # Switch profile (stealth/fast/bala
 sentinel-pro> profile current                # Show current profile
 ```
 
+### Sentinel Intel (Graph Intelligence Platform)
+```
+sentinel-pro> intel                          # Launch Sentinel Intel GUI
+```
+
+### License Management
+```
+sentinel-pro> activate <KEY>                 # Activate license key
+```
+
 ### System
 ```
 sentinel-pro> status                         # Detailed system status
 sentinel-pro> clear                          # Clear screen
 sentinel-pro> help / ?                       # Command reference
 sentinel-pro> exit / quit / q               # Exit
+```
+
+---
+
+## Sentinel Intel — Maltego-Style Graph Intelligence Platform
+
+**Professional OSINT graph visualization with AI-powered transforms**
+
+```bash
+cd sentinel_intel
+python3 main.py
+
+# Or from main CLI
+sentinel-pro> intel
+```
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│         SENTINEL INTEL v2.0                 │
+│    Maltego Killer — Graph Intelligence     │
+│                                             │
+│  PyQt6 GUI        — Modern dark theme       │
+│  NetworkX         — Graph engine            │
+│  13 Engines       — Intelligence sources    │
+│  40+ Transforms   — OSINT operations        │
+│  ML Integration   — SentinelNet + Groq      │
+│  Auto-Chain       — AI suggests next steps  │
+│  Risk Viz         — Color + glow by threat  │
+└─────────────────────────────────────────────┘
+```
+
+### 13 Intelligence Engines
+
+| Engine | Sources | Capabilities |
+|--------|---------|-------------|
+| **Email** | 15+ sources | Breach check · Domain validation · Social profiles · Disposable detection |
+| **Phone** | 10+ sources | Carrier lookup · Country · Line type · Social hints · Reputation |
+| **IP** | 12+ sources | Geolocation · ASN · Shodan · Threat intel · Open ports · Reverse DNS |
+| **Domain** | 20+ sources | WHOIS · DNS · Subdomains · Tech stack · Cloud assets · Cert transparency |
+| **Person** | 40+ platforms | Social profiles · Username variations · Relation graph · Digital footprint |
+| **Username** | 50+ platforms | Sherlock-style enumeration · Cross-platform correlation · Variant detection |
+| **Hash** | 6+ sources | VirusTotal · MalwareBazaar · ThreatFox · Hybrid Analysis · AlienVault OTX |
+| **Cryptocurrency** | 5+ sources | Blockchain.info · Blockchair · Etherscan · Whale Alert · BitcoinAbuse |
+| **CVE** | NVD + MITRE | Vulnerability lookup · CVSS scoring · Exploit availability |
+| **Breach** | 7+ sources | HIBP · HudsonRock · LeakCheck · IntelX · Dehashed · Paste Monitor |
+| **Company** | Multiple | Company intel · Employee enumeration · Tech stack · Job postings |
+| **Malware** | 6+ sources | Hash analysis · Family detection · Behavior · IOCs |
+| **URL** | Multiple | URL reputation · Phishing detection · Redirect chains |
+
+### 40+ Transforms
+
+**Email Transforms:**
+- email_to_breaches — Check data breaches
+- email_to_social_profiles — Find social media
+- email_to_domain_info — Domain validation
+- email_investigate — Full investigation
+
+**Phone Transforms:**
+- phone_to_carrier — Carrier lookup
+- phone_to_location — Geolocation
+- phone_to_social_hints — Social profiles
+- phone_investigate — Full investigation
+
+**IP Transforms:**
+- ip_to_geolocation — Location data
+- ip_to_asn — ASN information
+- ip_to_shodan — Shodan intelligence
+- ip_to_ports — Open ports scan
+- ip_investigate — Full investigation
+
+**Domain Transforms:**
+- domain_to_whois — WHOIS lookup
+- domain_to_subdomains — Subdomain enumeration
+- domain_to_dns — DNS records
+- domain_to_tech_stack — Technology detection
+- domain_to_certificates — SSL/TLS certs
+- domain_investigate — Full investigation
+
+**Person Transforms:**
+- person_to_emails — Email discovery
+- person_to_phones — Phone discovery
+- person_to_social_profiles — Social media
+- person_to_usernames — Username variations
+- person_investigate — Full investigation
+
+**Username Transforms:**
+- username_to_platforms — Platform enumeration
+- username_to_variants — Username variations
+- username_investigate — Full investigation
+
+**Hash Transforms:**
+- hash_to_malware_info — Malware analysis
+- hash_to_threat_intel — Threat intelligence
+- hash_investigate — Full investigation
+
+**Cryptocurrency Transforms:**
+- crypto_to_transactions — Transaction history
+- crypto_to_balance — Wallet balance
+- crypto_to_related_addresses — Related wallets
+- crypto_investigate — Full investigation
+
+### UI Features
+
+**Main Window:**
+- 3-panel layout: Entities | Canvas | Properties
+- Search & filter bar
+- Menu bar: File, Edit, View, ML, Tools, Help
+- Toolbar: 10+ quick actions
+- Status bar: Live stats
+- 15+ keyboard shortcuts
+
+**Graph Canvas:**
+- 19 entity types with unique colors
+- Risk-based visualization (color + glow)
+- Emoji icons for each entity type
+- Hover effects
+- Drag-and-drop nodes
+- Auto-layout (circular)
+- Zoom in/out
+- High-res PNG export (2x)
+
+**Entity Palette:**
+- 15+ entity types
+- Quick Add with auto-detection
+- Search box
+- Smart type inference
+
+**Transform Palette:**
+- 8 tabs organized by entity type
+- 40+ transforms
+- Auto-Chain button with AI
+- Progress tracking
+- Search/filter
+
+**Properties Panel:**
+- Tabbed interface (Properties | History)
+- Color-coded risk scores
+- Transform history display
+- ML cluster info
+- Notes display
+
+### ML Integration
+
+**SentinelNet v5.0:**
+- Real-time threat classification
+- Risk scoring per entity
+- Anomaly detection
+
+**Groq LLM:**
+- Auto-chain suggestions
+- Deep analysis per transform
+- Context-aware recommendations
+
+**Advanced ML:**
+- DBSCAN clustering — Group related entities
+- Link prediction — Suggest connections
+- Entity matching — Cross-platform correlation
+- Identity scoring — Confidence levels
+- Fake detection — Profile authenticity
+- Writing fingerprinting — Authorship attribution
+
+### Entity Types (19 total)
+
+```
+📧 Email          🌐 IP            👤 Person         🌍 Domain
+📱 Phone          👥 Username       🔗 URL            🔐 Hash
+🚨 CVE            🔌 Port           🏢 Company        📍 Location
+💰 Cryptocurrency 🦠 Malware        💥 Breach         📜 Certificate
+⚠️ Threat         ⚙️ Technology     💸 Transaction
+```
+
+### Keyboard Shortcuts
+
+**File Operations:**
+- `Ctrl+N` — New Graph
+- `Ctrl+O` — Open Graph
+- `Ctrl+S` — Save Graph
+- `Ctrl+Shift+P` — Export PNG
+- `Ctrl+Shift+J` — Export JSON
+- `Ctrl+Q` — Exit
+
+**Edit Operations:**
+- `Ctrl+L` — Auto Layout
+- `Ctrl+E` — Center View
+- `Ctrl++` — Zoom In
+- `Ctrl+-` — Zoom Out
+- `Ctrl+Del` — Clear Graph
+- `F5` — Reload Graph
+
+**ML Operations:**
+- `Ctrl+K` — Run Clustering
+- `Ctrl+P` — Predict Links
+- `Ctrl+R` — Risk Analysis
+
+**Help:**
+- `F1` — Documentation
+
+### Database
+
+```
+sentinel_intel/data/sentinel_intel.db
+├── nodes              — Graph nodes (entities)
+├── edges              — Graph edges (relationships)
+├── transform_history  — Transform execution log
+├── ml_cache           — ML predictions cache
+├── risk_scores        — Risk scoring data
+└── clusters           — Entity clusters
+```
+
+### Maltego Comparison
+
+| Feature | Maltego | Sentinel Intel v2.0 |
+|---------|---------|---------------------|
+| **Price** | $999/year | FREE ✅ |
+| **AI/ML** | None | 10+ algorithms ✅ |
+| **Transforms** | ~100 (paid) | 40+ (60% free) ✅ |
+| **Auto-Chain** | Manual | AI-powered ✅ |
+| **Risk Viz** | None | Color + Glow ✅ |
+| **Icons** | Basic | Emoji ✅ |
+| **Theme** | Light | Modern Dark ✅ |
+| **Blockchain** | Limited | Full intel ✅ |
+| **Malware** | Basic | Deep analysis ✅ |
+| **Open Source** | No | Yes ✅ |
+
+**Result: Sentinel Intel v2.0 > Maltego** 🏆
+
+---
+
+## License Manager
+
+**Offline HMAC-SHA256 license system — no server required**
+
+### Features
+
+- **Offline verification** — No internet required after activation
+- **Machine binding** — License tied to hardware ID
+- **HMAC-SHA256** — Cryptographically secure
+- **No server** — All verification happens locally
+- **3 Plans** — Basic (1 month), Pro (3 months), Elite (1 year)
+
+### Usage
+
+```bash
+# Activate license
+sentinel-pro> activate SENT3-<encoded>-<signature>
+
+# Check status
+sentinel-pro> status
+```
+
+### Key Format
+
+```
+SENT3-<base64_payload>-<hmac_signature>
+
+Payload (JSON):
+{
+  "p": "elite",              # plan: basic/pro/elite
+  "e": "user@example.com",   # email
+  "x": "2027-01-01",          # expiry (or "lifetime")
+  "i": "2026-01-01"           # issued date
+}
+```
+
+### Machine Binding
+
+- Linux: `/etc/machine-id` (first 16 chars)
+- Fallback: MAC address MD5 hash
+- Stored in: `~/.sentinel_pro/license.key`
+- Permissions: `0600` (owner read/write only)
+
+### Plans
+
+| Plan | Duration | Features |
+|------|----------|----------|
+| **Basic** | 1 Month | Full Access |
+| **Pro** | 3 Months | Full Access |
+| **Elite** | 1 Year | Full Access |
+
+---
+
+## Wordlist Manager
+
+**Central wordlist resolution with auto-install instructions**
+
+### Features
+
+- **Priority system:**
+  1. Bundled payloads (`sentinel_proxy/payloads/`)
+  2. Kali Linux system wordlists (`/usr/share/seclists`, `/usr/share/wordlists`)
+  3. Hardcoded fallback (always works)
+
+- **Auto-install instructions** — Clear commands when wordlists missing
+- **Depth control** — Fast/Normal/Deep scan modes
+- **No crashes** — Tool never fails due to missing wordlists
+
+### Wordlist Map
+
+| Name | Purpose | Sources |
+|------|---------|----------|
+| `dirbust_fast` | Fast directory scan | common.txt (4,614 entries) |
+| `dirbust_normal` | Normal directory scan | common.txt (4,614 entries) |
+| `dirbust_deep` | Deep directory scan | big.txt + raft-large (220K+ entries) |
+| `subdomains` | Subdomain brute-force | top1million-5000.txt |
+| `params` | Parameter fuzzing | burp-parameter-names.txt |
+| `passwords` | Password brute-force | rockyou.txt |
+| `usernames` | Username enumeration | top-usernames-shortlist.txt |
+| `sqli` | SQL injection | Generic-SQLi.txt |
+| `xss` | XSS payloads | XSS-Jhaddix.txt |
+| `lfi` | LFI payloads | LFI-Jhaddix.txt |
+
+### Scan Depth Control
+
+```bash
+# Set scan depth
+sentinel-pro> depth fast      # ⚡ ~30 sec, 4K entries
+sentinel-pro> depth normal    # ⚖ ~2-3 min, 4K entries [default]
+sentinel-pro> depth deep      # 🔍 Full scan, 220K+ entries
+
+# Check current depth
+sentinel-pro> depth
+```
+
+### Installation
+
+```bash
+# Install SecLists
+sudo apt install seclists
+
+# Install wordlists (includes rockyou)
+sudo apt install wordlists
+sudo gunzip /usr/share/wordlists/rockyou.txt.gz
+```
+
+### Status Check
+
+```bash
+sentinel-pro> status
+
+# Shows wordlist availability:
+# ✓ dirbust_fast    (seclists)
+# ✓ subdomains      (seclists)
+# ✗ passwords       (missing — sudo apt install wordlists)
+```
+
+---
+
+## Report Builder
+
+**Enhanced reporting with Groq AI and MITRE ATT&CK mapping**
+
+### Features
+
+- **Groq Executive Summary** — AI-generated professional summary
+- **MITRE ATT&CK Mapping** — Automatic technique mapping
+- **Severity Charts** — Matplotlib bar + pie charts
+- **Evidence Hash** — SHA-256 integrity verification
+- **Digital Signature** — Watermarked reports
+- **Multi-format** — JSON, HTML, PDF, TXT
+
+### MITRE ATT&CK Coverage
+
+**19 Tools Mapped:**
+- nmap → T1046 (Network Service Discovery)
+- subfinder/amass → T1590 (Gather Victim Network Information)
+- theHarvester → T1589 (Gather Victim Identity Information)
+- gobuster/ffuf → T1083 (File and Directory Discovery)
+- nikto/nuclei → T1190 (Exploit Public-Facing Application)
+- sqlmap → T1190 (Exploit Public-Facing Application)
+- hydra → T1110 (Brute Force)
+- searchsploit → T1588.005 (Exploits)
+- And more...
+
+### Report Components
+
+**JSON Report:**
+```json
+{
+  "target": "example.com",
+  "scan_type": "bugbounty",
+  "risk_level": "HIGH",
+  "total_findings": 15,
+  "findings": [...],
+  "executive_summary": "AI-generated summary",
+  "mitre_attack": [...],
+  "evidence_hash": "sha256...",
+  "_sentinel": {
+    "_generated_by": "Sentinel Pro v3.0",
+    "_author": "@who_is_the_black_hat",
+    "_copyright": "Copyright (c) 2026..."
+  }
+}
+```
+
+**HTML Report:**
+- Modern dark theme
+- Color-coded severity badges
+- Interactive severity charts
+- MITRE ATT&CK table with links
+- Evidence integrity section
+- Digital signature footer
+
+**PDF Report:**
+- Auto-generated from HTML via WeasyPrint
+- Court-grade quality
+- Embedded charts
+- Chain of custody
+
+### Severity Colors
+
+```
+CRITICAL : #e74c3c (Red)
+HIGH     : #e67e22 (Orange)
+MEDIUM   : #f39c12 (Yellow)
+LOW      : #27ae60 (Green)
+```
+
+### Digital Signature
+
+**All reports include:**
+- Tool name and version
+- Author attribution
+- GitHub link
+- Copyright notice
+- Timestamp
+- Warning about unauthorized redistribution
+
+**Footer (HTML):**
+```html
+Generated by Sentinel Pro v3.0 · @who_is_the_black_hat
+Copyright (c) 2026 @who_is_the_black_hat. All rights reserved.
+This report was generated by licensed software.
+Unauthorized copying or redistribution is prohibited.
 ```
 
 ---

@@ -7,6 +7,11 @@
 data/.encryption_key
 data/file_registry.json
 
+# ── License files (personal) ───────────────────────────────────────────────────
+.sentinel_pro/
+~/.sentinel_pro/
+.sentinel_history
+
 # ── Seller tools (private) ──────────────────────────────────────────────────
 generate_key.py
 add_copyright.py
@@ -40,6 +45,12 @@ targets/
 temp/
 logs/
 *.log
+backups/
+
+# Keep example target files
+!targets/bugbounty.txt
+!targets/monitoring.txt
+!targets/osint.txt
 
 # ── ML models (large binary files) ───────────────────────────────────────────
 models/ml_engine/*.pt
@@ -56,6 +67,15 @@ models/ml_engine/old_models_backup/
 sentinel_proxy/models/
 sentinel_proxy/models/*.pt
 sentinel_proxy/models/*.joblib
+
+# ── Sentinel Intel data ───────────────────────────────────────────────────────
+sentinel_intel/data/*.db
+sentinel_intel/data/*.db-shm
+sentinel_intel/data/*.db-wal
+sentinel_intel/data/*.json
+
+# Keep sentinel_intel structure
+!sentinel_intel/data/.gitkeep
 
 # ── Rust build artifacts ──────────────────────────────────────────────────────
 analyzer/target/
