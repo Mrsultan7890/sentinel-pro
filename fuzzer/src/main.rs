@@ -51,7 +51,7 @@ struct FuzzOutput {
 
 // ── Risk classification ───────────────────────────────────────────────────────
 
-fn classify_path(path: &str, status: u16, body: &str) -> (&'static str, &'static str) {
+fn classify_path(path: &str, status: u16, _body: &str) -> (&'static str, &'static str) {
     let p = path.to_lowercase();
 
     // CRITICAL paths

@@ -206,28 +206,32 @@ class KaliController:
                     break
 
             os.close(master_fd)
-            try:
-                proc.wait(timeout=5)
-            except Exception:
-                pass
-
-            output = ''.join(chunks).strip()
-            output = re.sub(r'\x1b\[[0-9;]*[mGKHFJA-Z]', '', output)
-            output = re.sub(r'\x1b\[\?[0-9;]*[hl]', '', output)
-            output = re.sub(r'\r\n', '\n', output)
-
-            result = self._result(command, proc.returncode == 0,
-                                  output[:15000], '', proc.returncode)
-            # Auto parse output
-            result['parsed'] = self._parse_output(command, output)
-
-            with self._lock:
-                self._history.append(result)
-            return result
 
         except Exception as e:
             logger.exception(f"KaliCtrl error: {command}")
             return self._result(command, False, '', str(e), -1)
+        
+        # Get return code
+        try:
+            proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        
+        returncode = proc.returncode if proc.returncode is not None else 0
+            
+        output = ''.join(chunks).strip()
+        output = re.sub(r'\x1b\[[0-9;]*[mGKHFJA-Z]', '', output)
+        output = re.sub(r'\x1b\[\?[0-9;]*[hl]', '', output)
+        output = re.sub(r'\r\n', '\n', output)
+
+        result = self._result(command, returncode == 0,
+                              output[:15000], '', returncode)
+        # Auto parse output
+        result['parsed'] = self._parse_output(command, output)
+
+        with self._lock:
+            self._history.append(result)
+        return result
 
     def run_bg(self, command: str, name: str = None) -> dict:
         for blocked in _BLOCKED:
@@ -246,7 +250,11 @@ class KaliController:
             self._bg_procs[key] = {'proc': proc, 'log': log_file, 'cmd': command}
             logger.info(f"[KaliCtrl] BG PID {proc.pid}: {command}")
             return {'success': True, 'pid': proc.pid, 'log': log_file, 'name': key}
+        except OSError as e:
+            logger.error(f"Failed to create log file {log_file}: {e}")
+            return {'success': False, 'error': f'Log file error: {e}'}
         except Exception as e:
+            logger.error(f"Failed to start background process: {e}")
             return {'success': False, 'error': str(e)}
 
     def bg_output(self, name: str, tail: int = 100) -> str:
@@ -256,8 +264,10 @@ class KaliController:
             try:
                 lines = Path(log_file).read_text(errors='replace').splitlines()
                 return '\n'.join(lines[-tail:])
-            except Exception:
-                pass
+            except PermissionError:
+                logger.error(f"Permission denied reading log: {log_file}")
+            except Exception as e:
+                logger.error(f"Error reading log {log_file}: {e}")
         return ''
 
     def bg_status(self) -> dict:
@@ -274,9 +284,14 @@ class KaliController:
         if proc:
             try:
                 proc.terminate()
+                proc.wait(timeout=5)
                 return True
-            except Exception:
-                pass
+            except subprocess.TimeoutExpired:
+                logger.warning(f"Process {name} didn't terminate, killing...")
+                proc.kill()
+                return True
+            except Exception as e:
+                logger.error(f"Error killing process {name}: {e}")
         return False
 
     # ── Output Parsers ────────────────────────────────────────────────────────
@@ -623,23 +638,55 @@ class KaliController:
 
     def read_file(self, path: str, max_bytes: int = 50000) -> dict:
         try:
+            # Validate path - prevent directory traversal
+            if '..' in path or path.startswith('/'):
+                if not Path(path).resolve().is_relative_to(Path.home()):
+                    logger.warning(f"Suspicious path access attempt: {path}")
+            
             content = Path(path).read_text(errors='replace')[:max_bytes]
             return {'success': True, 'content': content, 'path': path, 'size': Path(path).stat().st_size}
         except FileNotFoundError:
+            logger.debug(f"File not found: {path}")
             return {'success': False, 'error': f'File not found: {path}'}
+        except PermissionError:
+            logger.error(f"Permission denied: {path}")
+            return {'success': False, 'error': f'Permission denied: {path}'}
         except Exception as e:
+            logger.error(f"Error reading file {path}: {e}")
             return {'success': False, 'error': str(e)}
 
     def write_file(self, path: str, content: str, mode: str = 'w') -> dict:
         try:
+            # Validate mode
+            if mode not in ('w', 'a', 'wb', 'ab'):
+                return {'success': False, 'error': f'Invalid mode: {mode}'}
+            
+            # Validate path
+            if '..' in path:
+                logger.warning(f"Suspicious path in write: {path}")
+            
             Path(path).parent.mkdir(parents=True, exist_ok=True)
             with open(path, mode) as f:
                 f.write(content)
             return {'success': True, 'path': path, 'bytes': len(content)}
+        except PermissionError:
+            logger.error(f"Permission denied writing to: {path}")
+            return {'success': False, 'error': f'Permission denied: {path}'}
         except Exception as e:
+            logger.error(f"Error writing file {path}: {e}")
             return {'success': False, 'error': str(e)}
 
     def find_files(self, pattern: str, directory: str = '/home') -> list:
+        # Sanitize pattern - prevent command injection
+        if any(c in pattern for c in ('|', ';', '&', '$', '`', '\n')):
+            logger.error(f"Invalid pattern: {pattern}")
+            return []
+        
+        # Validate directory
+        if not Path(directory).exists():
+            logger.error(f"Directory not found: {directory}")
+            return []
+        
         r = self.run(f'find {directory} -name "{pattern}" 2>/dev/null | head -50', timeout=30)
         return [l.strip() for l in r['stdout'].splitlines() if l.strip()]
 
@@ -650,8 +697,22 @@ class KaliController:
         return r['success'] and bool(r['stdout'].strip())
 
     def get_local_ip(self) -> str:
-        r = self.run("ip route get 1 2>/dev/null | awk '{print $7}' | head -1", timeout=5)
-        return r['stdout'].strip() or 'unknown'
+        """Get local IP address safely"""
+        try:
+            r = self.run("ip route get 1 2>/dev/null | awk '{print $7}' | head -1", timeout=5)
+            if r and r.get('success') and r.get('stdout'):
+                ip = r['stdout'].strip()
+                if ip and re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
+                    return ip
+            # Fallback: try hostname -I
+            r2 = self.run("hostname -I 2>/dev/null | awk '{print $1}'", timeout=5)
+            if r2 and r2.get('success') and r2.get('stdout'):
+                ip = r2['stdout'].strip()
+                if ip and re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
+                    return ip
+        except Exception as e:
+            logger.error(f"Error getting local IP: {e}")
+        return 'unknown'
 
     def check_connectivity(self, host: str = '8.8.8.8') -> bool:
         r = self.run(f'ping -c 1 -W 3 {host} 2>/dev/null', timeout=10)

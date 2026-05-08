@@ -88,7 +88,7 @@ SEV_MAP = {
 class AIAnalyzer:
     """
     Analyzes HTTP flows for vulnerabilities.
-    Fast pattern matching + SentinelNet + Groq (async).
+    Fast pattern matching + SentinelNet + Groq (async) + BehavioralEngine (AI attack detection).
     """
 
     VULN_PATTERNS = VULN_PATTERNS  # expose as class attribute
@@ -105,6 +105,21 @@ class AIAnalyzer:
             self._groq = get_groq()
         except Exception:
             self._groq = None
+        
+        # Behavioral Intelligence Engine — AI attack detection
+        self._behavioral = self._load_behavioral()
+    
+    def _load_behavioral(self):
+        try:
+            import sys
+            if '/home/kali/osints' not in sys.path:
+                sys.path.insert(0, '/home/kali/osints')
+            from sentinel_brain.engines import BehavioralEngine
+            logger.info("[AIAnalyzer] BehavioralEngine loaded")
+            return BehavioralEngine()
+        except Exception as e:
+            logger.debug(f"BehavioralEngine load: {e}")
+        return None
 
     def _load_sentinel(self):
         try:
@@ -134,8 +149,8 @@ class AIAnalyzer:
 
     def analyze(self, flow: dict) -> dict:
         """
-        Fast sync analysis — pattern matching + SentinelNet.
-        Returns: {risk, vulns, summary, params_flagged}
+        Fast sync analysis — pattern matching + SentinelNet + BehavioralEngine.
+        Returns: {risk, vulns, summary, params_flagged, ai_attack}
         """
         result = {
             'risk':           'LOW',
@@ -143,7 +158,40 @@ class AIAnalyzer:
             'summary':        '',
             'params_flagged': [],
             'confidence':     0.0,
+            'ai_attack':      False,
+            'ai_confidence':  0.0,
+            'ai_reason':      '',
         }
+        
+        # Behavioral analysis for AI attack detection
+        if self._behavioral:
+            try:
+                request_data = {
+                    'method': flow.get('method', 'GET'),
+                    'url': flow.get('url', ''),
+                    'status_code': flow.get('status_code', 200),
+                    'response_time': flow.get('response_time', 0),
+                    'request_size': len(flow.get('body', '')),
+                    'response_size': len(flow.get('resp_body', '')),
+                    'headers': flow.get('headers', {}),
+                    'user_agent': flow.get('headers', {}).get('User-Agent', ''),
+                    'ip_address': flow.get('client_ip', 'unknown'),
+                    'session_id': flow.get('session_id', flow.get('client_ip', 'unknown')),
+                }
+                is_ai, ai_conf, ai_reason = self._behavioral.analyze_request(request_data)
+                result['ai_attack'] = is_ai
+                result['ai_confidence'] = ai_conf
+                result['ai_reason'] = ai_reason
+                
+                if is_ai:
+                    result['vulns'].append({
+                        'type': 'AI Attack',
+                        'severity': 'CRITICAL',
+                        'detail': f'AI-powered attack detected: {ai_reason}',
+                    })
+                    result['risk'] = 'CRITICAL'
+            except Exception as e:
+                logger.debug(f'Behavioral analysis error: {e}')
 
         # Build text to analyze
         text_parts = [

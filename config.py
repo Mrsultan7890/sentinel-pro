@@ -77,6 +77,21 @@ SCREENSHOTS_DIR.mkdir(exist_ok=True)
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHAT_ID   = os.getenv('TELEGRAM_CHAT_ID', '')
 
+# Email Alerts (SMTP)
+SMTP_HOST     = os.getenv('SMTP_HOST', '')
+SMTP_PORT     = int(os.getenv('SMTP_PORT', '587'))
+SMTP_USER     = os.getenv('SMTP_USER', '')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+SMTP_FROM     = os.getenv('SMTP_FROM', '')
+SMTP_TO       = os.getenv('SMTP_TO', '')
+SMTP_TLS      = os.getenv('SMTP_TLS', 'true').lower() == 'true'
+
+# Slack Alerts
+SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL', '')
+
+# Custom Webhook
+WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')
+
 # Breach API Keys
 HIBP_API_KEY       = os.getenv('HIBP_API_KEY', '')
 DEHASHED_EMAIL     = os.getenv('DEHASHED_EMAIL', '')
@@ -138,6 +153,9 @@ TOR_PROXY = os.getenv('TOR_PROXY', 'socks5h://127.0.0.1:9050')
 TOR_CONTROL_PORT = int(os.getenv('TOR_CONTROL_PORT', '9051'))
 TOR_PASSWORD = os.getenv('TOR_PASSWORD', '')
 TOR_ENABLED = os.getenv('TOR_ENABLED', 'false').lower() == 'true'
+
+# Database encryption (QRCE integration)
+DB_ENCRYPTION = os.getenv('DB_ENCRYPTION', 'true').lower() == 'true'
 
 # Runtime toggle — changed via 'tor on/off' command without restart
 _tor_active = False

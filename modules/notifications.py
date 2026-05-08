@@ -23,10 +23,33 @@ logger = logging.getLogger(__name__)
 class TelegramNotifier:
 
     def __init__(self, token: str, chat_id: str):
+        # Validate inputs
+        if not token or not isinstance(token, str):
+            logger.warning("Invalid Telegram token provided")
+            self.enabled = False
+            self.token = ''
+            self.chat_id = ''
+            self._base = ''
+            self._last_send_time = 0
+            self._min_interval = 2.0
+            return
+        
+        if not chat_id or not isinstance(chat_id, str):
+            logger.warning("Invalid Telegram chat_id provided")
+            self.enabled = False
+            self.token = ''
+            self.chat_id = ''
+            self._base = ''
+            self._last_send_time = 0
+            self._min_interval = 2.0
+            return
+        
         self.token   = token
         self.chat_id = chat_id
-        self.enabled = bool(token and chat_id)
+        self.enabled = bool(token and chat_id and token != 'YOUR_BOT_TOKEN')
         self._base   = f"https://api.telegram.org/bot{token}"
+        self._last_send_time = 0
+        self._min_interval = 2.0  # Minimum 2 seconds between messages (rate limiting)
 
     @staticmethod
     def _clean(text: str) -> str:
@@ -41,25 +64,81 @@ class TelegramNotifier:
         text = re.sub(r'\{[0-9*+\-/]+\}', '[SSTI payload]', text)
         return text.strip()
 
-    def _send(self, text: str) -> bool:
+    def _send(self, text: str, retry_count: int = 3) -> bool:
         if not self.enabled:
             return False
-        try:
-            r = requests.post(
-                f"{self._base}/sendMessage",
-                json={"chat_id": self.chat_id, "text": self._clean(text)},
-                timeout=10
-            )
-            return r.status_code == 200
-        except Exception as e:
-            logger.warning(f"Telegram send failed: {e}")
-            return False
+        
+        # Rate limiting - wait if needed
+        import time
+        elapsed = time.time() - self._last_send_time
+        if elapsed < self._min_interval:
+            time.sleep(self._min_interval - elapsed)
+        
+        # Retry logic
+        for attempt in range(retry_count):
+            try:
+                r = requests.post(
+                    f"{self._base}/sendMessage",
+                    json={"chat_id": self.chat_id, "text": self._clean(text)},
+                    timeout=10
+                )
+                self._last_send_time = time.time()
+                
+                if r.status_code == 200:
+                    return True
+                elif r.status_code == 429:  # Too Many Requests
+                    retry_after = r.json().get('parameters', {}).get('retry_after', 5)
+                    logger.warning(f"Telegram rate limit hit, waiting {retry_after}s")
+                    time.sleep(retry_after)
+                    continue
+                else:
+                    logger.warning(f"Telegram send failed: HTTP {r.status_code}")
+                    if attempt < retry_count - 1:
+                        time.sleep(2 ** attempt)  # Exponential backoff
+                        continue
+                    return False
+                    
+            except requests.exceptions.Timeout:
+                logger.warning(f"Telegram timeout (attempt {attempt + 1}/{retry_count})")
+                if attempt < retry_count - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                return False
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"Telegram connection error: {e}")
+                if attempt < retry_count - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                return False
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Telegram request error: {e}")
+                if attempt < retry_count - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                return False
+            except Exception as e:
+                logger.warning(f"Telegram send failed: {e}")
+                if attempt < retry_count - 1:
+                    time.sleep(2 ** attempt)
+                    continue
+                return False
+        
+        return False
 
     # ── public helpers ──────────────────────────────────────────────────────
 
     def alert_bugbounty(self, domain: str, data: dict, max_findings: int = None) -> bool:
         """Send bug bounty alert with ALL findings (no limit by default)."""
         if not self.enabled:
+            return False
+        
+        # Validate inputs
+        if not domain or not isinstance(domain, str):
+            logger.error("Invalid domain for alert_bugbounty")
+            return False
+        
+        if not data or not isinstance(data, dict):
+            logger.error("Invalid data for alert_bugbounty")
             return False
         
         # Check if unified report format (has 'findings' array)
@@ -172,6 +251,16 @@ class TelegramNotifier:
         """Send recon alert with ALL findings (no limit by default)."""
         if not self.enabled:
             return False
+        
+        # Validate inputs
+        if not domain or not isinstance(domain, str):
+            logger.error("Invalid domain for alert_recon")
+            return False
+        
+        if not data or not isinstance(data, dict):
+            logger.error("Invalid data for alert_recon")
+            return False
+        
         criticals = self._extract_recon_criticals(data)
         if not criticals:
             return False
@@ -207,6 +296,16 @@ class TelegramNotifier:
     def alert_breach(self, target: str, data: dict):
         if not self.enabled:
             return False
+        
+        # Validate inputs
+        if not target or not isinstance(target, str):
+            logger.error("Invalid target for alert_breach")
+            return False
+        
+        if not data or not isinstance(data, dict):
+            logger.error("Invalid data for alert_breach")
+            return False
+        
         risk = data.get('risk_level', 'LOW')
         if risk not in ('CRITICAL', 'HIGH'):
             return False
@@ -223,6 +322,9 @@ class TelegramNotifier:
 
     def send(self, text: str) -> bool:
         """Public send — agent aur autonomous loop use karte hain"""
+        if not text or not isinstance(text, str):
+            logger.error("Invalid text for send")
+            return False
         return self._send(text)
 
     def test(self) -> bool:
@@ -232,6 +334,9 @@ class TelegramNotifier:
 
     def _extract_bugbounty_criticals(self, data: dict) -> list:
         """Extract ALL findings (CRITICAL, HIGH, MEDIUM, LOW)."""
+        if not isinstance(data, dict):
+            return []
+        
         items = []
         _sev = {'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'}  # Include all severities
 
@@ -293,6 +398,9 @@ class TelegramNotifier:
 
     def _extract_recon_criticals(self, data: dict) -> list:
         """Extract ALL findings (CRITICAL, HIGH, MEDIUM, LOW)."""
+        if not isinstance(data, dict):
+            return []
+        
         items = []
         _sev = {'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'}  # Include all severities
 

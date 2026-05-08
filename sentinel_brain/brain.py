@@ -156,8 +156,10 @@ class SentinelBrain:
             nt = NeuralTrainer()
             if nt.load():
                 return nt
-        except Exception:
-            pass
+        except (ImportError, AttributeError, FileNotFoundError) as e:
+            logger.debug(f"Model load error: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected model load error: {e}")
         return None
 
     def _load_seq2seq(self):
@@ -167,8 +169,10 @@ class SentinelBrain:
                 s2s = Seq2SeqInference()
                 s2s.load()
                 return s2s
-        except Exception:
-            pass
+        except (ImportError, AttributeError, FileNotFoundError) as e:
+            logger.debug(f"Seq2Seq load error: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected Seq2Seq load error: {e}")
         return None
 
     def _load_rl(self):
@@ -186,16 +190,31 @@ class SentinelBrain:
             if GroqLLM.is_available():
                 g = GroqLLM()
                 return g if g.is_ready else None
-        except Exception:
-            pass
+        except (ImportError, AttributeError) as e:
+            logger.debug(f"Groq load error: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected Groq load error: {e}")
         return None
 
     # ── Main Entry ────────────────────────────────────────────────────────────
 
     def run(self, task: str) -> dict:
-        parsed = parse_task(task)
-        target = parsed['target']
-        mode   = parsed['mode']
+        if not task or not isinstance(task, str):
+            logger.error("Invalid task: must be non-empty string")
+            return {'error': 'Invalid task', 'success': False}
+        
+        try:
+            parsed = parse_task(task)
+        except Exception as e:
+            logger.error(f"Task parsing failed: {e}")
+            return {'error': f'Task parsing failed: {e}', 'success': False}
+        
+        target = parsed.get('target', '')
+        mode   = parsed.get('mode', 'full')
+        
+        if not target:
+            logger.error("No target extracted from task")
+            return {'error': 'No target found', 'success': False}
 
         self._print(f"[Brain] Task   : {task}")
         self._print(f"[Brain] Target : {target}")
@@ -224,11 +243,13 @@ class SentinelBrain:
         if mode in ('full', 'bugbounty', 'recon'):
             try:
                 ss = self.browser_agent.screenshot_domain(target)
-                if ss.get('path'):
+                if ss and isinstance(ss, dict) and ss.get('path'):
                     all_results['screenshot'] = ss['path']
                     self._print(f"[Browser] Screenshot: {ss['path']}")
-            except Exception:
-                pass
+            except (OSError, TimeoutError) as e:
+                logger.debug(f"Screenshot failed: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected screenshot error: {e}")
 
         # Report
         self._print("\n[Brain] → ReportAgent")
@@ -422,8 +443,10 @@ class SentinelBrain:
                         risk=rl_state.risk_level,
                         epsilon=self._rl.epsilon
                     )
+            except (OSError, IOError) as e:
+                logger.error(f"RL save I/O error: {e}")
             except Exception as e:
-                logger.debug(f"RL save error: {e}")
+                logger.error(f"RL save error: {e}")
 
         return results
 
@@ -542,6 +565,13 @@ class SentinelBrain:
 
     def _act(self, target: str, action: str, results: dict) -> dict:
         """Action execute karo"""
+        if not target or not isinstance(target, str):
+            return {'success': False, '_agent_summary': 'Invalid target'}
+        if not action or not isinstance(action, str):
+            return {'success': False, '_agent_summary': 'Invalid action'}
+        if not isinstance(results, dict):
+            results = {}
+        
         try:
             if action == 'recon':
                 # kali_recon already nmap run kar chuka hai — skip nmap
@@ -767,11 +797,27 @@ class SentinelBrain:
 
     def shell(self, command: str, timeout: int = 120) -> dict:
         """Direct terminal — agent ya user dono use kar sakte hain"""
-        self._print(f"[Terminal] $ {command}")
-        r = self.kali.run(command, timeout=timeout)
-        if r['stdout']:
-            self._print(r['stdout'][:2000])
-        return r
+        if not command or not isinstance(command, str):
+            logger.error("Invalid shell command")
+            return {'success': False, 'error': 'Invalid command'}
+        if timeout <= 0 or timeout > 3600:
+            timeout = 120
+        
+        # Command injection check
+        dangerous = ['rm -rf /', 'mkfs', 'dd if=', ':(){:|:&};:', 'fork()']
+        if any(d in command for d in dangerous):
+            logger.error(f"Dangerous command blocked: {command}")
+            return {'success': False, 'error': 'Dangerous command blocked'}
+        
+        try:
+            self._print(f"[Terminal] $ {command}")
+            r = self.kali.run(command, timeout=timeout)
+            if r and isinstance(r, dict) and r.get('stdout'):
+                self._print(r['stdout'][:2000])
+            return r
+        except Exception as e:
+            logger.error(f"Shell execution error: {e}")
+            return {'success': False, 'error': str(e)}
 
     def memory_stats(self) -> dict:
         return self.memory.stats()

@@ -257,7 +257,11 @@ class AdvancedFootprintCollector:
             )
             
             if result.returncode == 0:
-                return json.loads(result.stdout)
+                try:
+                    return json.loads(result.stdout)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid JSON from social scraper: {e}")
+                    return self._fallback_social_scraping(target)
             else:
                 return self._fallback_social_scraping(target)
                 
@@ -391,7 +395,7 @@ class AdvancedFootprintCollector:
                 return element.get_text(strip=True)
             return ''
         except Exception as e:
-            # print(f"[DEBUG] Selector error for '{selector}': {str(e)}")
+            logger.debug(f"Selector error for '{selector}': {str(e)}")
             return ''
     
     def _extract_display_name(self, soup, platform):

@@ -1,6 +1,9 @@
 """Transform Palette v2.0 - 30+ Transforms + Auto-Chaining"""
-from PyQt6.QtWidgets import *
-from PyQt6.QtCore import *
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
+    QListWidget, QListWidgetItem, QLabel, QSpinBox, QComboBox, QTabWidget, QProgressBar
+)
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

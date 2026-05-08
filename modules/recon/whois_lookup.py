@@ -24,6 +24,16 @@ logger = logging.getLogger(__name__)
 class WhoisLookup:
 
     def run(self, domain: str) -> dict:
+        if not domain or not isinstance(domain, str):
+            logger.error('Invalid domain')
+            return {'error': 'Invalid domain'}
+        
+        # Domain validation
+        domain = domain.strip().lower()
+        if len(domain) > 253 or not domain.replace('.', '').replace('-', '').isalnum():
+            logger.error(f'Invalid domain format: {domain}')
+            return {'error': 'Invalid domain format'}
+        
         result = {
             'domain': domain,
             'whois': self._whois(domain),
@@ -41,6 +51,8 @@ class WhoisLookup:
         try:
             import whois
             w = whois.whois(domain)
+            if not w:
+                return {'error': 'No WHOIS data'}
             return {
                 'registrar':       self._str(w.registrar),
                 'creation_date':   self._date(w.creation_date),
@@ -53,6 +65,9 @@ class WhoisLookup:
                 'country':         self._str(w.country),
                 'dnssec':          self._str(w.dnssec),
             }
+        except ImportError as e:
+            logger.error(f"python-whois not installed: {e}")
+            return {'error': 'python-whois not installed'}
         except Exception as e:
             logger.warning(f"WHOIS failed for {domain}: {e}")
             return {'error': str(e)}
@@ -66,6 +81,7 @@ class WhoisLookup:
             import dns.resolver
             import dns.exception
         except ImportError:
+            logger.error('dnspython not installed')
             return {'error': 'dnspython not installed'}
 
         records = {}
@@ -76,11 +92,12 @@ class WhoisLookup:
                 answers = dns.resolver.resolve(domain, rtype, lifetime=5)
                 records[rtype] = [str(r) for r in answers]
             except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer,
-                    dns.resolver.NoNameservers, dns.exception.Timeout):
+                    dns.resolver.NoNameservers, dns.exception.Timeout) as e:
                 records[rtype] = []
+                logger.debug(f"DNS {rtype} not found for {domain}: {e}")
             except Exception as e:
                 records[rtype] = []
-                logger.debug(f"DNS {rtype} failed for {domain}: {e}")
+                logger.error(f"DNS {rtype} failed for {domain}: {e}")
 
         # SPF - parse from TXT
         records['SPF'] = [r for r in records.get('TXT', []) if 'v=spf1' in r]
@@ -90,8 +107,12 @@ class WhoisLookup:
             import dns.exception
             answers = dns.resolver.resolve(f'_dmarc.{domain}', 'TXT', lifetime=5)
             records['DMARC'] = [str(r) for r in answers]
-        except Exception:
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.exception.Timeout) as e:
             records['DMARC'] = []
+            logger.debug(f"DMARC not found: {e}")
+        except Exception as e:
+            records['DMARC'] = []
+            logger.error(f"DMARC query failed: {e}")
 
         # DKIM (common selectors)
         records['DKIM'] = []
@@ -111,8 +132,10 @@ class WhoisLookup:
             try:
                 ptr = socket.gethostbyaddr(ip)[0]
                 records['PTR'].append({'ip': ip, 'ptr': ptr})
-            except Exception:
-                pass
+            except (socket.herror, socket.gaierror) as e:
+                logger.debug(f"PTR lookup failed for {ip}: {e}")
+            except Exception as e:
+                logger.error(f"PTR lookup error for {ip}: {e}")
 
         return records
 
@@ -121,9 +144,15 @@ class WhoisLookup:
     # ------------------------------------------------------------------ #
 
     def _analyze_risk(self, result: dict) -> list:
+        if not isinstance(result, dict):
+            return []
+        
         flags = []
         whois = result.get('whois', {})
         dns   = result.get('dns', {})
+        
+        if not isinstance(whois, dict) or not isinstance(dns, dict):
+            return flags
 
         # Recently registered domain
         creation = whois.get('creation_date', '')
@@ -167,6 +196,8 @@ class WhoisLookup:
 
         # Zone transfer check (basic)
         for ns in dns.get('NS', []):
+            if not isinstance(ns, str):
+                continue
             ns_clean = ns.rstrip('.')
             try:
                 import dns.zone
@@ -178,8 +209,10 @@ class WhoisLookup:
                         'severity': 'CRITICAL',
                         'detail': f'Zone transfer allowed on {ns_clean}'
                     })
-            except Exception:
-                pass
+            except (dns.exception.FormError, dns.exception.Timeout) as e:
+                logger.debug(f"Zone transfer check failed for {ns_clean}: {e}")
+            except Exception as e:
+                logger.debug(f"Zone transfer error for {ns_clean}: {e}")
 
         return flags
 

@@ -88,6 +88,9 @@ class ScanState:
         )
 
     def update(self, tool: str, result: dict):
+        if not tool or not isinstance(tool, str):
+            return
+        
         self.tools_used.add(tool)
         self.step += 1
 
@@ -238,6 +241,15 @@ class RLAgent:
         Real targets pe train karo.
         kali = KaliController instance
         """
+        if not targets or not isinstance(targets, list):
+            logger.error('Invalid targets list')
+            return
+        if episodes <= 0 or episodes > 10000:
+            episodes = 100
+        if not kali:
+            logger.error('KaliController required')
+            return
+        
         _print = print_fn or print
         _print(f"\n[RL] Training shuru — {episodes} episodes on {targets}")
         _print(f"[RL] alpha={self.alpha} gamma={self.gamma} epsilon={self.epsilon}\n")
@@ -297,8 +309,10 @@ class RLAgent:
                 for tool in state.tools_used:
                     found = any(f['tool'] == tool for f in state.findings)
                     SentinelDB.update_tool_stat(tool, found, 0)
-            except Exception:
-                pass
+            except (ImportError, AttributeError) as e:
+                logger.debug(f'DB save error: {e}')
+            except Exception as e:
+                logger.error(f'Unexpected DB error: {e}')
 
             # Epsilon decay — kam explore karo jaise seekhte hain
             self.epsilon = max(0.05, self.epsilon * 0.97)
@@ -316,12 +330,19 @@ class RLAgent:
 
     def _execute_tool(self, action: str, target: str,
                       state: ScanState, kali) -> dict:
+        if not action or not isinstance(action, str):
+            return {'success': False, 'stdout': '', 'parsed': {}}
+        if not target or not isinstance(target, str):
+            return {'success': False, 'stdout': '', 'parsed': {}}
+        
         try:
             from sentinel_brain.advanced_ml import SentinelGeneticOptimizer
             if not hasattr(self, '_genetic'):
                 self._genetic = SentinelGeneticOptimizer()
-        except Exception:
-            pass
+        except (ImportError, AttributeError) as e:
+            logger.debug(f'Genetic optimizer not available: {e}')
+        except Exception as e:
+            logger.error(f'Genetic optimizer error: {e}')
 
         start  = time.time()
         result = self._run_tool(action, target, kali)
@@ -392,6 +413,13 @@ class RLAgent:
     # ── Inference ─────────────────────────────────────────────────────────────
 
     def run(self, target: str, kali, print_fn=None) -> dict:
+        if not target or not isinstance(target, str):
+            logger.error('Invalid target')
+            return {'error': 'Invalid target'}
+        if not kali:
+            logger.error('KaliController required')
+            return {'error': 'KaliController required'}
+        
         _print    = print_fn or print
         state     = ScanState(target)
         old_eps   = self.epsilon
@@ -425,8 +453,10 @@ class RLAgent:
                 {'tools': list(state.tools_used), 'findings': len(state.findings)}, source='rl')
             for f in state.findings:
                 SentinelDB.save_finding(target, f['title'], f['severity'], f['title'], tool=f['tool'])
-        except Exception:
-            pass
+        except (ImportError, AttributeError) as e:
+            logger.debug(f'DB save error: {e}')
+        except Exception as e:
+            logger.error(f'Unexpected DB error: {e}')
 
         return {
             'target':     target,
@@ -440,20 +470,29 @@ class RLAgent:
     # ── Save / Load ───────────────────────────────────────────────────────────
 
     def _save_q_table(self):
-        Q_TABLE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(Q_TABLE_PATH, 'w') as f:
-            json.dump({
-                'q_table':        self.q_table,
-                'epsilon':        self.epsilon,
-                'episodes_done':  len(self.episode_rewards),
-                'avg_reward':     float(np.mean(self.episode_rewards)) if self.episode_rewards else 0,
-                'saved_at':       time.strftime('%Y-%m-%d %H:%M:%S'),
-            }, f, indent=2)
+        try:
+            Q_TABLE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with open(Q_TABLE_PATH, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'q_table':        self.q_table,
+                    'epsilon':        self.epsilon,
+                    'episodes_done':  len(self.episode_rewards),
+                    'avg_reward':     float(np.mean(self.episode_rewards)) if self.episode_rewards else 0,
+                    'saved_at':       time.strftime('%Y-%m-%d %H:%M:%S'),
+                }, f, indent=2)
+        except (OSError, IOError, PermissionError) as e:
+            logger.error(f'Q-table save I/O error: {e}')
+        except Exception as e:
+            logger.error(f'Q-table save error: {e}')
 
     def _load_q_table(self):
         if Q_TABLE_PATH.exists():
             try:
-                data = json.loads(Q_TABLE_PATH.read_text())
+                data = json.loads(Q_TABLE_PATH.read_text(encoding='utf-8'))
+                if not isinstance(data, dict):
+                    logger.error('Invalid Q-table format')
+                    return
+                
                 self.q_table        = data.get('q_table', {})
                 self.epsilon        = data.get('epsilon', self.epsilon)
                 episodes_done       = data.get('episodes_done', 0)
@@ -462,8 +501,12 @@ class RLAgent:
                 if episodes_done > 0 and not self.episode_rewards:
                     self.episode_rewards = [avg_reward] * episodes_done
                 logger.info(f"[RL] Q-table loaded: {len(self.q_table)} states, epsilon={self.epsilon:.3f}")
-            except Exception:
-                pass
+            except (OSError, IOError, PermissionError) as e:
+                logger.error(f'Q-table load I/O error: {e}')
+            except json.JSONDecodeError as e:
+                logger.error(f'Q-table JSON parse error: {e}')
+            except Exception as e:
+                logger.error(f'Q-table load error: {e}')
 
     def stats(self) -> dict:
         return {

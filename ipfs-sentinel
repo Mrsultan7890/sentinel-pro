@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+# DTIE CLI - Quick IPFS operations
+
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from modules.ipfs_manager import IPFSManager
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: ipfs-sentinel <command>")
+        print("\nCommands:")
+        print("  status              - IPFS daemon status")
+        print("  add <file>          - Upload file to IPFS")
+        print("  get <cid>           - Download from IPFS")
+        print("  pin <cid>           - Pin content")
+        print("  peers               - List connected peers")
+        return
+    
+    ipfs = IPFSManager()
+    cmd = sys.argv[1]
+    
+    if cmd == 'status':
+        status = ipfs.get_status()
+        if status['running']:
+            print(f"✓ IPFS daemon running")
+            print(f"  Version: {status.get('version', 'N/A')}")
+            print(f"  Peers: {status.get('peers', 0)}")
+        else:
+            print("✗ IPFS daemon not running")
+            print("  Run: ipfs daemon")
+    
+    elif cmd == 'add' and len(sys.argv) >= 3:
+        file_path = sys.argv[2]
+        result = ipfs.add_file(file_path)
+        if result.get('success'):
+            print(f"✓ Uploaded: {result['cid']}")
+            print(f"  Gateway: {ipfs.get_gateway_url(result['cid'])}")
+        else:
+            print(f"✗ Error: {result.get('error')}")
+    
+    elif cmd == 'get' and len(sys.argv) >= 3:
+        cid = sys.argv[2]
+        output = sys.argv[3] if len(sys.argv) >= 4 else f"./{cid}"
+        result = ipfs.get_file(cid, output)
+        if result.get('success'):
+            print(f"✓ Downloaded: {output}")
+        else:
+            print(f"✗ Error: {result.get('error')}")
+    
+    elif cmd == 'peers':
+        peers = ipfs.list_peers()
+        print(f"Connected peers: {len(peers)}")
+        for peer in peers[:10]:
+            print(f"  {peer}")
+
+if __name__ == '__main__':
+    main()

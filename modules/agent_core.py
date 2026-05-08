@@ -134,8 +134,14 @@ class SentinelAgent:
                         context = self._update_context(context, thought, action, args,
                                                        'SKIPPED by user')
                         continue
-                except Exception:
-                    pass
+                except EOFError:
+                    # EOF or Ctrl+D pressed - assume yes and proceed
+                    logger.debug("Input EOF - proceeding with action")
+                except KeyboardInterrupt:
+                    # Ctrl+C - re-raise to let user stop
+                    raise
+                except Exception as e:
+                    logger.warning(f"Input error: {e} - proceeding with action")
 
             # ── ACT ──
             t0     = time.time()

@@ -478,8 +478,12 @@ class SecureFileManager:
             result = self.secure_read(str(chain_file), verify_integrity=True)
             if not result['success']:
                 return result
-                
-            evidence_chain = json.loads(result['content'])
+            
+            try:
+                evidence_chain = json.loads(result['content'])
+            except json.JSONDecodeError as e:
+                logger.error(f"Corrupted evidence chain JSON: {e}")
+                return {'success': False, 'error': 'Corrupted evidence chain'}
             verification_results = []
             
             # Verify each file in chain

@@ -34,7 +34,10 @@ DB_PATH = _cfg.BASE_DIR / 'data' / 'sentinel.db'
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(f'sqlite:///{DB_PATH}', echo=False,
-                       connect_args={'check_same_thread': False})
+                       connect_args={
+                           'check_same_thread': False,
+                           'timeout': 30.0  # 30 second timeout for locks
+                       })
 
 
 class Base(DeclarativeBase):
@@ -126,26 +129,37 @@ class ToolStat(Base):
 
 Base.metadata.create_all(engine)
 
+# Enable WAL mode for better concurrent access
+import sqlite3 as _sqlite3
+_wal_conn = _sqlite3.connect(str(DB_PATH))
+_wal_conn.execute('PRAGMA journal_mode=WAL')
+_wal_conn.close()
+
 # Auto-migration: add missing columns to existing tables
 def _run_migrations():
     """Add missing columns to existing DB without dropping data."""
     import sqlite3 as _sqlite3
-    conn = _sqlite3.connect(str(DB_PATH))
-    cur  = conn.cursor()
-    migrations = [
-        # (table, column, definition)
-        ('decisions', 'agent',   "VARCHAR DEFAULT 'unknown'"),
-        ('decisions', 'outcome', "TEXT DEFAULT ''"),
-        ('scans',     'raw_data',"TEXT DEFAULT ''"),
-        ('findings',  'evidence',"TEXT DEFAULT ''"),
-    ]
-    for table, col, defn in migrations:
-        try:
-            cur.execute(f'ALTER TABLE {table} ADD COLUMN {col} {defn}')
-            conn.commit()
-        except _sqlite3.OperationalError:
-            pass  # column already exists
-    conn.close()
+    conn = None
+    try:
+        conn = _sqlite3.connect(str(DB_PATH), timeout=30.0)
+        cur  = conn.cursor()
+        migrations = [
+            # (table, column, definition)
+            ('decisions', 'agent',   "VARCHAR DEFAULT 'unknown'"),
+            ('decisions', 'outcome', "TEXT DEFAULT ''"),
+        ]
+        for table, col, defn in migrations:
+            try:
+                cur.execute(f'ALTER TABLE {table} ADD COLUMN {col} {defn}')
+                conn.commit()
+                logger.debug(f"Migration: Added {table}.{col}")
+            except _sqlite3.OperationalError:
+                pass  # column already exists
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 _run_migrations()
 
@@ -158,68 +172,88 @@ class SentinelDB:
     @staticmethod
     def save_scan(target: str, scan_type: str, risk: str,
                   summary: dict, source: str = 'manual') -> int:
-        with Session(engine) as s:
-            scan = Scan(
-                target=target, scan_type=scan_type, risk=risk,
-                summary=str(summary)[:500],
-                raw_json=json.dumps(summary, default=str)[:10000],
-                source=source
-            )
-            s.add(scan)
-            s.commit()
-            return scan.id
+        try:
+            with Session(engine) as s:
+                scan = Scan(
+                    target=target, scan_type=scan_type, risk=risk,
+                    summary=str(summary)[:500],
+                    raw_json=json.dumps(summary, default=str)[:10000],
+                    source=source
+                )
+                s.add(scan)
+                s.commit()
+                return scan.id
+        except Exception as e:
+            logger.error(f"Failed to save scan for {target}: {e}")
+            return -1
 
     @staticmethod
     def get_target_history(target: str, limit: int = 10) -> list:
-        with Session(engine) as s:
-            rows = s.query(Scan).filter(Scan.target.contains(target))\
-                     .order_by(Scan.created_at.desc()).limit(limit).all()
-            return [{'type': r.scan_type, 'risk': r.risk,
-                     'summary': r.summary, 'source': r.source,
-                     'date': str(r.created_at)[:16]} for r in rows]
+        try:
+            with Session(engine) as s:
+                rows = s.query(Scan).filter(Scan.target.contains(target))\
+                         .order_by(Scan.created_at.desc()).limit(limit).all()
+                return [{'type': r.scan_type, 'risk': r.risk,
+                         'summary': r.summary, 'source': r.source,
+                         'date': str(r.created_at)[:16]} for r in rows]
+        except Exception as e:
+            logger.error(f"Failed to get history for {target}: {e}")
+            return []
 
     # ── Findings ──────────────────────────────────────────────────────────────
 
     @staticmethod
     def save_finding(target: str, vuln_type: str, severity: str,
                      detail: str, fix: str = '', tool: str = '') -> int:
-        with Session(engine) as s:
-            f = Finding(target=target, vuln_type=vuln_type, severity=severity,
-                        detail=detail[:500], fix=fix[:300], tool=tool)
-            s.add(f)
-            s.commit()
-            return f.id
+        try:
+            with Session(engine) as s:
+                f = Finding(target=target, vuln_type=vuln_type, severity=severity,
+                            detail=detail[:500], fix=fix[:300], tool=tool)
+                s.add(f)
+                s.commit()
+                return f.id
+        except Exception as e:
+            logger.error(f"Failed to save finding for {target}: {e}")
+            return -1
 
     @staticmethod
     def get_findings(target: str) -> list:
-        with Session(engine) as s:
-            rows = s.query(Finding).filter(Finding.target == target)\
-                     .order_by(Finding.severity).all()
-            return [{'type': r.vuln_type, 'severity': r.severity,
-                     'detail': r.detail, 'fix': r.fix, 'tool': r.tool} for r in rows]
+        try:
+            with Session(engine) as s:
+                rows = s.query(Finding).filter(Finding.target == target)\
+                         .order_by(Finding.severity).all()
+                return [{'type': r.vuln_type, 'severity': r.severity,
+                         'detail': r.detail, 'fix': r.fix, 'tool': r.tool} for r in rows]
+        except Exception as e:
+            logger.error(f"Failed to get findings for {target}: {e}")
+            return []
 
     @staticmethod
     def get_critical_findings(limit: int = 20) -> list:
-        with Session(engine) as s:
-            rows = s.query(Finding).filter(
-                Finding.severity.in_(['CRITICAL', 'HIGH'])
-            ).order_by(Finding.created_at.desc()).limit(limit).all()
-            return [{'target': r.target, 'type': r.vuln_type,
-                     'severity': r.severity, 'detail': r.detail} for r in rows]
+        try:
+            with Session(engine) as s:
+                rows = s.query(Finding).filter(
+                    Finding.severity.in_(['CRITICAL', 'HIGH'])
+                ).order_by(Finding.created_at.desc()).limit(limit).all()
+                return [{'target': r.target, 'type': r.vuln_type,
+                         'severity': r.severity, 'detail': r.detail} for r in rows]
+        except Exception as e:
+            logger.error(f"Failed to get critical findings: {e}")
+            return []
 
     # ── IOCs ──────────────────────────────────────────────────────────────────
 
     @staticmethod
     def save_ioc(value: str, ioc_type: str, threat: str,
                  confidence: float = 0.8, source: str = 'scan'):
-        with Session(engine) as s:
-            try:
+        try:
+            with Session(engine) as s:
                 ioc = IOC(value=value, ioc_type=ioc_type, threat=threat,
                           confidence=confidence, source=source)
                 s.add(ioc)
                 s.commit()
-            except Exception:
-                pass  # duplicate ignore
+        except Exception as e:
+            logger.debug(f"IOC already exists or save failed: {value} - {e}")
 
     @staticmethod
     def check_ioc(value: str) -> dict:
@@ -235,22 +269,28 @@ class SentinelDB:
     @staticmethod
     def save_decision(target: str, agent: str, action: str,
                       reason: str, priority: str, outcome: str = ''):
-        with Session(engine) as s:
-            d = Decision(target=target, agent=agent, action=action,
-                         reason=reason[:300], priority=priority, outcome=outcome[:300])
-            s.add(d)
-            s.commit()
+        try:
+            with Session(engine) as s:
+                d = Decision(target=target, agent=agent, action=action,
+                             reason=reason[:300], priority=priority, outcome=outcome[:300])
+                s.add(d)
+                s.commit()
+        except Exception as e:
+            logger.error(f"Failed to save decision for {target}: {e}")
 
     # ── Memory ────────────────────────────────────────────────────────────────
 
     @staticmethod
     def remember(target: str, scan_type: str, risk: str,
                  summary: str, pattern: str = ''):
-        with Session(engine) as s:
-            m = Memory(target=target, scan_type=scan_type, risk=risk,
-                       summary=summary[:500], pattern=pattern[:200])
-            s.add(m)
-            s.commit()
+        try:
+            with Session(engine) as s:
+                m = Memory(target=target, scan_type=scan_type, risk=risk,
+                           summary=summary[:500], pattern=pattern[:200])
+                s.add(m)
+                s.commit()
+        except Exception as e:
+            logger.error(f"Failed to save memory for {target}: {e}")
 
     @staticmethod
     def recall(target: str, limit: int = 5) -> list:
@@ -266,24 +306,37 @@ class SentinelDB:
     def save_rl_episode(target: str, episode: int, tools_used: list,
                         total_reward: float, findings: int,
                         risk: str, epsilon: float):
-        with Session(engine) as s:
-            ep = RLEpisode(
-                target=target, episode=episode,
-                tools_used=json.dumps(tools_used),
-                total_reward=total_reward, findings=findings,
-                risk=risk, epsilon=epsilon
-            )
-            s.add(ep)
-            s.commit()
+        try:
+            with Session(engine) as s:
+                ep = RLEpisode(
+                    target=target, episode=episode,
+                    tools_used=json.dumps(tools_used),
+                    total_reward=total_reward, findings=findings,
+                    risk=risk, epsilon=epsilon
+                )
+                s.add(ep)
+                s.commit()
+        except Exception as e:
+            logger.error(f"Failed to save RL episode for {target}: {e}")
 
     @staticmethod
     def get_rl_history(limit: int = 50) -> list:
         with Session(engine) as s:
             rows = s.query(RLEpisode).order_by(
                 RLEpisode.created_at.desc()).limit(limit).all()
-            return [{'target': r.target, 'episode': r.episode,
-                     'reward': r.total_reward, 'findings': r.findings,
-                     'risk': r.risk, 'tools': json.loads(r.tools_used or '[]')} for r in rows]
+            results = []
+            for r in rows:
+                try:
+                    tools = json.loads(r.tools_used or '[]')
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Invalid JSON in RL episode {r.id}: {e}")
+                    tools = []
+                results.append({
+                    'target': r.target, 'episode': r.episode,
+                    'reward': r.total_reward, 'findings': r.findings,
+                    'risk': r.risk, 'tools': tools
+                })
+            return results
 
     # ── Tool Stats ────────────────────────────────────────────────────────────
 

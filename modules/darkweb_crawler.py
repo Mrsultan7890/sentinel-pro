@@ -159,11 +159,15 @@ class DarkWebCrawler:
             return {'type': 'pgp',         'confidence': 0.95, 'decrypted': 'PGP — private key required'}
         if re.match(r'^[0-9a-fA-F]+$', text):
             try:    dec = bytes.fromhex(text).decode('utf-8', errors='replace')
-            except: dec = 'hex decode failed'
+            except Exception as e:
+                logger.debug(f"Hex decode failed: {e}")
+                dec = 'hex decode failed'
             return {'type': 'hexadecimal', 'confidence': 0.80, 'decrypted': dec}
         if re.match(r'^[A-Za-z0-9+/]*={0,2}$', text):
             try:    dec = base64.b64decode(text).decode('utf-8', errors='replace')
-            except: dec = 'base64 decode failed'
+            except Exception as e:
+                logger.debug(f"Base64 decode failed: {e}")
+                dec = 'base64 decode failed'
             return {'type': 'base64',      'confidence': 0.75, 'decrypted': dec}
         return {'type': 'unknown', 'confidence': 0.3, 'decrypted': None}
 
@@ -193,10 +197,12 @@ class DarkWebCrawler:
                                 results.append({'site': site, 'url': f'{site}{link}',
                                                 'content': pr.text[:2000], 'timestamp': time.time()})
                             time.sleep(random.uniform(1, 2))
-                        except Exception:
-                            pass
-            except Exception:
-                pass
+                        except (ConnectionError, requests.exceptions.RequestException) as e:
+                            logger.debug(f"Failed to fetch {site}{link}: {e}")
+                        except Exception as e:
+                            logger.warning(f"Unexpected error fetching {site}{link}: {e}")
+            except Exception as e:
+                logger.warning(f"Error searching pastebin mirrors: {e}")
         return results
 
     # ------------------------------------------------------------------ #
@@ -222,6 +228,8 @@ class DarkWebCrawler:
                         'relevance':    'high',
                     })
                 time.sleep(random.uniform(1, 2))
-            except Exception:
-                pass
+            except (ConnectionError, requests.exceptions.RequestException) as e:
+                logger.debug(f"Failed to fetch forum {item['url']}: {e}")
+            except Exception as e:
+                logger.warning(f"Error checking forum {item.get('url', 'unknown')}: {e}")
         return mentions

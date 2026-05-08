@@ -83,10 +83,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	domain   := os.Args[1]
+	domain := os.Args[1]
 	wordlist := os.Args[2]
-	threads  := 50
-	exts     := []string{""}
+	threads := 50
+	exts := []string{""}
 
 	if len(os.Args) >= 4 {
 		if t, err := strconv.Atoi(os.Args[3]); err == nil && t > 0 {

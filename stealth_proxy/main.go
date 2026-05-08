@@ -22,11 +22,11 @@ import (
 )
 
 type ProxyManager struct {
-	ProxyList    []string          `json:"proxy_list"`
-	UserAgents   []string          `json:"user_agents"`
-	CurrentProxy int               `json:"current_proxy"`
-	RequestCount int               `json:"request_count"`
-	Config       ProxyConfig       `json:"config"`
+	ProxyList    []string    `json:"proxy_list"`
+	UserAgents   []string    `json:"user_agents"`
+	CurrentProxy int         `json:"current_proxy"`
+	RequestCount int         `json:"request_count"`
+	Config       ProxyConfig `json:"config"`
 }
 
 type ProxyConfig struct {
@@ -81,12 +81,12 @@ func (pm *ProxyManager) GetNextProxy() string {
 	if len(pm.ProxyList) == 0 {
 		return ""
 	}
-	
+
 	// Rotate proxy based on request count
 	if pm.RequestCount%pm.Config.RotationInterval == 0 {
 		pm.CurrentProxy = (pm.CurrentProxy + 1) % len(pm.ProxyList)
 	}
-	
+
 	return pm.ProxyList[pm.CurrentProxy]
 }
 
@@ -94,7 +94,7 @@ func (pm *ProxyManager) GetRandomUserAgent() string {
 	if !pm.Config.RandomizeUA || len(pm.UserAgents) == 0 {
 		return pm.UserAgents[0]
 	}
-	
+
 	return pm.UserAgents[rand.Intn(len(pm.UserAgents))]
 }
 
@@ -105,26 +105,26 @@ func (pm *ProxyManager) CreateStealthClient(proxyURL string) (*http.Client, erro
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
-	
+
 	if proxyURL != "" {
 		proxyParsed, err := url.Parse(proxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("invalid proxy URL: %v", err)
 		}
-		
+
 		client.Transport.(*http.Transport).Proxy = http.ProxyURL(proxyParsed)
 	}
-	
+
 	return client, nil
 }
 
 func (pm *ProxyManager) MakeStealthRequest(req StealthRequest) StealthResponse {
 	pm.RequestCount++
-	
+
 	// Get proxy and user agent
 	proxyURL := pm.GetNextProxy()
 	userAgent := pm.GetRandomUserAgent()
-	
+
 	// Create stealth client
 	client, err := pm.CreateStealthClient(proxyURL)
 	if err != nil {
@@ -133,13 +133,13 @@ func (pm *ProxyManager) MakeStealthRequest(req StealthRequest) StealthResponse {
 			Error:   fmt.Sprintf("Client creation failed: %v", err),
 		}
 	}
-	
+
 	// Create HTTP request
 	var body io.Reader
 	if req.Data != "" {
 		body = strings.NewReader(req.Data)
 	}
-	
+
 	httpReq, err := http.NewRequest(req.Method, req.URL, body)
 	if err != nil {
 		return StealthResponse{
@@ -147,16 +147,16 @@ func (pm *ProxyManager) MakeStealthRequest(req StealthRequest) StealthResponse {
 			Error:   fmt.Sprintf("Request creation failed: %v", err),
 		}
 	}
-	
+
 	// Set stealth headers
 	pm.setStealthHeaders(httpReq, userAgent, req.Headers)
-	
+
 	// Add human-like delay
 	if pm.Config.StealthMode {
 		delay := time.Duration(rand.Intn(3000)+1000) * time.Millisecond
 		time.Sleep(delay)
 	}
-	
+
 	// Make request
 	resp, err := client.Do(httpReq)
 	if err != nil {
@@ -168,7 +168,7 @@ func (pm *ProxyManager) MakeStealthRequest(req StealthRequest) StealthResponse {
 		}
 	}
 	defer resp.Body.Close()
-	
+
 	// Read response
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -180,7 +180,7 @@ func (pm *ProxyManager) MakeStealthRequest(req StealthRequest) StealthResponse {
 			UserAgent:  userAgent,
 		}
 	}
-	
+
 	// Extract response headers
 	headers := make(map[string]string)
 	for key, values := range resp.Header {
@@ -188,7 +188,7 @@ func (pm *ProxyManager) MakeStealthRequest(req StealthRequest) StealthResponse {
 			headers[key] = values[0]
 		}
 	}
-	
+
 	return StealthResponse{
 		StatusCode: resp.StatusCode,
 		Headers:    headers,
@@ -208,7 +208,7 @@ func (pm *ProxyManager) setStealthHeaders(req *http.Request, userAgent string, c
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
 	req.Header.Set("Cache-Control", "max-age=0")
-	
+
 	// Browser-specific headers
 	if strings.Contains(userAgent, "Chrome") {
 		req.Header.Set("Sec-Fetch-Dest", "document")
@@ -216,7 +216,7 @@ func (pm *ProxyManager) setStealthHeaders(req *http.Request, userAgent string, c
 		req.Header.Set("Sec-Fetch-Site", "none")
 		req.Header.Set("Sec-Fetch-User", "?1")
 	}
-	
+
 	// Add custom headers
 	for key, value := range customHeaders {
 		req.Header.Set(key, value)
@@ -226,24 +226,24 @@ func (pm *ProxyManager) setStealthHeaders(req *http.Request, userAgent string, c
 func (pm *ProxyManager) TestProxies() map[string]bool {
 	results := make(map[string]bool)
 	testURL := "http://httpbin.org/ip"
-	
+
 	for _, proxy := range pm.ProxyList {
 		client, err := pm.CreateStealthClient(proxy)
 		if err != nil {
 			results[proxy] = false
 			continue
 		}
-		
+
 		resp, err := client.Get(testURL)
 		if err != nil {
 			results[proxy] = false
 			continue
 		}
 		resp.Body.Close()
-		
+
 		results[proxy] = resp.StatusCode == 200
 	}
-	
+
 	return results
 }
 
@@ -264,53 +264,53 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  rotate - Rotate Tor identity\n")
 		os.Exit(1)
 	}
-	
+
 	pm := NewProxyManager()
 	command := os.Args[1]
-	
+
 	switch command {
 	case "request":
 		if len(os.Args) < 3 {
 			fmt.Fprintf(os.Stderr, "Usage: %s request <url>\n", os.Args[0])
 			os.Exit(1)
 		}
-		
+
 		req := StealthRequest{
-			URL:    os.Args[2],
-			Method: "GET",
+			URL:     os.Args[2],
+			Method:  "GET",
 			Headers: map[string]string{},
 		}
-		
+
 		response := pm.MakeStealthRequest(req)
-		
+
 		output, err := json.Marshal(response)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "JSON marshal error: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Println(string(output))
-		
+
 	case "test":
 		results := pm.TestProxies()
-		
+
 		output, err := json.Marshal(results)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "JSON marshal error: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Println(string(output))
-		
+
 	case "rotate":
 		err := pm.RotateTorIdentity()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Tor rotation failed: %v\n", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Println(`{"success": true, "message": "Tor identity rotated"}`)
-		
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		os.Exit(1)

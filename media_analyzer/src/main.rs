@@ -8,10 +8,8 @@
 
 use std::env;
 use std::fs;
-use std::path::Path;
 use serde::{Deserialize, Serialize};
-use image::{ImageBuffer, Rgb, DynamicImage};
-use rayon::prelude::*;
+use image::{ImageBuffer, Rgb};
 use sha2::{Sha256, Digest};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -229,7 +227,7 @@ fn analyze_compression(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> CompressionAnalys
 }
 
 fn analyze_pixels(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> PixelAnalysis {
-    let (width, height) = img.dimensions();
+    let (_width, _height) = img.dimensions();
     
     // Noise pattern analysis
     let noise_patterns = calculate_noise_patterns(img);
@@ -312,13 +310,11 @@ fn calculate_manipulation_indicators(analysis: &AnalysisResults) -> Manipulation
 }
 
 fn calculate_authenticity_score(indicators: &ManipulationIndicators) -> f64 {
-    let manipulation_score = (
-        indicators.deepfake_probability * 0.3 +
+    let manipulation_score = indicators.deepfake_probability * 0.3 +
         indicators.face_swap_indicators * 0.25 +
         indicators.background_manipulation * 0.2 +
         indicators.object_insertion * 0.15 +
-        indicators.color_grading_manipulation * 0.1
-    );
+        indicators.color_grading_manipulation * 0.1;
     
     (1.0 - manipulation_score).max(0.0)
 }
@@ -465,7 +461,7 @@ fn detect_interpolation_artifacts(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> f64 {
     calculate_noise_patterns(img) * 0.5 // Use noise patterns as proxy
 }
 
-fn detect_perspective_issues(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> f64 {
+fn detect_perspective_issues(_img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> f64 {
     // Simplified perspective analysis
     0.1 // Placeholder value
 }
@@ -495,7 +491,7 @@ fn analyze_shadow_consistency(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> f64 {
     analyze_lighting_direction(img) * 0.7
 }
 
-fn detect_scale_anomalies(img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> f64 {
+fn detect_scale_anomalies(_img: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> f64 {
     // Simplified scale analysis
     0.05 // Placeholder value
 }

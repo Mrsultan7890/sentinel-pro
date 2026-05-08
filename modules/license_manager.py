@@ -86,8 +86,15 @@ def verify_license(key: str) -> dict:
         if padding != 4:
             encoded += '=' * padding
 
-        payload = base64.urlsafe_b64decode(encoded).decode()
-        data    = json.loads(payload)
+        try:
+            payload = base64.urlsafe_b64decode(encoded).decode('utf-8')
+        except Exception as e:
+            return {'valid': False, 'reason': f'Invalid base64 encoding: {e}'}
+        
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError as e:
+            return {'valid': False, 'reason': f'Invalid JSON in license: {e}'}
 
         # Signature verify karo
         _SECRET  = _get_secret()

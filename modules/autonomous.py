@@ -60,8 +60,8 @@ def smart_request(url: str, method: str = 'get', retries: int = 3, **kwargs):
                 # Tor start karo
                 logger.info("Auto-enabling Tor...")
                 try:
-                    subprocess.run(['sudo', 'systemctl', 'start', 'tor'],
-                                   capture_output=True, timeout=15)
+                    from modules.privilege_manager import privilege_manager
+                    privilege_manager.execute_privileged(['systemctl', 'start', 'tor'], 'systemctl', timeout=15)
                     import time; time.sleep(3)
                     _config.tor_on()
                     logger.info("Tor enabled — retrying via Tor")
@@ -169,8 +169,14 @@ class AutonomousAgent:
                     if input().strip().lower() == 'n':
                         self._print("  Skipped.\n")
                         continue
-                except Exception:
-                    pass
+                except EOFError:
+                    # EOF or Ctrl+D pressed - assume yes and proceed
+                    logger.debug("Input EOF - proceeding with task")
+                except KeyboardInterrupt:
+                    # Ctrl+C - re-raise to let user stop
+                    raise
+                except Exception as e:
+                    logger.warning(f"Input error: {e} - proceeding with task")
 
             # Execute via existing handlers
             t0     = time.time()
@@ -463,9 +469,11 @@ class AutonomousAgent:
         import config as _config
         try:
             # Tor service start
-            result = subprocess.run(
-                ['sudo', 'systemctl', 'start', 'tor'],
-                capture_output=True, timeout=20
+            from modules.privilege_manager import privilege_manager
+            result = privilege_manager.execute_privileged(
+                ['systemctl', 'start', 'tor'],
+                'systemctl',
+                timeout=20
             )
             time.sleep(4)  # Tor boot hone do
 

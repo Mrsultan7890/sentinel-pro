@@ -120,9 +120,62 @@ class AttackChain:
     def _step_recon(self):
         self._print("[1/6] RECON — Subdomains, DNS, WHOIS, GitHub dorks...")
         try:
-            from modules.recon.recon_engine import ReconEngine
-            engine = ReconEngine(self.target)
-            result = engine.run_all()
+            # Import individual recon modules instead of non-existent engine
+            from modules.recon.subdomain_enum import SubdomainEnum
+            from modules.recon.whois_lookup import WhoisLookup
+            from modules.recon.dns_history import DNSHistory
+            from modules.recon.github_dorker import GitHubDorker
+            from modules.recon.cloud_assets import CloudAssets
+            from modules.recon.go_scraper_bridge import GoScraperBridge
+            
+            result = {}
+            
+            # Subdomain enumeration
+            try:
+                sub_enum = SubdomainEnum()
+                result['subdomains'] = sub_enum.run(self.target)
+            except Exception as e:
+                logger.debug(f"Subdomain enum error: {e}")
+                result['subdomains'] = {'total_found': 0}
+            
+            # WHOIS
+            try:
+                whois = WhoisLookup()
+                result['whois'] = whois.run(self.target)
+            except Exception as e:
+                logger.debug(f"WHOIS error: {e}")
+            
+            # DNS History
+            try:
+                dns_hist = DNSHistory()
+                result['dns_history'] = dns_hist.run(self.target)
+            except Exception as e:
+                logger.debug(f"DNS history error: {e}")
+            
+            # GitHub dorks
+            try:
+                gh = GitHubDorker()
+                result['github_dorks'] = gh.run(self.target)
+            except Exception as e:
+                logger.debug(f"GitHub dorker error: {e}")
+                result['github_dorks'] = {'total_secrets': 0}
+            
+            # Cloud assets
+            try:
+                cloud = CloudAssets()
+                result['cloud_assets'] = cloud.run(self.target)
+            except Exception as e:
+                logger.debug(f"Cloud assets error: {e}")
+                result['cloud_assets'] = {'total': 0}
+            
+            # Go scraper
+            try:
+                scraper = GoScraperBridge()
+                result['go_scraper'] = scraper.run(self.target)
+            except Exception as e:
+                logger.debug(f"Go scraper error: {e}")
+                result['go_scraper'] = {'emails': []}
+            
             self.results['recon'] = result
 
             # Extract key findings
@@ -191,9 +244,82 @@ class AttackChain:
     def _step_bugbounty(self):
         self._print("\n[3/6] BUGBOUNTY — SSL, Headers, Ports, SQLi, XSS, SSRF...")
         try:
-            from modules.bugbounty.bugbounty_engine import BugBountyEngine
-            engine = BugBountyEngine(self.target)
-            result = engine.run_all()
+            # Import individual scanners instead of non-existent engine
+            from modules.bugbounty.ssl_checker import SSLChecker
+            from modules.bugbounty.headers_checker import HeadersChecker
+            from modules.bugbounty.port_scanner import PortScanner
+            from modules.bugbounty.vuln_scanner import VulnScanner
+            from modules.bugbounty.cors_scanner import CORSScanner
+            from modules.bugbounty.lfi_scanner import LFIScanner
+            from modules.bugbounty.ssti_scanner import SSTIScanner
+            from modules.bugbounty.xxe_scanner import XXEScanner
+            from modules.bugbounty.auth_bypass import AuthBypassChecker
+            
+            result = {}
+            
+            # SSL Check
+            try:
+                ssl = SSLChecker()
+                result['ssl'] = ssl.run(self.target)
+            except Exception as e:
+                logger.debug(f"SSL check error: {e}")
+            
+            # Headers
+            try:
+                headers = HeadersChecker()
+                result['headers'] = headers.run(self.target)
+            except Exception as e:
+                logger.debug(f"Headers check error: {e}")
+            
+            # Ports
+            try:
+                ports = PortScanner()
+                result['ports'] = ports.run(self.target)
+            except Exception as e:
+                logger.debug(f"Port scan error: {e}")
+            
+            # Vulnerability scanner (SQLi, XSS, SSRF)
+            try:
+                vuln = VulnScanner()
+                result['vulns'] = vuln.run(self.target)
+            except Exception as e:
+                logger.debug(f"Vuln scan error: {e}")
+            
+            # CORS
+            try:
+                cors = CORSScanner()
+                result['cors'] = cors.run(self.target)
+            except Exception as e:
+                logger.debug(f"CORS scan error: {e}")
+            
+            # LFI
+            try:
+                lfi = LFIScanner()
+                result['lfi'] = lfi.run(self.target)
+            except Exception as e:
+                logger.debug(f"LFI scan error: {e}")
+            
+            # SSTI
+            try:
+                ssti = SSTIScanner()
+                result['ssti'] = ssti.run(self.target)
+            except Exception as e:
+                logger.debug(f"SSTI scan error: {e}")
+            
+            # XXE
+            try:
+                xxe = XXEScanner()
+                result['xxe'] = xxe.run(self.target)
+            except Exception as e:
+                logger.debug(f"XXE scan error: {e}")
+            
+            # Auth Bypass
+            try:
+                auth = AuthBypassChecker()
+                result['auth_bypass'] = auth.run(self.target)
+            except Exception as e:
+                logger.debug(f"Auth bypass check error: {e}")
+            
             self.results['bugbounty'] = result
 
             # Extract vulnerabilities

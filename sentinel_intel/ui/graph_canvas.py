@@ -1,7 +1,11 @@
 """Graph Canvas v2.0 - Interactive Node/Edge Visualization with Risk-Based Styling"""
-from PyQt6.QtWidgets import *
-from PyQt6.QtCore import *
-from PyQt6.QtGui import *
+from PyQt6.QtWidgets import (
+    QGraphicsScene, QGraphicsView, QGraphicsEllipseItem, QGraphicsLineItem,
+    QGraphicsTextItem, QApplication, QMainWindow, QVBoxLayout, QWidget,
+    QGraphicsDropShadowEffect, QGraphicsRectItem
+)
+from PyQt6.QtCore import Qt, QTimer, QPointF, QEvent, pyqtSignal, QRect
+from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter
 import math
 
 class NodeItem(QGraphicsEllipseItem):

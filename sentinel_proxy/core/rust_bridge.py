@@ -34,6 +34,11 @@ class RustCoreBridge:
     """
 
     def __init__(self, socket_path: str = '/tmp/sentinel_proxy_v2.sock'):
+        if not socket_path or not isinstance(socket_path, str):
+            raise ValueError('Invalid socket_path')
+        if len(socket_path) > 108:  # Unix socket path limit
+            raise ValueError('socket_path too long (max 108 chars)')
+        
         self.socket_path   = socket_path
         self.events_path   = socket_path + '.events'
         self.on_request    = None
@@ -44,6 +49,7 @@ class RustCoreBridge:
         self._cmd_lock     = threading.Lock()
         self._event_thread = None
         self._running      = False
+        self._pending_count = 0
         # Fake intercept attribute so UI code doesn't crash
         self.intercept     = False
 
@@ -59,10 +65,18 @@ class RustCoreBridge:
 
     def stop(self):
         self._running = False
-        self._send_cmd({'action': 'forward_all'})
+        try:
+            self._send_cmd({'action': 'forward_all'})
+        except Exception as e:
+            logger.debug(f'Error sending forward_all: {e}')
+        
         if self._cmd_sock:
-            try: self._cmd_sock.close()
-            except Exception: pass
+            try:
+                self._cmd_sock.close()
+            except (OSError, socket.error) as e:
+                logger.debug(f'Socket close error: {e}')
+            finally:
+                self._cmd_sock = None
 
     def is_running(self) -> bool:
         return self._running and self._event_thread and self._event_thread.is_alive()
@@ -70,22 +84,47 @@ class RustCoreBridge:
     # ── Intercept control (called from UI) ────────────────────────────────────
 
     def set_intercept(self, enabled: bool):
+        if not isinstance(enabled, bool):
+            logger.error('set_intercept: enabled must be bool')
+            return
         self.intercept = enabled
         self._send_cmd({'action': 'intercept_on' if enabled else 'intercept_off'})
 
     def set_intercept_scope(self, hosts: list):
         """Only intercept requests from these hosts. Empty list = intercept all."""
-        self._send_cmd({'action': 'set_intercept_scope', 'hosts': hosts})
+        if not isinstance(hosts, list):
+            logger.error('set_intercept_scope: hosts must be list')
+            return
+        # Validate hosts
+        valid_hosts = []
+        for h in hosts:
+            if isinstance(h, str) and h.strip():
+                valid_hosts.append(h.strip())
+        self._send_cmd({'action': 'set_intercept_scope', 'hosts': valid_hosts})
 
     def forward_flow(self, flow_id: str):
+        if not flow_id or not isinstance(flow_id, str):
+            logger.error('Invalid flow_id')
+            return
         self._send_cmd({'action': 'forward', 'flow_id': flow_id})
         self._decrement_pending()
 
     def drop_flow(self, flow_id: str):
+        if not flow_id or not isinstance(flow_id, str):
+            logger.error('Invalid flow_id')
+            return
         self._send_cmd({'action': 'drop', 'flow_id': flow_id})
         self._decrement_pending()
 
     def forward_modified(self, flow_id: str, headers: list, body: str):
+        if not flow_id or not isinstance(flow_id, str):
+            logger.error('Invalid flow_id')
+            return
+        if not isinstance(headers, list):
+            headers = []
+        if not isinstance(body, str):
+            body = ''
+        
         self._send_cmd({
             'action':  'forward_modified',
             'flow_id': flow_id,
@@ -114,16 +153,35 @@ class RustCoreBridge:
 
     def _send_cmd(self, cmd: dict):
         """Send JSON command to Rust via Unix socket."""
+        if not isinstance(cmd, dict):
+            logger.error('_send_cmd: cmd must be dict')
+            return
+        
         try:
             with self._cmd_lock:
                 if self._cmd_sock is None:
+                    if not os.path.exists(self.socket_path):
+                        logger.error(f'Socket not found: {self.socket_path}')
+                        return
+                    
                     self._cmd_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    self._cmd_sock.settimeout(5.0)
                     self._cmd_sock.connect(self.socket_path)
+                
                 data = json.dumps(cmd) + '\n'
                 self._cmd_sock.sendall(data.encode())
+        except (ConnectionRefusedError, FileNotFoundError) as e:
+            logger.error(f'Socket connection failed: {e}')
+            self._cmd_sock = None
+        except socket.timeout as e:
+            logger.error(f'Socket timeout: {e}')
+            self._cmd_sock = None
+        except (OSError, socket.error) as e:
+            logger.debug(f'Socket error: {e}')
+            self._cmd_sock = None
         except Exception as e:
-            logger.debug(f'[RustBridge] cmd send error: {e}')
-            self._cmd_sock = None  # reconnect next time
+            logger.error(f'Unexpected cmd send error: {e}')
+            self._cmd_sock = None
 
     # ── Event receiver ────────────────────────────────────────────────────────
 
@@ -141,11 +199,16 @@ class RustCoreBridge:
         """Connect to Rust events socket and read newline-delimited JSON."""
         while self._running:
             try:
+                if not os.path.exists(self.events_path):
+                    logger.debug(f'Events socket not found: {self.events_path}')
+                    await asyncio.sleep(1.0)
+                    continue
+                
                 reader, _ = await asyncio.open_unix_connection(self.events_path)
                 logger.debug('[RustBridge] Connected to events socket')
                 buf = b''
                 while self._running:
-                    chunk = await reader.read(65536)
+                    chunk = await asyncio.wait_for(reader.read(65536), timeout=5.0)
                     if not chunk:
                         break
                     buf += chunk
@@ -155,35 +218,48 @@ class RustCoreBridge:
                         if line:
                             try:
                                 self._dispatch(json.loads(line))
-                            except json.JSONDecodeError:
-                                pass
+                            except json.JSONDecodeError as e:
+                                logger.debug(f'JSON decode error: {e}')
             except asyncio.CancelledError:
                 break
+            except asyncio.TimeoutError:
+                continue
+            except (ConnectionRefusedError, FileNotFoundError) as e:
+                logger.debug(f'Events socket connection failed: {e}')
+                await asyncio.sleep(1.0)
             except Exception as e:
-                logger.debug(f'[RustBridge] event recv error: {e}')
+                logger.debug(f'Event recv error: {e}')
                 await asyncio.sleep(0.5)
 
     def _dispatch(self, event: dict):
+        if not isinstance(event, dict):
+            return
+        
         etype = event.get('event')
+        if not etype:
+            return
 
-        if etype == 'request' and self.on_request:
-            flow = self._to_request(event)
-            threading.Thread(target=self.on_request, args=(flow,), daemon=True).start()
+        try:
+            if etype == 'request' and self.on_request:
+                flow = self._to_request(event)
+                threading.Thread(target=self.on_request, args=(flow,), daemon=True).start()
 
-        elif etype == 'response' and self.on_response:
-            flow = self._to_response(event)
-            threading.Thread(target=self.on_response, args=(flow,), daemon=True).start()
+            elif etype == 'response' and self.on_response:
+                flow = self._to_response(event)
+                threading.Thread(target=self.on_response, args=(flow,), daemon=True).start()
 
-        elif etype == 'intercepted':
-            self._last_intercepted_id = event.get('id', '')
-            self._pending_count = getattr(self, '_pending_count', 0) + 1
-            if self.on_intercepted:
-                threading.Thread(
-                    target=self.on_intercepted, args=(event,), daemon=True
-                ).start()
+            elif etype == 'intercepted':
+                self._last_intercepted_id = event.get('id', '')
+                self._pending_count = getattr(self, '_pending_count', 0) + 1
+                if self.on_intercepted:
+                    threading.Thread(
+                        target=self.on_intercepted, args=(event,), daemon=True
+                    ).start()
 
-        elif etype == 'websocket' and self.on_websocket:
-            threading.Thread(target=self.on_websocket, args=(event,), daemon=True).start()
+            elif etype == 'websocket' and self.on_websocket:
+                threading.Thread(target=self.on_websocket, args=(event,), daemon=True).start()
+        except Exception as e:
+            logger.error(f'Dispatch error for {etype}: {e}')
 
     def _decrement_pending(self):
         self._pending_count = max(0, getattr(self, '_pending_count', 1) - 1)

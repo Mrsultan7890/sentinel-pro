@@ -210,12 +210,16 @@ class LegalReportingEngine:
                                   capture_output=True, text=True)
             
             if result.returncode == 0:
-                return json.loads(result.stdout)
+                try:
+                    return json.loads(result.stdout)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Invalid JSON from legal predictor: {e}")
+                    return self._fallback_legal_predictions(session_data)
             else:
                 return self._fallback_legal_predictions(session_data)
                 
         except Exception as e:
-            print(f"[!] Legal predictor failed: {e}")
+            logger.error(f"Legal predictor failed: {e}")
             return self._fallback_legal_predictions(session_data)
     
     def _fallback_legal_predictions(self, session_data):

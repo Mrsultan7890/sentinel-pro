@@ -22,13 +22,18 @@ import gzip
 import zipfile
 import io
 import os
+import logging
 import threading
 import requests
 from pathlib import Path
 from collections import Counter
 
+logger = logging.getLogger(__name__)
+
 # ── Config ────────────────────────────────────────────────────────────────────
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', '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')
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN', '')
+if not GITHUB_TOKEN:
+    logger.warning('GITHUB_TOKEN not set in environment - API calls may be rate-limited')
 GH = {'Authorization': f'token {GITHUB_TOKEN}', 'Accept': 'application/vnd.github.v3+json'}
 
 OUT_DIR  = Path('models/ml_engine/training_data/bulk')
@@ -478,8 +483,12 @@ def print_stats():
     samples = []
     with open(FINAL_OUT) as f:
         for line in f:
-            try: samples.append(json.loads(line.strip()))
-            except: pass
+            try:
+                samples.append(json.loads(line.strip()))
+            except json.JSONDecodeError as e:
+                logger.debug(f"Skipping malformed JSON: {e}")
+            except Exception as e:
+                logger.debug(f"Error processing line: {e}")
 
     dist = Counter(s['label'] for s in samples)
     srcs = Counter(s.get('source','?') for s in samples)

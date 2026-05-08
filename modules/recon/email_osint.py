@@ -39,6 +39,13 @@ class EmailOSINT:
     TIMEOUT = 8
 
     def run(self, email: str) -> dict:
+        if not email or not isinstance(email, str):
+            return {'error': 'Invalid email parameter', 'valid_format': False}
+        
+        email = email.strip().lower()
+        if len(email) > 320:  # RFC 5321 limit
+            return {'error': 'Email too long', 'valid_format': False}
+        
         result = {
             'email': email,
             'valid_format': False,
@@ -70,23 +77,35 @@ class EmailOSINT:
         return result
 
     def _validate_domain(self, result: dict):
+        if not isinstance(result, dict) or 'domain' not in result:
+            return
+        
         domain = result['domain']
+        if not domain or not isinstance(domain, str):
+            return
+        
         info   = {}
         try:
-            mx = dns.resolver.resolve(domain, 'MX')
+            mx = dns.resolver.resolve(domain, 'MX', lifetime=5)
             info['mx_records'] = [str(r.exchange) for r in mx]
             info['mx_valid']   = True
-        except Exception:
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers) as e:
             info['mx_valid']   = False
             info['mx_records'] = []
             result['risk_flags'].append({'severity': 'HIGH', 'flag': 'No MX records', 'detail': f'{domain} has no mail server'})
+            logger.debug(f'MX lookup failed for {domain}: {e}')
+        except Exception as e:
+            info['mx_valid']   = False
+            info['mx_records'] = []
+            logger.error(f'MX lookup error for {domain}: {e}')
 
         try:
-            txt = dns.resolver.resolve(domain, 'TXT')
+            txt = dns.resolver.resolve(domain, 'TXT', lifetime=5)
             spf = [str(r) for r in txt if 'v=spf1' in str(r)]
             info['spf'] = spf[0] if spf else None
-        except Exception:
+        except Exception as e:
             info['spf'] = None
+            logger.debug(f'TXT lookup failed for {domain}: {e}')
 
         result['domain_info'] = info
 
@@ -104,50 +123,84 @@ class EmailOSINT:
             })
 
     def _social_hints(self, result: dict):
-        username = result['username']
+        if not isinstance(result, dict) or 'username' not in result:
+            return
+        
+        username = result.get('username', '')
+        if not username or not isinstance(username, str):
+            result['social_hints'] = []
+            return
+        
         hints    = []
         for platform, (url_tpl, markers) in SOCIAL_PATTERNS.items():
-            url  = url_tpl.format(user=username)
-            resp = rate_limited_get(url, namespace='social',
-                                    headers={'User-Agent': 'Mozilla/5.0'},
-                                    allow_redirects=True)
-            if resp and resp.status_code == 200 and any(m in resp.text for m in markers):
-                hints.append({'platform': platform, 'url': url, 'status': 'found'})
-            else:
-                hints.append({'platform': platform, 'url': url, 'status': 'not_found'})
+            try:
+                url  = url_tpl.format(user=username)
+                resp = rate_limited_get(url, namespace='social',
+                                        headers={'User-Agent': 'Mozilla/5.0'},
+                                        allow_redirects=True)
+                if resp and resp.status_code == 200 and any(m in resp.text for m in markers):
+                    hints.append({'platform': platform, 'url': url, 'status': 'found'})
+                else:
+                    hints.append({'platform': platform, 'url': url, 'status': 'not_found'})
+            except Exception as e:
+                logger.debug(f'Social hint check failed for {platform}: {e}')
+                hints.append({'platform': platform, 'url': '', 'status': 'error'})
         result['social_hints'] = hints
 
     def _breach_check(self, result: dict):
+        if not isinstance(result, dict) or 'email' not in result:
+            return
+        
         # HudsonRock — correct email endpoint
-        resp = rate_limited_get(
-            'https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-email',
-            namespace='breach', params={'email': result['email']}
-        )
-        if resp and resp.status_code == 200:
-            data     = resp.json()
-            stealers = data.get('stealers', [])
-            result['breach_summary']['stealer_logs'] = len(stealers)
-            if stealers:
-                result['risk_flags'].append({
-                    'severity': 'CRITICAL',
-                    'flag': 'Infostealer logs found',
-                    'detail': f"{len(stealers)} stealer log(s) contain this email"
-                })
+        try:
+            resp = rate_limited_get(
+                'https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-email',
+                namespace='breach', params={'email': result['email']}
+            )
+            if resp and resp.status_code == 200:
+                data     = resp.json()
+                if not isinstance(data, dict):
+                    return
+                stealers = data.get('stealers', [])
+                if not isinstance(stealers, list):
+                    stealers = []
+                result['breach_summary']['stealer_logs'] = len(stealers)
+                if stealers:
+                    result['risk_flags'].append({
+                        'severity': 'CRITICAL',
+                        'flag': 'Infostealer logs found',
+                        'detail': f"{len(stealers)} stealer log(s) contain this email"
+                    })
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.debug(f'HudsonRock network error: {e}')
+        except requests.exceptions.JSONDecodeError as e:
+            logger.debug(f'HudsonRock JSON parse error: {e}')
+        except Exception as e:
+            logger.error(f'HudsonRock error: {e}')
 
-        resp = rate_limited_get(f'https://leakcheck.io/api/public?check={result["email"]}',
-                                namespace='breach')
-        if resp and resp.status_code == 200:
-            data = resp.json()
-            result['breach_summary']['leakcheck'] = {
-                'found': data.get('found', 0),
-                'sources': data.get('sources', [])
-            }
-            if data.get('found', 0) > 0:
-                result['risk_flags'].append({
-                    'severity': 'HIGH',
-                    'flag': 'Found in breach databases',
-                    'detail': f"Found in {data['found']} breach source(s)"
-                })
+        try:
+            resp = rate_limited_get(f'https://leakcheck.io/api/public?check={result["email"]}',
+                                    namespace='breach')
+            if resp and resp.status_code == 200:
+                data = resp.json()
+                if not isinstance(data, dict):
+                    return
+                result['breach_summary']['leakcheck'] = {
+                    'found': data.get('found', 0),
+                    'sources': data.get('sources', [])
+                }
+                if data.get('found', 0) > 0:
+                    result['risk_flags'].append({
+                        'severity': 'HIGH',
+                        'flag': 'Found in breach databases',
+                        'detail': f"Found in {data['found']} breach source(s)"
+                    })
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.debug(f'LeakCheck network error: {e}')
+        except requests.exceptions.JSONDecodeError as e:
+            logger.debug(f'LeakCheck JSON parse error: {e}')
+        except Exception as e:
+            logger.error(f'LeakCheck error: {e}')
 
     def _calc_risk(self, result: dict):
         severities = [f['severity'] for f in result['risk_flags']]

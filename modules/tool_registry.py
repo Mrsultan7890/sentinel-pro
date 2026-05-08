@@ -285,8 +285,8 @@ class ToolRegistry:
     def _tor_on(self, args: dict) -> ToolResult:
         try:
             import subprocess as sp, time as t, config
-            sp.run(['sudo', 'systemctl', 'start', 'tor'],
-                   capture_output=True, timeout=20)
+            from modules.privilege_manager import privilege_manager
+            privilege_manager.execute_privileged(['systemctl', 'start', 'tor'], 'systemctl', timeout=20)
             t.sleep(3)
             from modules.utils import tor_session
             sess = tor_session()

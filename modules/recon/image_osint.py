@@ -75,7 +75,9 @@ class ImageOSINT:
         try:
             from PIL import Image
             img = Image.open(path)
-            return f"{img.width}x{img.height}"
+            dimensions = f"{img.width}x{img.height}"
+            img.close()
+            return dimensions
         except Exception:
             return None
 
@@ -91,6 +93,7 @@ class ImageOSINT:
             img = Image.open(image_path)
             exif_raw = img._getexif()
             if not exif_raw:
+                img.close()
                 return metadata
 
             for tag_id, value in exif_raw.items():
@@ -111,7 +114,8 @@ class ImageOSINT:
                              'Software', 'Artist', 'Copyright', 'ImageDescription',
                              'XPComment', 'XPAuthor', 'XPTitle'):
                     metadata[tag] = str(value)[:200]
-
+            
+            img.close()
         except ImportError:
             metadata['error'] = 'Pillow not installed: pip install Pillow'
         except Exception as e:

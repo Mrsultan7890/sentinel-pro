@@ -31,6 +31,13 @@ class NucleiBridge:
     TIMEOUT      = 300  # 5 min max
 
     def run(self, domain: str, tags: str = None, severity: str = None) -> dict:
+        if not domain or not isinstance(domain, str):
+            return {'error': 'Invalid domain', 'findings': [], 'total': 0}
+        
+        domain = domain.strip().lower()
+        if len(domain) > 253:
+            return {'error': 'Domain too long', 'findings': [], 'total': 0}
+        
         result = {
             'domain':    domain,
             'findings':  [],
@@ -46,7 +53,14 @@ class NucleiBridge:
         nuclei_bin = shutil.which('nuclei')
         if not nuclei_bin:
             result['error'] = 'nuclei not installed — run: apt install nuclei'
+            logger.error('nuclei binary not found')
             return result
+        
+        # Validate tags and severity
+        if tags and not isinstance(tags, str):
+            tags = self.DEFAULT_TAGS
+        if severity and not isinstance(severity, str):
+            severity = self.SEVERITY
 
         # Get version
         try:
@@ -56,8 +70,10 @@ class NucleiBridge:
                 if 'Engine Version' in line or 'nuclei' in line.lower():
                     result['nuclei_version'] = line.strip()
                     break
-        except Exception:
-            pass
+        except subprocess.TimeoutExpired as e:
+            logger.debug(f'nuclei version check timeout: {e}')
+        except Exception as e:
+            logger.debug(f'nuclei version check failed: {e}')
 
         cmd = [
             nuclei_bin,
@@ -78,9 +94,15 @@ class NucleiBridge:
             )
         except subprocess.TimeoutExpired:
             result['error'] = f'Nuclei timed out after {self.TIMEOUT}s'
+            logger.warning(f'Nuclei timeout for {domain}')
+            return result
+        except (OSError, PermissionError) as e:
+            result['error'] = f'Nuclei execution error: {e}'
+            logger.error(f'Nuclei execution failed: {e}')
             return result
         except Exception as e:
             result['error'] = str(e)
+            logger.error(f'Nuclei error: {e}')
             return result
 
         # Parse JSONL output (one JSON object per line)
@@ -90,9 +112,16 @@ class NucleiBridge:
                 continue
             try:
                 item = json.loads(line)
+                if not isinstance(item, dict):
+                    continue
                 finding = self._parse_finding(item)
-                result['findings'].append(finding)
-            except json.JSONDecodeError:
+                if finding:
+                    result['findings'].append(finding)
+            except json.JSONDecodeError as e:
+                logger.debug(f'JSON parse error: {e}')
+                continue
+            except Exception as e:
+                logger.error(f'Finding parse error: {e}')
                 continue
 
         result['findings'].sort(
@@ -118,18 +147,28 @@ class NucleiBridge:
         return result
 
     def _parse_finding(self, item: dict) -> dict:
+        if not isinstance(item, dict):
+            return None
+        
         info = item.get('info', {})
+        if not isinstance(info, dict):
+            info = {}
+        
+        classification = info.get('classification', {})
+        if not isinstance(classification, dict):
+            classification = {}
+        
         return {
             'template_id': item.get('template-id', ''),
             'name':        info.get('name', ''),
             'severity':    info.get('severity', 'unknown'),
-            'description': info.get('description', '')[:200],
-            'tags':        info.get('tags', []),
+            'description': str(info.get('description', ''))[:200],
+            'tags':        info.get('tags', []) if isinstance(info.get('tags'), list) else [],
             'url':         item.get('matched-at', item.get('host', '')),
             'type':        item.get('type', ''),
             'matcher':     item.get('matcher-name', ''),
-            'extracted':   item.get('extracted-results', []),
-            'reference':   info.get('reference', [])[:3],
-            'cvss_score':  info.get('classification', {}).get('cvss-score', None),
-            'cve_id':      info.get('classification', {}).get('cve-id', []),
+            'extracted':   item.get('extracted-results', []) if isinstance(item.get('extracted-results'), list) else [],
+            'reference':   (info.get('reference', []) if isinstance(info.get('reference'), list) else [])[:3],
+            'cvss_score':  classification.get('cvss-score', None),
+            'cve_id':      classification.get('cve-id', []) if isinstance(classification.get('cve-id'), list) else [],
         }

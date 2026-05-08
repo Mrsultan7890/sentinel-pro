@@ -1,11 +1,19 @@
 # ── Credentials & Secrets ─────────────────────────────────────────────────────
 .env
+.env.local
+.env.*.local
 *.key
 *.pem
 *.p12
 *.pfx
+*.crt
+*.csr
 data/.encryption_key
 data/file_registry.json
+*secret*
+*credential*
+*api_key*
+*token*
 
 # ── License files (personal) ───────────────────────────────────────────────────
 .sentinel_pro/
@@ -54,11 +62,15 @@ backups/
 
 # ── ML models (large binary files) ───────────────────────────────────────────
 models/ml_engine/*.pt
+models/ml_engine/*.pth
 models/ml_engine/*.joblib
-models/ml_engine/*.json
+models/ml_engine/*.pkl
+models/ml_engine/*.h5
+models/ml_engine/*.onnx
 models/ml_engine/training_data/
 models/ml_engine/old_models/
 models/ml_engine/old_models_backup/
+models/ml_engine/checkpoints/
 
 # Keep these model files (small, needed)
 !models/ml_engine/rl_qtable.json

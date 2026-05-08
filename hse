@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+# HSE CLI Commands - Quick access to Hardware Security Engine
+
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from modules.tpm_manager import TPMManager
+from modules.sgx_enclave_manager import SGXEnclaveManager
+from modules.secure_boot import SecureBootVerifier
+from modules.dma_protection import DMAProtection
+from modules.remote_attestation import RemoteAttestation
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: hse <command>")
+        print("\nCommands:")
+        print("  tpm status          - TPM 2.0 status")
+        print("  sgx status          - Intel SGX status")
+        print("  secureboot status   - Secure Boot status")
+        print("  dma status          - DMA protection status")
+        print("  attestation status  - Remote attestation status")
+        print("  status              - All HSE components")
+        return
+    
+    cmd = sys.argv[1]
+    
+    if cmd == 'status':
+        print("\n🔒 Hardware Security Engine Status\n")
+        
+        # TPM
+        try:
+            tpm = TPMManager()
+            status = tpm.get_status()
+            if status.get('available'):
+                print(f"✓ TPM 2.0: {status['version']}")
+            else:
+                print("✗ TPM 2.0: Not available")
+        except Exception as e:
+            print(f"✗ TPM 2.0: {e}")
+        
+        # SGX
+        try:
+            sgx = SGXEnclaveManager()
+            status = sgx.check_sgx_support()
+            if status.get('sgx_available'):
+                print(f"✓ Intel SGX: Available")
+            else:
+                print(f"✗ Intel SGX: {status.get('reason', 'Not available')}")
+        except Exception as e:
+            print(f"✗ Intel SGX: {e}")
+        
+        # Secure Boot
+        try:
+            sb = SecureBootVerifier()
+            status = sb.get_status()
+            if status.get('secure_boot_enabled'):
+                print("✓ Secure Boot: Enabled")
+            else:
+                print("⚠ Secure Boot: Disabled")
+        except Exception as e:
+            print(f"✗ Secure Boot: {e}")
+        
+        # DMA Protection
+        try:
+            dma = DMAProtection()
+            status = dma.check_iommu_support()
+            if status.get('iommu_available'):
+                print(f"✓ IOMMU: {status['type']}")
+            else:
+                print("✗ IOMMU: Not available")
+        except Exception as e:
+            print(f"✗ IOMMU: {e}")
+        
+        print()
+
+if __name__ == '__main__':
+    main()

@@ -374,7 +374,7 @@ class MediaValidator:
             
         except Exception as e:
             # If face detection fails, set default values
-            pass
+            logger.debug(f"Face detection failed: {e}")
         
         return indicators
     
@@ -467,7 +467,7 @@ class MediaValidator:
                     indicators['temporal_inconsistency'] = min(temporal_variance / 1000.0, 1.0)
             
         except Exception as e:
-            pass
+            logger.debug(f"Video deepfake detection failed: {e}")
         
         return indicators
     

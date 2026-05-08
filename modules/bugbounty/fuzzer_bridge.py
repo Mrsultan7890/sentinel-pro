@@ -112,7 +112,13 @@ class RustFuzzerBridge:
                 logger.warning(result['error'])
                 return result
 
-            out = json.loads(proc.stdout)
+            try:
+                out = json.loads(proc.stdout)
+            except json.JSONDecodeError as e:
+                result['error'] = f"Invalid JSON from fuzzer: {e}"
+                logger.error(result['error'])
+                return result
+            
             result.update({
                 'total_requests': out.get('total_requests', 0),
                 'total_findings': out.get('total_findings', 0),

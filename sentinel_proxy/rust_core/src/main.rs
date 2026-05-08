@@ -8,6 +8,9 @@
 
 mod proxy;
 mod tls;
+mod pq_tls;
+mod pq_tls_config;
+mod pq_cipher_suites;
 mod cert_store;
 mod ipc;
 mod types;

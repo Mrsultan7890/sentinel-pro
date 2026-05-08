@@ -70,7 +70,13 @@ class RustAnalyzerBridge:
                 logger.warning(result['error'])
                 return result
 
-            analysis = json.loads(proc.stdout)
+            try:
+                analysis = json.loads(proc.stdout)
+            except json.JSONDecodeError as e:
+                result['error'] = f"Invalid JSON from analyzer: {e}"
+                logger.error(result['error'])
+                return result
+            
             result['rust_analysis'] = analysis
 
             # Flatten for easy display

@@ -162,7 +162,11 @@ class PrivilegeManager:
             )
             stdout, stderr = process.communicate(input=password + '\n', timeout=10)
             return process.returncode == 0
-        except Exception:
+        except subprocess.TimeoutExpired:
+            logger.warning("Sudo password test timed out")
+            return False
+        except Exception as e:
+            logger.debug(f"Sudo password test failed: {e}")
             return False
     
     def get_sudo_password(self, tool: str) -> Optional[str]:

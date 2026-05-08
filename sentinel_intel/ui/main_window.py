@@ -2,9 +2,14 @@
 Sentinel Intel v2.0 - Main Window (Maltego Killer)
 Professional Graph Intelligence Platform with Modern UI
 """
-from PyQt6.QtWidgets import *
-from PyQt6.QtCore import *
-from PyQt6.QtGui import *
+from PyQt6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QDockWidget,
+    QMenu, QMenuBar, QStatusBar, QMessageBox, QFileDialog,
+    QLineEdit, QComboBox, QLabel, QPushButton, QProgressBar,
+    QTabWidget, QToolBar, QInputDialog, QSplitter, QStyle
+)
+from PyQt6.QtCore import Qt, QSize, pyqtSignal, QTimer
+from PyQt6.QtGui import QIcon, QFont, QKeySequence, QAction
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

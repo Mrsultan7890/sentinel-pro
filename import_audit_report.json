@@ -1,0 +1,1163 @@
+{
+  "stats": {
+    "total_files": 188,
+    "total_imports": 2202,
+    "syntax_errors": 0,
+    "missing_imports": 2,
+    "unused_imports": 317
+  },
+  "errors": {
+    "modules/attack_chain.py": [
+      {
+        "type": "missing_module",
+        "module": "modules.recon.recon_engine",
+        "line": 123,
+        "message": "Local module 'modules.recon.recon_engine' not found"
+      },
+      {
+        "type": "missing_module",
+        "module": "modules.bugbounty.bugbounty_engine",
+        "line": 194,
+        "message": "Local module 'modules.bugbounty.bugbounty_engine' not found"
+      }
+    ]
+  },
+  "warnings": {
+    "build_cython.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Extension (line 7)"
+        ]
+      }
+    ],
+    "main.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "_sp (line 1182)",
+          "spacy (line 362)",
+          "Live (line 34)",
+          "sklearn (line 363)"
+        ]
+      }
+    ],
+    "modules/agent_core.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 18)",
+          "ToolResult (line 20)"
+        ]
+      }
+    ],
+    "modules/anomaly_analyzer.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "cosine_similarity (line 24)",
+          "json (line 18)",
+          "subprocess (line 17)",
+          "DBSCAN (line 22)",
+          "timedelta (line 28)",
+          "StandardScaler (line 25)",
+          "time (line 26)"
+        ]
+      }
+    ],
+    "modules/attack_chain.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Optional (line 34)",
+          "Path (line 33)"
+        ]
+      }
+    ],
+    "modules/autonomous.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 26)",
+          "datetime (line 25)"
+        ]
+      }
+    ],
+    "modules/breach/__init__.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "BreachReport (line 13)",
+          "BreachChecker (line 12)"
+        ]
+      }
+    ],
+    "modules/breach/breach_checker.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 19)"
+        ]
+      }
+    ],
+    "modules/bugbounty/__init__.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "OpenRedirectScanner (line 24)",
+          "RustAnalyzerBridge (line 16)",
+          "SSLChecker (line 12)",
+          "RustFuzzerBridge (line 30)",
+          "ScreenshotCapture (line 19)",
+          "JSAnalyzer (line 20)",
+          "ShodanScanner (line 17)",
+          "ClickjackingChecker (line 37)",
+          "PrototypePollutionScanner (line 38)",
+          "CORSScanner (line 23)",
+          "VulnScanner (line 18)",
+          "PortScanner (line 14)",
+          "LFIScanner (line 34)",
+          "EndpointScanner (line 15)",
+          "SmugglerBridge (line 26)",
+          "TechFingerprint (line 31)",
+          "NucleiBridge (line 25)",
+          "DirBusterBridge (line 27)",
+          "XXEScanner (line 35)",
+          "CVELookup (line 21)",
+          "BugBountyReport (line 39)",
+          "AuthBypassChecker (line 32)",
+          "APIScanner (line 33)",
+          "SubdomainTakeover (line 22)",
+          "HeadersChecker (line 13)",
+          "CookieAnalyzer (line 28)",
+          "SSTIScanner (line 36)",
+          "DNSZoneTransfer (line 29)"
+        ]
+      }
+    ],
+    "modules/bugbounty/api_scanner.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 23)"
+        ]
+      }
+    ],
+    "modules/bugbounty/auth_bypass.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 23)"
+        ]
+      }
+    ],
+    "modules/bugbounty/clickjacking.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 22)"
+        ]
+      }
+    ],
+    "modules/bugbounty/cookie_analyzer.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "tor_session (line 19)"
+        ]
+      }
+    ],
+    "modules/bugbounty/cors_scanner.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 18)"
+        ]
+      }
+    ],
+    "modules/bugbounty/cve_lookup.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 20)"
+        ]
+      }
+    ],
+    "modules/bugbounty/dirbuster_bridge.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "wordlist_status_table (line 28)"
+        ]
+      }
+    ],
+    "modules/bugbounty/fuzzer_bridge.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 20)"
+        ]
+      }
+    ],
+    "modules/bugbounty/headers_checker.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 19)"
+        ]
+      }
+    ],
+    "modules/bugbounty/nuclei_bridge.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 21)"
+        ]
+      }
+    ],
+    "modules/bugbounty/oauth_scanner.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "rate_limited_get (line 21)"
+        ]
+      }
+    ],
+    "modules/bugbounty/open_redirect.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "urlencode (line 19)"
+        ]
+      }
+    ],
+    "modules/bugbounty/rust_analyzer_bridge.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 21)"
+        ]
+      }
+    ],
+    "modules/bugbounty/smuggler_bridge.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 20)"
+        ]
+      }
+    ],
+    "modules/bugbounty/ssti_scanner.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "re (line 19)"
+        ]
+      }
+    ],
+    "modules/bugbounty/subdomain_takeover.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "socket (line 18)"
+        ]
+      }
+    ],
+    "modules/bugbounty/tech_fingerprint.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "hashlib (line 24)",
+          "rate_limited_get (line 27)"
+        ]
+      }
+    ],
+    "modules/bugbounty/xxe_scanner.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 22)"
+        ]
+      }
+    ],
+    "modules/cli_interface.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Console (line 17)",
+          "Live (line 21)"
+        ]
+      }
+    ],
+    "modules/darkweb_crawler.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "os (line 20)"
+        ]
+      }
+    ],
+    "modules/database.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "time (line 21)",
+          "Index (line 25)",
+          "Path (line 23)"
+        ]
+      }
+    ],
+    "modules/digital_footprint.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "os (line 19)",
+          "urlparse (line 26)"
+        ]
+      }
+    ],
+    "modules/enhanced_profile_extractor.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "json (line 19)",
+          "tor_session (line 21)",
+          "requests (line 20)",
+          "random (line 23)",
+          "time (line 22)"
+        ]
+      }
+    ],
+    "modules/evidence_manager.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "serialization (line 21)",
+          "time (line 19)"
+        ]
+      }
+    ],
+    "modules/fake_profile_detector.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 37)",
+          "Counter (line 20)"
+        ]
+      }
+    ],
+    "modules/financial_analyzer.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "urlparse (line 20)",
+          "Optional (line 18)",
+          "json (line 15)",
+          "requests (line 16)",
+          "time (line 19)"
+        ]
+      }
+    ],
+    "modules/forensics_integration.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Tuple (line 25)",
+          "tempfile (line 20)"
+        ]
+      }
+    ],
+    "modules/license_manager.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "platform (line 16)"
+        ]
+      }
+    ],
+    "modules/media_validator.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 17)",
+          "Optional (line 22)",
+          "ExifTags (line 19)"
+        ]
+      }
+    ],
+    "modules/metasploit_integration.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Tuple (line 24)",
+          "time (line 21)",
+          "json (line 18)"
+        ]
+      }
+    ],
+    "modules/ml_engine/__init__.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "UsernameClusterer (line 26)",
+          "IdentityScorer (line 27)",
+          "TimelineAnalyzer (line 29)",
+          "EntityMatcher (line 25)",
+          "WritingFingerprinter (line 30)",
+          "NLPProfileAnalyzer (line 28)"
+        ]
+      }
+    ],
+    "modules/ml_engine/autonomous_loop.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 31)"
+        ]
+      }
+    ],
+    "modules/ml_engine/bulk_collector.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "sys (line 510)",
+          "io (line 23)",
+          "zipfile (line 22)"
+        ]
+      }
+    ],
+    "modules/ml_engine/bulk_processor.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "io (line 25)"
+        ]
+      }
+    ],
+    "modules/ml_engine/decision_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Optional (line 20)"
+        ]
+      }
+    ],
+    "modules/ml_engine/entity_matcher.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "normalize (line 22)"
+        ]
+      }
+    ],
+    "modules/ml_engine/identity_scorer.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "MinMaxScaler (line 20)"
+        ]
+      }
+    ],
+    "modules/ml_engine/nlp_analyzer.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "defaultdict (line 21)",
+          "nltk (line 25)",
+          "Path (line 86)",
+          "LangDetectException (line 44)"
+        ]
+      }
+    ],
+    "modules/ml_engine/real_data_collector.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 31)"
+        ]
+      }
+    ],
+    "modules/ml_engine/sentinel_lm.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 21)"
+        ]
+      }
+    ],
+    "modules/ml_engine/timeline_analyzer.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "timezone (line 22)"
+        ]
+      }
+    ],
+    "modules/ml_engine/trainer.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "os (line 45)",
+          "Optional (line 49)",
+          "Path (line 48)"
+        ]
+      }
+    ],
+    "modules/ml_engine/writing_fingerprinter.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "normalize (line 24)"
+        ]
+      }
+    ],
+    "modules/privilege_manager.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 22)",
+          "sys (line 18)"
+        ]
+      }
+    ],
+    "modules/recon/__init__.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "ASNMapper (line 20)",
+          "SubdomainEnum (line 13)",
+          "GitHubDorker (line 18)",
+          "CertTransparency (line 22)",
+          "GoogleDorker (line 19)",
+          "DNSHistory (line 16)",
+          "JobOSINT (line 23)",
+          "GoScraperBridge (line 14)",
+          "WaybackMachine (line 15)",
+          "EmailOSINT (line 17)",
+          "CloudAssetDiscovery (line 21)",
+          "ReconReport (line 24)",
+          "WhoisLookup (line 12)"
+        ]
+      }
+    ],
+    "modules/recon/dns_history.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "defaultdict (line 15)",
+          "requests (line 13)"
+        ]
+      }
+    ],
+    "modules/recon/github_dorker.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "requests (line 14)"
+        ]
+      }
+    ],
+    "modules/recon/go_scraper_bridge.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 22)"
+        ]
+      }
+    ],
+    "modules/recon/google_dorker.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "time (line 13)"
+        ]
+      }
+    ],
+    "modules/recon/image_osint.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "json (line 22)"
+        ]
+      }
+    ],
+    "modules/recon/person_osint.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "json (line 19)",
+          "Path (line 643)"
+        ]
+      }
+    ],
+    "modules/recon/subdomain_enum.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "config (line 23)"
+        ]
+      }
+    ],
+    "modules/report_builder.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "time (line 16)"
+        ]
+      }
+    ],
+    "modules/reporting_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "uuid (line 28)",
+          "Rectangle (line 25)"
+        ]
+      }
+    ],
+    "modules/secure_file_manager.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Optional (line 21)"
+        ]
+      }
+    ],
+    "modules/semantic_analyzer.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "DBSCAN (line 20)",
+          "defaultdict (line 16)",
+          "cosine_similarity (line 21)",
+          "json (line 15)"
+        ]
+      }
+    ],
+    "modules/stealth_manager.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "queue (line 26)",
+          "threading (line 25)"
+        ]
+      }
+    ],
+    "modules/tool_registry.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "json (line 10)",
+          "re (line 13)",
+          "time (line 15)",
+          "os (line 12)"
+        ]
+      }
+    ],
+    "sentinel_brain/__init__.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Terminal (line 14)",
+          "SentinelBrain (line 12)",
+          "Memory (line 13)"
+        ]
+      }
+    ],
+    "sentinel_brain/agents/__init__.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "BreachAgent (line 15)",
+          "ExploitAgent (line 13)",
+          "ReconAgent (line 12)",
+          "ReportAgent (line 16)",
+          "OsintAgent (line 14)"
+        ]
+      }
+    ],
+    "sentinel_brain/agents/attack_chain_agent.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "time (line 14)"
+        ]
+      }
+    ],
+    "sentinel_brain/agents/browser_agent.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "time (line 16)"
+        ]
+      }
+    ],
+    "sentinel_brain/agents/correlation_agent.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "datetime (line 15)"
+        ]
+      }
+    ],
+    "sentinel_brain/agents/notification_agent.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 16)"
+        ]
+      }
+    ],
+    "sentinel_brain/agents/scheduler_agent.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 18)"
+        ]
+      }
+    ],
+    "sentinel_brain/agents/system_monitor_agent.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "os (line 15)",
+          "Path (line 20)",
+          "re (line 16)"
+        ]
+      }
+    ],
+    "sentinel_brain/agents/threat_intel_agent.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "socket (line 149)",
+          "re (line 149)"
+        ]
+      }
+    ],
+    "sentinel_brain/brain.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 18)",
+          "datetime (line 17)",
+          "json (line 13)"
+        ]
+      }
+    ],
+    "sentinel_brain/memory.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "time (line 10)"
+        ]
+      }
+    ],
+    "sentinel_brain/monitor.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 11)"
+        ]
+      }
+    ],
+    "sentinel_brain/monitor_daemon.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "datetime (line 25)",
+          "os (line 18)"
+        ]
+      }
+    ],
+    "sentinel_brain/persistent_monitor.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "sys (line 8)",
+          "time (line 10)"
+        ]
+      }
+    ],
+    "sentinel_brain/terminal.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "threading (line 13)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/breach_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "datetime (line 13)",
+          "List (line 11)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/company_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 11)",
+          "config (line 9)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/cve_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 11)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/domain_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 13)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/email_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 13)",
+          "re (line 10)",
+          "json (line 11)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/hash_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "config (line 9)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/ip_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 11)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/malware_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 11)",
+          "re (line 12)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/person_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 11)",
+          "config (line 9)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/phone_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 12)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/url_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 11)",
+          "config (line 9)"
+        ]
+      }
+    ],
+    "sentinel_intel/core/username_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "List (line 9)"
+        ]
+      }
+    ],
+    "sentinel_intel/ui/entity_palette.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "QListWidget (line 2)",
+          "QComboBox (line 2)",
+          "QTimer (line 6)",
+          "QListWidgetItem (line 2)",
+          "Qt (line 6)",
+          "QHBoxLayout (line 2)",
+          "pyqtSignal (line 6)"
+        ]
+      }
+    ],
+    "sentinel_intel/ui/graph_canvas.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "QTimer (line 6)",
+          "QApplication (line 2)",
+          "QWidget (line 2)",
+          "QVBoxLayout (line 2)",
+          "QMainWindow (line 2)",
+          "QPointF (line 6)",
+          "pyqtSignal (line 6)",
+          "QEvent (line 6)",
+          "QRect (line 6)"
+        ]
+      }
+    ],
+    "sentinel_intel/ui/main_window.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "pyqtSignal (line 9)",
+          "QIcon (line 10)",
+          "QMenuBar (line 5)",
+          "QFont (line 10)",
+          "QMenu (line 5)",
+          "QKeySequence (line 10)",
+          "QDockWidget (line 5)"
+        ]
+      }
+    ],
+    "sentinel_intel/ui/properties_panel.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "QIcon (line 4)"
+        ]
+      }
+    ],
+    "sentinel_intel/ui/transform_palette.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "QListWidget (line 2)",
+          "QComboBox (line 2)",
+          "QSpinBox (line 2)",
+          "QListWidgetItem (line 2)",
+          "Qt (line 6)",
+          "QHBoxLayout (line 2)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ai/proxy_ml_engine.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "os (line 32)",
+          "time (line 36)",
+          "sys (line 34)",
+          "Path (line 38)",
+          "_os (line 46)"
+        ]
+      }
+    ],
+    "sentinel_proxy/core/rust_bridge.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 24)"
+        ]
+      }
+    ],
+    "sentinel_proxy/fetch_ai_payloads.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "json (line 20)",
+          "os (line 18)"
+        ]
+      }
+    ],
+    "sentinel_proxy/icon_generator.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "ImageFont (line 27)"
+        ]
+      }
+    ],
+    "sentinel_proxy/payloads/extract_payloads.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "re (line 17)"
+        ]
+      }
+    ],
+    "sentinel_proxy/payloads/textattack_raw.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Seq2SickCheng2018BlackBox (line 44)",
+          "Pruthi2019 (line 49)",
+          "ChineseRecipe (line 55)",
+          "CLARE2020 (line 52)",
+          "SpanishRecipe (line 54)",
+          "BERTAttackLi2020 (line 36)",
+          "MorpheusTan2020 (line 43)",
+          "FasterGeneticAlgorithmJia2019 (line 38)",
+          "Kuleshov2017 (line 42)",
+          "TextFoolerJin2019 (line 46)",
+          "HotFlipEbrahimi2017 (line 40)",
+          "PWWSRen2019 (line 47)",
+          "AttackRecipe (line 32)",
+          "BadCharacters2021 (line 56)",
+          "InputReductionFeng2018 (line 41)",
+          "IGAWang2019 (line 48)",
+          "CheckList2020 (line 51)",
+          "BAEGarg2019 (line 35)",
+          "FrenchRecipe (line 53)",
+          "PSOZang2020 (line 50)",
+          "GeneticAlgorithmAlzantot2018 (line 37)",
+          "A2TYoo2021 (line 34)",
+          "TextBuggerLi2018 (line 45)",
+          "DeepWordBugGao2018 (line 39)"
+        ]
+      }
+    ],
+    "sentinel_proxy/simple_proxy.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "sys (line 19)",
+          "os (line 21)",
+          "ssl (line 20)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/app.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "os (line 1827)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/__init__.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "AIPayloadTab (line 16)",
+          "CSRFTab (line 17)",
+          "ParamMinerTab (line 18)",
+          "CollaboratorTab (line 15)",
+          "WebSocketTab (line 12)",
+          "TargetTab (line 13)",
+          "OrganizerTab (line 14)",
+          "RaceConditionTab (line 19)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/ai_payload_tab.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "datetime (line 32)",
+          "FONT_MONO_SM (line 56)",
+          "FONT_BOLD (line 56)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/collaborator_tab.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "Path (line 37)",
+          "subprocess (line 34)",
+          "FONT_MONO_SM (line 66)",
+          "FONT_MONO (line 66)",
+          "SEV_COLOR (line 66)",
+          "FONT_BOLD (line 66)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/csrf_tab.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "datetime (line 34)",
+          "FONT_MONO_SM (line 57)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/organizer_tab.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "datetime (line 23)",
+          "FONT_MONO_SM (line 42)",
+          "FONT_MONO (line 42)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/param_miner_tab.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "FONT_MONO_SM (line 100)",
+          "Path (line 36)",
+          "urllib (line 33)",
+          "datetime (line 35)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/race_condition_tab.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "datetime (line 37)",
+          "socket (line 34)",
+          "ssl (line 35)",
+          "FONT_MONO_SM (line 61)",
+          "urllib (line 33)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/target_tab.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "FONT_MONO_SM (line 41)",
+          "FONT_MONO (line 41)",
+          "messagebox (line 19)",
+          "urlparse (line 22)"
+        ]
+      }
+    ],
+    "sentinel_proxy/ui/tabs/websocket_tab.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "FONT_MONO_SM (line 40)",
+          "FONT_BOLD (line 40)",
+          "FONT_MONO_XS (line 40)",
+          "datetime (line 21)"
+        ]
+      }
+    ],
+    "test_prompt_stability.py": [
+      {
+        "type": "unused_import",
+        "imports": [
+          "sys (line 6)"
+        ]
+      }
+    ]
+  }
+}

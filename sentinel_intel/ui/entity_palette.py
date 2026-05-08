@@ -1,6 +1,9 @@
 """Entity Palette v2.0 - 15+ Entity Types"""
-from PyQt6.QtWidgets import *
-from PyQt6.QtCore import *
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
+    QListWidget, QListWidgetItem, QLabel, QComboBox, QScrollArea, QInputDialog
+)
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))

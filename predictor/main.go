@@ -23,10 +23,10 @@ type SessionData struct {
 }
 
 type CollectedData struct {
-	Target      string            `json:"target"`
-	ScrapedData []ScrapedItem     `json:"scraped_data"`
+	Target      string              `json:"target"`
+	ScrapedData []ScrapedItem       `json:"scraped_data"`
 	Entities    map[string][]string `json:"entities"`
-	Timestamp   float64           `json:"timestamp"`
+	Timestamp   float64             `json:"timestamp"`
 }
 
 type ScrapedItem struct {
@@ -36,24 +36,24 @@ type ScrapedItem struct {
 }
 
 type Analysis struct {
-	Correlations        map[string]interface{} `json:"correlations"`
-	BehavioralPatterns  map[string]interface{} `json:"behavioral_patterns"`
-	Connections         []Connection           `json:"connections"`
+	Correlations       map[string]interface{} `json:"correlations"`
+	BehavioralPatterns map[string]interface{} `json:"behavioral_patterns"`
+	Connections        []Connection           `json:"connections"`
 	RiskScore          float64                `json:"risk_score"`
 	Timestamp          float64                `json:"timestamp"`
 }
 
 type Connection struct {
-	Type       string    `json:"type"`
-	Entities   []string  `json:"entities"`
-	Confidence float64   `json:"confidence"`
+	Type       string   `json:"type"`
+	Entities   []string `json:"entities"`
+	Confidence float64  `json:"confidence"`
 }
 
 type Prediction struct {
-	Type        string  `json:"type"`
-	Description string  `json:"description"`
-	Priority    string  `json:"priority"`
-	Confidence  float64 `json:"confidence"`
+	Type        string   `json:"type"`
+	Description string   `json:"description"`
+	Priority    string   `json:"priority"`
+	Confidence  float64  `json:"confidence"`
 	NextSteps   []string `json:"next_steps"`
 }
 
@@ -67,26 +67,26 @@ func NewPredictiveEngine(data SessionData) *PredictiveEngine {
 
 func (pe *PredictiveEngine) GeneratePredictions() []Prediction {
 	var predictions []Prediction
-	
+
 	// Analyze entities for prediction opportunities
 	predictions = append(predictions, pe.predictFromEntities()...)
-	
+
 	// Analyze risk score for escalation predictions
 	predictions = append(predictions, pe.predictFromRiskScore()...)
-	
+
 	// Analyze connections for network expansion
 	predictions = append(predictions, pe.predictFromConnections()...)
-	
+
 	// Analyze content patterns
 	predictions = append(predictions, pe.predictFromContent()...)
-	
+
 	return predictions
 }
 
 func (pe *PredictiveEngine) predictFromEntities() []Prediction {
 	var predictions []Prediction
 	entities := pe.sessionData.CollectedData.Entities
-	
+
 	// Email-based predictions
 	if emails, exists := entities["emails"]; exists && len(emails) > 0 {
 		for _, email := range emails {
@@ -105,7 +105,7 @@ func (pe *PredictiveEngine) predictFromEntities() []Prediction {
 				})
 			}
 		}
-		
+
 		// Multiple emails suggest identity fragmentation
 		if len(emails) > 2 {
 			predictions = append(predictions, Prediction{
@@ -121,11 +121,11 @@ func (pe *PredictiveEngine) predictFromEntities() []Prediction {
 			})
 		}
 	}
-	
+
 	// Username-based predictions
 	if usernames, exists := entities["usernames"]; exists && len(usernames) > 0 {
 		commonPlatforms := []string{"twitter.com", "github.com", "reddit.com", "instagram.com", "facebook.com"}
-		
+
 		for _, username := range usernames {
 			cleanUsername := strings.TrimPrefix(username, "@")
 			predictions = append(predictions, Prediction{
@@ -137,7 +137,7 @@ func (pe *PredictiveEngine) predictFromEntities() []Prediction {
 			})
 		}
 	}
-	
+
 	// Phone number predictions
 	if phones, exists := entities["phones"]; exists && len(phones) > 0 {
 		predictions = append(predictions, Prediction{
@@ -152,14 +152,14 @@ func (pe *PredictiveEngine) predictFromEntities() []Prediction {
 			},
 		})
 	}
-	
+
 	return predictions
 }
 
 func (pe *PredictiveEngine) predictFromRiskScore() []Prediction {
 	var predictions []Prediction
 	riskScore := pe.sessionData.Analysis.RiskScore
-	
+
 	if riskScore >= 70 {
 		predictions = append(predictions, Prediction{
 			Type:        "high_risk_escalation",
@@ -186,14 +186,14 @@ func (pe *PredictiveEngine) predictFromRiskScore() []Prediction {
 			},
 		})
 	}
-	
+
 	return predictions
 }
 
 func (pe *PredictiveEngine) predictFromConnections() []Prediction {
 	var predictions []Prediction
 	connections := pe.sessionData.Analysis.Connections
-	
+
 	if len(connections) > 0 {
 		// High-confidence connections suggest network analysis
 		highConfidenceConnections := 0
@@ -202,7 +202,7 @@ func (pe *PredictiveEngine) predictFromConnections() []Prediction {
 				highConfidenceConnections++
 			}
 		}
-		
+
 		if highConfidenceConnections > 0 {
 			predictions = append(predictions, Prediction{
 				Type:        "network_expansion",
@@ -217,13 +217,13 @@ func (pe *PredictiveEngine) predictFromConnections() []Prediction {
 				},
 			})
 		}
-		
+
 		// Multiple connection types suggest sophisticated operation
 		connectionTypes := make(map[string]bool)
 		for _, conn := range connections {
 			connectionTypes[conn.Type] = true
 		}
-		
+
 		if len(connectionTypes) > 2 {
 			predictions = append(predictions, Prediction{
 				Type:        "sophisticated_operation",
@@ -239,17 +239,17 @@ func (pe *PredictiveEngine) predictFromConnections() []Prediction {
 			})
 		}
 	}
-	
+
 	return predictions
 }
 
 func (pe *PredictiveEngine) predictFromContent() []Prediction {
 	var predictions []Prediction
-	
+
 	// Analyze scraped content for patterns
 	contentSources := make(map[string]int)
 	totalContent := 0
-	
+
 	for _, item := range pe.sessionData.CollectedData.ScrapedData {
 		if item.Status == "success" && len(item.Content) > 0 {
 			// Extract domain from URL
@@ -260,7 +260,7 @@ func (pe *PredictiveEngine) predictFromContent() []Prediction {
 			totalContent++
 		}
 	}
-	
+
 	// If content found across multiple platforms
 	if len(contentSources) > 2 {
 		predictions = append(predictions, Prediction{
@@ -275,7 +275,7 @@ func (pe *PredictiveEngine) predictFromContent() []Prediction {
 			},
 		})
 	}
-	
+
 	// If limited content found
 	if totalContent < 3 {
 		predictions = append(predictions, Prediction{
@@ -291,7 +291,7 @@ func (pe *PredictiveEngine) predictFromContent() []Prediction {
 			},
 		})
 	}
-	
+
 	return predictions
 }
 
@@ -310,7 +310,7 @@ func (pe *PredictiveEngine) extractDomainFromURL(url string) string {
 	} else if strings.HasPrefix(url, "https://") {
 		url = url[8:]
 	}
-	
+
 	parts := strings.Split(url, "/")
 	if len(parts) > 0 {
 		return parts[0]
@@ -332,21 +332,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	var sessionData SessionData
 	if err := json.Unmarshal(input, &sessionData); err != nil {
 		fmt.Fprintf(os.Stderr, "JSON unmarshal error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	engine := NewPredictiveEngine(sessionData)
 	predictions := engine.GeneratePredictions()
-	
+
 	output, err := json.Marshal(predictions)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "JSON marshal error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Println(string(output))
 }

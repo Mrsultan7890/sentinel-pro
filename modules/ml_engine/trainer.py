@@ -293,8 +293,12 @@ class ModelTrainer:
         if threat_path.exists():
             with open(threat_path) as f:
                 for line in f:
-                    try: existing_threat.add(json.loads(line).get('url',''))
-                    except: pass
+                    try:
+                        existing_threat.add(json.loads(line).get('url',''))
+                    except json.JSONDecodeError as e:
+                        logger.debug(f"Skipping malformed JSON line: {e}")
+                    except Exception as e:
+                        logger.debug(f"Error reading line: {e}")
 
         stats = {'mitre': 0, 'nvd': 0, 'hf_fake': 0, 'duplicates_removed': 0}
 
@@ -376,7 +380,11 @@ class ModelTrainer:
                             headers=headers, timeout=15
                         )
                         if r.status_code == 200:
-                            cves = r.json().get('vulnerabilities', [])
+                            try:
+                                cves = r.json().get('vulnerabilities', [])
+                            except json.JSONDecodeError as e:
+                                logger.warning(f"Invalid JSON from NVD: {e}")
+                                cves = []
                             for item in cves:
                                 cve  = item.get('cve', {})
                                 cid  = cve.get('id', '')
@@ -479,8 +487,10 @@ class ModelTrainer:
                             # CVSS score se label
                             score = (row.get('cvss_v3_1') or row.get('cvss_v3_0') or
                                      row.get('cvss_v4_0') or row.get('cvss_v2_0') or 0)
-                            try: score = float(score)
-                            except: score = 0
+                            try:
+                                score = float(score)
+                            except (ValueError, TypeError):
+                                score = 0
                             if score >= 9.0:   label = 'CRITICAL'
                             elif score >= 7.0: label = 'HIGH'
                             elif score >= 4.0: label = 'MEDIUM'
@@ -521,7 +531,8 @@ class ModelTrainer:
                         unique.append(line)
                     else:
                         stats['duplicates_removed'] += 1
-                except:
+                except (json.JSONDecodeError, Exception) as e:
+                    logger.debug(f"Skipping line: {e}")
                     unique.append(line)
             path.write_text('\n'.join(unique) + '\n')
 

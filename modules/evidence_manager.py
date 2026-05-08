@@ -34,51 +34,70 @@ class EvidenceManager:
         
     def _initialize_crypto(self):
         """Initialize cryptographic keys for evidence integrity"""
-        # Generate RSA key pair for evidence signing
-        self.private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-        self.public_key = self.private_key.public_key()
+        try:
+            # Generate RSA key pair for evidence signing
+            self.private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=2048,
+                backend=default_backend()
+            )
+            self.public_key = self.private_key.public_key()
+        except Exception as e:
+            print(f"Crypto initialization failed: {e}")
+            self.private_key = None
+            self.public_key = None
     
     def add_evidence(self, evidence_type, data):
         """Add evidence with cryptographic integrity protection"""
-        evidence_id = str(uuid.uuid4())
-        timestamp = datetime.now().isoformat()
+        if not evidence_type or not isinstance(evidence_type, str):
+            return None
+        if data is None:
+            return None
+        if not self.private_key:
+            print("Crypto not initialized")
+            return None
         
-        # Create evidence record
-        evidence_record = {
-            'id': evidence_id,
-            'type': evidence_type,
-            'timestamp': timestamp,
-            'data': data,
-            'collector': 'The Sentinel Pro v2.0',
-            'method': 'Automated OSINT Collection'
-        }
-        
-        # Generate cryptographic hash
-        evidence_json = json.dumps(evidence_record, sort_keys=True)
-        evidence_hash = hashlib.sha256(evidence_json.encode()).hexdigest()
-        
-        # Sign the evidence
-        signature = self._sign_evidence(evidence_json)
-        
-        # Create final evidence package
-        evidence_package = {
-            'record': evidence_record,
-            'hash': evidence_hash,
-            'signature': signature,
-            'chain_position': len(self.evidence_vault) + 1
-        }
-        
-        # Add to vault
-        self.evidence_vault.append(evidence_package)
-        
-        # Update chain of custody
-        self._update_chain_of_custody(evidence_id, 'COLLECTED', timestamp)
-        
-        return evidence_id
+        try:
+            evidence_id = str(uuid.uuid4())
+            timestamp = datetime.now().isoformat()
+            
+            # Create evidence record
+            evidence_record = {
+                'id': evidence_id,
+                'type': evidence_type,
+                'timestamp': timestamp,
+                'data': data,
+                'collector': 'The Sentinel Pro v2.0',
+                'method': 'Automated OSINT Collection'
+            }
+            
+            # Generate cryptographic hash
+            evidence_json = json.dumps(evidence_record, sort_keys=True)
+            evidence_hash = hashlib.sha256(evidence_json.encode()).hexdigest()
+            
+            # Sign the evidence
+            signature = self._sign_evidence(evidence_json)
+            if not signature:
+                return None
+            
+            # Create final evidence package
+            evidence_package = {
+                'record': evidence_record,
+                'hash': evidence_hash,
+                'signature': signature,
+                'chain_position': len(self.evidence_vault) + 1
+            }
+            
+            # Add to vault
+            self.evidence_vault.append(evidence_package)
+            
+            # Update chain of custody
+            self._update_chain_of_custody(evidence_id, 'COLLECTED', timestamp)
+            
+            return evidence_id
+        except Exception as e:
+            print(f"Add evidence failed: {e}")
+            return None
     
     def _sign_evidence(self, evidence_data):
         """Cryptographically sign evidence for integrity"""
@@ -98,6 +117,13 @@ class EvidenceManager:
     
     def verify_evidence(self, evidence_package):
         """Verify evidence integrity and authenticity"""
+        if not isinstance(evidence_package, dict):
+            return False, "Invalid evidence package"
+        if 'record' not in evidence_package or 'hash' not in evidence_package:
+            return False, "Missing required fields"
+        if not self.public_key:
+            return False, "Crypto not initialized"
+        
         try:
             # Reconstruct original data
             evidence_json = json.dumps(evidence_package['record'], sort_keys=True)
@@ -108,6 +134,9 @@ class EvidenceManager:
                 return False, "Hash verification failed"
             
             # Verify signature
+            if 'signature' not in evidence_package:
+                return False, "Missing signature"
+            
             signature_bytes = bytes.fromhex(evidence_package['signature'])
             
             self.public_key.verify(
@@ -122,25 +151,35 @@ class EvidenceManager:
             
             return True, "Evidence verified successfully"
             
+        except ValueError as e:
+            return False, f"Invalid signature format: {e}"
         except Exception as e:
             return False, f"Verification failed: {str(e)}"
     
     def _update_chain_of_custody(self, evidence_id, action, timestamp, details=None):
         """Update chain of custody log"""
-        custody_entry = {
-            'evidence_id': evidence_id,
-            'action': action,
-            'timestamp': timestamp,
-            'operator': 'The Sentinel Pro',
-            'system_info': {
-                'hostname': os.uname().nodename,
-                'platform': os.uname().sysname,
-                'version': '2.0'
-            },
-            'details': details or f"Evidence {action.lower()}"
-        }
+        if not evidence_id or not isinstance(evidence_id, str):
+            return
+        if not action or not isinstance(action, str):
+            return
         
-        self.chain_of_custody.append(custody_entry)
+        try:
+            custody_entry = {
+                'evidence_id': evidence_id,
+                'action': action,
+                'timestamp': timestamp,
+                'operator': 'The Sentinel Pro',
+                'system_info': {
+                    'hostname': os.uname().nodename,
+                    'platform': os.uname().sysname,
+                    'version': '2.0'
+                },
+                'details': details or f"Evidence {action.lower()}"
+            }
+            
+            self.chain_of_custody.append(custody_entry)
+        except Exception as e:
+            print(f"Chain of custody update failed: {e}")
     
     def generate_chain_of_custody(self):
         """Generate complete chain of custody report"""
@@ -201,33 +240,54 @@ class EvidenceManager:
     
     def export_evidence(self, evidence_id, export_path):
         """Export specific evidence for legal proceedings"""
-        for package in self.evidence_vault:
-            if package['record']['id'] == evidence_id:
-                
-                # Create legal export package
-                legal_package = {
-                    'evidence': package,
-                    'chain_of_custody': [
-                        entry for entry in self.chain_of_custody 
-                        if entry['evidence_id'] == evidence_id
-                    ],
-                    'verification': self.verify_evidence(package),
-                    'export_timestamp': datetime.now().isoformat(),
-                    'legal_certification': {
-                        'tool': 'The Sentinel Pro v2.0',
-                        'compliance': 'ISO 27037 Digital Evidence Standards',
-                        'integrity_guaranteed': True
-                    }
-                }
-                
-                # Save to file
-                export_file = os.path.join(export_path, f"evidence_{evidence_id}.json")
-                with open(export_file, 'w') as f:
-                    json.dump(legal_package, f, indent=2)
-                
-                return export_file
+        if not evidence_id or not isinstance(evidence_id, str):
+            return None
+        if not export_path or not isinstance(export_path, str):
+            return None
         
-        return None
+        # Path traversal check
+        export_path = os.path.abspath(export_path)
+        if not os.path.exists(export_path):
+            try:
+                os.makedirs(export_path, mode=0o700, exist_ok=True)
+            except (OSError, PermissionError) as e:
+                print(f"Cannot create export path: {e}")
+                return None
+        
+        try:
+            for package in self.evidence_vault:
+                if package['record']['id'] == evidence_id:
+                    
+                    # Create legal export package
+                    legal_package = {
+                        'evidence': package,
+                        'chain_of_custody': [
+                            entry for entry in self.chain_of_custody 
+                            if entry['evidence_id'] == evidence_id
+                        ],
+                        'verification': self.verify_evidence(package),
+                        'export_timestamp': datetime.now().isoformat(),
+                        'legal_certification': {
+                            'tool': 'The Sentinel Pro v2.0',
+                            'compliance': 'ISO 27037 Digital Evidence Standards',
+                            'integrity_guaranteed': True
+                        }
+                    }
+                    
+                    # Save to file
+                    export_file = os.path.join(export_path, f"evidence_{evidence_id}.json")
+                    with open(export_file, 'w', encoding='utf-8') as f:
+                        json.dump(legal_package, f, indent=2)
+                    
+                    return export_file
+            
+            return None
+        except (OSError, IOError, PermissionError) as e:
+            print(f"Export failed: {e}")
+            return None
+        except Exception as e:
+            print(f"Unexpected export error: {e}")
+            return None
     
     def generate_forensic_timeline(self):
         """Generate forensic timeline of all activities"""

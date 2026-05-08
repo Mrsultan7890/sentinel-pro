@@ -12,9 +12,11 @@ use rayon::prelude::*;
 
 #[derive(Deserialize, Debug)]
 struct CollectedData {
+    #[allow(dead_code)]
     target: String,
     scraped_data: Vec<ScrapedItem>,
     entities: Entities,
+    #[allow(dead_code)]
     timestamp: f64,
 }
 
@@ -22,16 +24,21 @@ struct CollectedData {
 struct ScrapedItem {
     url: String,
     content: String,
+    #[allow(dead_code)]
     status: String,
 }
 
 #[derive(Deserialize, Debug)]
 struct Entities {
     emails: Vec<String>,
+    #[allow(dead_code)]
     phones: Vec<String>,
     usernames: Vec<String>,
+    #[allow(dead_code)]
     urls: Vec<String>,
+    #[allow(dead_code)]
     locations: Vec<String>,
+    #[allow(dead_code)]
     names: Vec<String>,
 }
 

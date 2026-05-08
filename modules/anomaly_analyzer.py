@@ -558,7 +558,8 @@ class PredictiveAnalyzer:
             top_indices = mean_scores.argsort()[-10:][::-1]
             
             return [feature_names[i] for i in top_indices]
-        except:
+        except Exception as e:
+            logger.warning(f"Theme extraction failed: {e}")
             return []
     
     def _analyze_writing_style(self, content_list):

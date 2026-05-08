@@ -66,14 +66,50 @@ SERVICES = {
 class PortScanner:
 
     def run(self, target: str, custom_ports: list = None) -> dict:
+        if not target or not isinstance(target, str):
+            return {
+                'target': target,
+                'error': 'Invalid target',
+                'open_ports': [],
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        target = target.strip().lower()
+        if len(target) > 253:
+            return {
+                'target': target,
+                'error': 'Target too long',
+                'open_ports': [],
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        # Validate custom_ports
+        if custom_ports is not None:
+            if not isinstance(custom_ports, list):
+                custom_ports = None
+            else:
+                # Filter valid ports
+                custom_ports = [p for p in custom_ports if isinstance(p, int) and 1 <= p <= 65535]
+                if not custom_ports:
+                    custom_ports = None
+        
         ports = custom_ports or COMMON_PORTS
 
         try:
             ip = socket.gethostbyname(target)
-        except socket.gaierror:
+        except socket.gaierror as e:
+            logger.error(f'DNS resolution failed for {target}: {e}')
             return {
                 'target': target,
                 'error': 'Could not resolve hostname',
+                'open_ports': [],
+                'timestamp': datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f'Unexpected DNS error for {target}: {e}')
+            return {
+                'target': target,
+                'error': f'DNS error: {e}',
                 'open_ports': [],
                 'timestamp': datetime.now().isoformat()
             }
@@ -87,12 +123,15 @@ class PortScanner:
         }
 
         def check_port(port):
+            if not isinstance(port, int) or port < 1 or port > 65535:
+                return None
+            
+            s = None
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(1)
                 if s.connect_ex((ip, port)) == 0:
                     banner = self._grab_banner(s, port)
-                    s.close()
                     return {
                         'port':    port,
                         'state':   'open',
@@ -101,9 +140,16 @@ class PortScanner:
                         'risk':    'HIGH' if port in HIGH_RISK_PORTS else 'LOW',
                         'risk_detail': HIGH_RISK_PORTS.get(port, '')
                     }
-                s.close()
-            except Exception:
-                pass
+            except (socket.timeout, socket.error) as e:
+                logger.debug(f'Port {port} check failed: {e}')
+            except Exception as e:
+                logger.error(f'Unexpected port check error for {port}: {e}')
+            finally:
+                if s:
+                    try:
+                        s.close()
+                    except Exception:
+                        pass
             return None
 
         with ThreadPoolExecutor(max_workers=50) as ex:
@@ -122,6 +168,9 @@ class PortScanner:
 
     def _grab_banner(self, sock, port: int) -> str:
         """Try to grab service banner for fingerprinting"""
+        if not sock or not isinstance(port, int):
+            return ''
+        
         try:
             sock.settimeout(2)
             # Send probe for HTTP ports
@@ -133,5 +182,12 @@ class PortScanner:
                 sock.send(b'\r\n')
             banner = sock.recv(256).decode('utf-8', errors='ignore').strip()
             return banner[:200] if banner else ''
-        except Exception:
+        except socket.timeout as e:
+            logger.debug(f'Banner grab timeout for port {port}: {e}')
+            return ''
+        except (socket.error, OSError) as e:
+            logger.debug(f'Banner grab socket error for port {port}: {e}')
+            return ''
+        except Exception as e:
+            logger.error(f'Banner grab error for port {port}: {e}')
             return ''

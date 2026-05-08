@@ -103,20 +103,28 @@ def find_wordlist(name: str) -> tuple:
         (path_str, source) — source: 'bundled' | 'seclists' | 'wordlists' | 'fallback'
         path_str is None agar koi nahi mila
     """
-    # 1. Bundled payloads (sentinel_proxy/payloads/)
-    bundled = config.get_base_dir() / 'sentinel_proxy' / 'payloads' / f'{name}.txt'
-    if bundled.exists():
-        return (str(bundled), 'bundled')
+    if not name or not isinstance(name, str):
+        logger.error('Invalid wordlist name')
+        return (None, 'invalid')
+    
+    try:
+        # 1. Bundled payloads (sentinel_proxy/payloads/)
+        bundled = config.get_base_dir() / 'sentinel_proxy' / 'payloads' / f'{name}.txt'
+        if bundled.exists() and bundled.is_file():
+            return (str(bundled), 'bundled')
 
-    # 2. System wordlists
-    for rel_path, root_type in WORDLIST_MAP.get(name, []):
-        roots = SECLISTS_ROOTS if root_type == 'seclists' else WORDLISTS_ROOTS
-        for root in roots:
-            full = root / rel_path
-            if full.exists():
-                return (str(full), root_type)
+        # 2. System wordlists
+        for rel_path, root_type in WORDLIST_MAP.get(name, []):
+            roots = SECLISTS_ROOTS if root_type == 'seclists' else WORDLISTS_ROOTS
+            for root in roots:
+                full = root / rel_path
+                if full.exists() and full.is_file():
+                    return (str(full), root_type)
 
-    return (None, 'missing')
+        return (None, 'missing')
+    except Exception as e:
+        logger.error(f'find_wordlist error: {e}')
+        return (None, 'error')
 
 
 def get_wordlist(name: str, fallback: list = None) -> list:
@@ -126,16 +134,37 @@ def get_wordlist(name: str, fallback: list = None) -> list:
 
     Returns: list of strings
     """
+    if not name or not isinstance(name, str):
+        logger.error('Invalid wordlist name')
+        return fallback or []
+    
+    if fallback is not None and not isinstance(fallback, list):
+        fallback = []
+    
     path, source = find_wordlist(name)
 
     if path:
         try:
-            lines = Path(path).read_text(errors='ignore').splitlines()
+            p = Path(path)
+            # Size check - max 100MB
+            if p.stat().st_size > 100 * 1024 * 1024:
+                logger.warning(f'Wordlist too large: {path} ({p.stat().st_size / 1024 / 1024:.1f}MB)')
+                return fallback or []
+            
+            lines = p.read_text(errors='ignore').splitlines()
             result = [l.strip() for l in lines if l.strip() and not l.startswith('#')]
+            
+            # Max entries limit
+            if len(result) > 1000000:  # 1M entries max
+                logger.warning(f'Wordlist too large: {len(result)} entries, truncating to 1M')
+                result = result[:1000000]
+            
             logger.debug(f"[Wordlist] {name}: {len(result)} entries from {source} ({path})")
             return result
-        except Exception as e:
+        except (OSError, IOError, PermissionError) as e:
             logger.warning(f"[Wordlist] Failed to read {path}: {e}")
+        except Exception as e:
+            logger.error(f"[Wordlist] Unexpected error reading {path}: {e}")
 
     # Missing — log warning with install instructions
     _warn_missing(name)
@@ -144,15 +173,21 @@ def get_wordlist(name: str, fallback: list = None) -> list:
 
 def _warn_missing(name: str):
     """User ko clearly batao kya install karna hai."""
-    needed = set()
-    for _, root_type in WORDLIST_MAP.get(name, []):
-        needed.add(root_type)
+    if not name or not isinstance(name, str):
+        return
+    
+    try:
+        needed = set()
+        for _, root_type in WORDLIST_MAP.get(name, []):
+            needed.add(root_type)
 
-    for pkg in needed:
-        cmd = INSTALL_CMDS.get(pkg, f'sudo apt install {pkg}')
-        logger.warning(
-            f"[Wordlist] '{name}' not found. Install with: {cmd}"
-        )
+        for pkg in needed:
+            cmd = INSTALL_CMDS.get(pkg, f'sudo apt install {pkg}')
+            logger.warning(
+                f"[Wordlist] '{name}' not found. Install with: {cmd}"
+            )
+    except Exception as e:
+        logger.debug(f'_warn_missing error: {e}')
 
 
 def check_wordlists() -> dict:
@@ -163,16 +198,28 @@ def check_wordlists() -> dict:
     Returns: {name: {'found': bool, 'path': str, 'source': str, 'install': str}}
     """
     results = {}
-    for name in WORDLIST_MAP:
-        path, source = find_wordlist(name)
-        needed_pkgs = list({rt for _, rt in WORDLIST_MAP[name]})
-        install_cmd = ' | '.join(INSTALL_CMDS.get(p, '') for p in needed_pkgs if p in INSTALL_CMDS)
-        results[name] = {
-            'found':   path is not None,
-            'path':    path or '',
-            'source':  source,
-            'install': install_cmd if not path else '',
-        }
+    try:
+        for name in WORDLIST_MAP:
+            try:
+                path, source = find_wordlist(name)
+                needed_pkgs = list({rt for _, rt in WORDLIST_MAP[name]})
+                install_cmd = ' | '.join(INSTALL_CMDS.get(p, '') for p in needed_pkgs if p in INSTALL_CMDS)
+                results[name] = {
+                    'found':   path is not None,
+                    'path':    path or '',
+                    'source':  source,
+                    'install': install_cmd if not path else '',
+                }
+            except Exception as e:
+                logger.debug(f'check_wordlists error for {name}: {e}')
+                results[name] = {
+                    'found': False,
+                    'path': '',
+                    'source': 'error',
+                    'install': '',
+                }
+    except Exception as e:
+        logger.error(f'check_wordlists error: {e}')
     return results
 
 

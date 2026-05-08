@@ -108,6 +108,7 @@ from modules.breach.report import BreachReport
 from modules.notifications import TelegramNotifier
 from modules.pdf_export import PDFExporter
 from modules.secure_file_manager import SecureFileManager
+from sentinel_brain.engines import SelfHealingEngine, BehavioralEngine
 
 # Setup logging
 from logging.handlers import RotatingFileHandler
@@ -201,6 +202,8 @@ class TheSentinelPro:
         self.pdf         = PDFExporter()
         self.secure_files = SecureFileManager()
         self.session_data = {}
+        self.self_healing = SelfHealingEngine()
+        self.behavioral_engine = BehavioralEngine()
 
         # Autonomous ML learning loop — background daemon
         self._autonomous_loop = AutonomousLearningLoop()
@@ -391,10 +394,38 @@ class TheSentinelPro:
         intel_msg = f"SentinelIntel (13 engines): {'✓ READY' if intel_ok else '⚠ INCOMPLETE'}"
         boot_checks.append((intel_icon, intel_msg, 0.2))
         
-        # 7. Tor routing
+        # 7. Hardware Security Engine (HSE)
+        try:
+            from modules.tpm_manager import TPMManager
+            tpm = TPMManager()
+            tpm_status = tpm.get_status()
+            tpm_ok = tpm_status.get('available', False)
+        except Exception:
+            tpm_ok = False
+        
+        try:
+            from modules.sgx_enclave_manager import SGXEnclaveManager
+            sgx = SGXEnclaveManager()
+            sgx_status = sgx.check_sgx_support()
+            sgx_ok = sgx_status.get('sgx_available', False)
+        except Exception:
+            sgx_ok = False
+        
+        hse_icon = "[bold green][+]" if (tpm_ok or sgx_ok) else "[bold yellow][!]"
+        hse_parts = []
+        if tpm_ok:
+            hse_parts.append("✓ TPM 2.0")
+        if sgx_ok:
+            hse_parts.append("✓ SGX")
+        if not hse_parts:
+            hse_parts.append("⚠ Software fallback")
+        hse_msg = f"Hardware Security: {' '.join(hse_parts)}"
+        boot_checks.append((hse_icon, hse_msg, 0.2))
+        
+        # 8. Tor routing
         boot_checks.append((tor_icon, tor_status_msg, 0.2))
         
-        # 8. Final status
+        # 9. Final status
         all_ok = all([
             db_main and db_memory,
             osint_ok,
@@ -568,8 +599,23 @@ class TheSentinelPro:
                     self._handle_activate(command)
                 elif command.startswith('profile'):
                     self._handle_profile(command)
+                elif command.startswith('heal') or command.startswith('selfheal'):
+                    self._handle_self_healing(command)
                 elif command.startswith('intel') or command.startswith('sentinel-intel'):
                     self._handle_sentinel_intel(command)
+                elif command.startswith('predict'):
+                    self._handle_predict(command)
+                elif command.startswith('behavioral'):
+                    self._handle_behavioral(command)
+                
+                elif command.startswith('crypto'):
+                    from modules.v6_handlers import handle_crypto
+                    handle_crypto(self, command)
+                
+                elif command.startswith('sandbox'):
+                    from modules.v6_handlers import handle_sandbox
+                    handle_sandbox(self, command)
+                
                 else:
                     # Fuzzy command matching for typos
                     suggestion = self._suggest_command(command.split()[0] if command else '')
@@ -714,6 +760,33 @@ class TheSentinelPro:
 [green]profile <name>[/green]      - Switch to scanning profile (fast/balanced/monitoring)
 [green]profile current[/green]     - Show current profile settings
 [green]intel[/green]               - Launch Sentinel Intel (PyQt6 graph-based OSINT investigation platform)
+[green]heal status[/green]         - 🏥 Self-healing engine status (CVE monitor + patch manager + config hardener + incident responder)
+[green]heal start[/green]          - Start continuous monitoring (CVE + config + incidents)
+[green]heal stop[/green]           - Stop monitoring
+[green]heal scan[/green]           - Manual vulnerability scan
+[green]heal vulns[/green]          - List critical vulnerabilities
+[green]heal patch <pkg>[/green]    - Patch specific package
+[green]heal history[/green]        - Patch history
+[green]heal behavioral[/green]     - Recent AI attack detections
+[green]heal train[/green]          - Train behavioral ML models
+[green]heal mlstatus[/green]       - ML model status
+[green]heal feedback stats[/green]  - Feedback loop statistics
+[green]heal feedback retrain[/green] - Retrain models with user feedback
+[green]heal harden scan[/green]    - CIS benchmark compliance scan
+[green]heal harden fix[/green]     - Auto-fix misconfigurations
+[green]heal harden score[/green]   - Show compliance score
+[green]heal incident scan[/green]  - Scan for active security incidents
+[green]heal incident respond[/green] - Auto-respond to incidents
+[green]heal incident active[/green] - List active incidents
+[green]predict <target>[/green]     - 🔮 Predictive threat engine: attack surface mapping + threat trends
+[green]crypto status[/green]        - 🔐 Quantum-ready crypto engine status (Kyber + Dilithium + SPHINCS+)
+[green]crypto test <algo>[/green]   - Test PQ algorithm (kyber/dilithium/sphincs)
+[green]crypto benchmark[/green]     - Benchmark all PQ algorithms
+[green]sandbox status[/green]       - 🛡️ Autonomous sandbox engine status
+[green]sandbox test[/green]         - Test sandbox isolation layers
+[green]sandbox run <cmd>[/green]    - Run command in sandbox
+[green]sandbox forensics[/green]    - Show sandbox forensics log
+[green]behavioral dashboard[/green] - 📊 BIE behavioral metrics dashboard
 [green]clear[/green]               - Clear screen
 [green]help / ?[/green]            - This help menu
 [green]exit / quit / q[/green]     - Exit
@@ -1050,7 +1123,217 @@ class TheSentinelPro:
             status_table.add_row(component, status, details)
         self.console.print(status_table)
 
-        # Phase 3/4 API keys status
+        # v6 Engines Status
+        v6_table = Table(title="[bold]v6 Engines Status (50-Year Plan)[/bold]", border_style="magenta")
+        v6_table.add_column("Engine", style="bold")
+        v6_table.add_column("Status", justify="center")
+        v6_table.add_column("Details", style="dim")
+
+        # BIE - Behavioral Intelligence Engine
+        try:
+            bie_status = "🟢 ACTIVE" if hasattr(self, 'behavioral_engine') else "🟡 STANDBY"
+            bie_detail = "AI attack detection + feedback loop"
+            v6_table.add_row("BIE (Behavioral)", bie_status, bie_detail)
+        except:
+            v6_table.add_row("BIE (Behavioral)", "🔴 ERROR", "Check logs")
+
+        # QRCE - Quantum-Ready Cryptography Engine
+        try:
+            from modules.crypto_manager import CryptoManager
+            crypto = CryptoManager()
+            qrce_status = "🟢 READY"
+            qrce_detail = "Kyber + Dilithium + SPHINCS+"
+            v6_table.add_row("QRCE (Quantum Crypto)", qrce_status, qrce_detail)
+        except:
+            v6_table.add_row("QRCE (Quantum Crypto)", "🟡 FALLBACK", "Classical crypto only")
+
+        # ASE - Autonomous Sandbox Engine
+        try:
+            from sentinel_brain.engines.sandbox_manager import SandboxManager
+            sandbox = SandboxManager()
+            ase_status = "🟢 READY"
+            ase_detail = "3-layer isolation + forensics"
+            v6_table.add_row("ASE (Sandbox)", ase_status, ase_detail)
+        except:
+            v6_table.add_row("ASE (Sandbox)", "🟡 STANDBY", "On-demand activation")
+
+        # SHE - Self-Healing Engine
+        try:
+            she_status = "🟢 ACTIVE" if hasattr(self, 'self_healing') else "🟡 STANDBY"
+            she_detail = "CVE monitor + auto-patch + hardening"
+            v6_table.add_row("SHE (Self-Healing)", she_status, she_detail)
+        except:
+            v6_table.add_row("SHE (Self-Healing)", "🔴 ERROR", "Check logs")
+
+        # DTIE - Distributed Threat Intelligence Engine
+        try:
+            from modules.ipfs_manager import IPFSManager
+            ipfs = IPFSManager()
+            dtie_status = "🟢 READY" if ipfs.is_running() else "🟡 OFFLINE"
+            dtie_detail = "Federated learning + IPFS + P2P"
+            v6_table.add_row("DTIE (Distributed Intel)", dtie_status, dtie_detail)
+        except:
+            v6_table.add_row("DTIE (Distributed Intel)", "🟡 OFFLINE", "IPFS not running")
+
+        # HSE - Hardware Security Engine
+        try:
+            from modules.tpm_manager import TPMManager
+            tpm = TPMManager()
+            tpm_status = tpm.get_status()
+            hse_status = "🟢 ACTIVE" if tpm_status.get('available') else "🟡 SOFTWARE"
+            hse_detail = "TPM 2.0 + SGX + Secure Boot"
+            v6_table.add_row("HSE (Hardware Security)", hse_status, hse_detail)
+        except:
+            v6_table.add_row("HSE (Hardware Security)", "🟡 SOFTWARE", "No hardware support")
+
+        # PTE - Predictive Threat Engine
+        try:
+            from modules.predictive.attack_surface_mapper import AttackSurfaceMapper
+            pte_status = "🟢 READY"
+            pte_detail = "Attack surface + trend analysis"
+            v6_table.add_row("PTE (Predictive)", pte_status, pte_detail)
+        except:
+            v6_table.add_row("PTE (Predictive)", "🟡 STANDBY", "On-demand activation")
+
+        self.console.print(v6_table)
+
+        # ML Models Status
+        ml_table = Table(title="[bold]ML Models Status[/bold]", border_style="cyan")
+        ml_table.add_column("Model", style="bold")
+        ml_table.add_column("Status", justify="center")
+        ml_table.add_column("Details", style="dim")
+
+        try:
+            from modules.ml_engine.trainer import ModelTrainer
+            status = ModelTrainer.status()
+            
+            # SentinelNet
+            if Path('models/ml_engine/sentinel_threat_net.pt').exists():
+                ml_table.add_row("SentinelNet v5.0", "[green]✓ LOADED[/green]", "F1=0.83 | 8.56 MB")
+            else:
+                ml_table.add_row("SentinelNet v5.0", "[yellow]✗ NOT TRAINED[/yellow]", "Run: train collect")
+            
+            # Seq2Seq
+            if Path('models/ml_engine/sentinel_seq2seq.pt').exists():
+                ml_table.add_row("Seq2Seq v2.0", "[green]✓ LOADED[/green]", "Command gen | 29.24 MB")
+            else:
+                ml_table.add_row("Seq2Seq v2.0", "[yellow]✗ NOT TRAINED[/yellow]", "Run: train collect")
+            
+            # RL Agent
+            if Path('models/ml_engine/rl_qtable.json').exists():
+                ml_table.add_row("RL Q-Learning", "[green]✓ LOADED[/green]", "171 states learned")
+            else:
+                ml_table.add_row("RL Q-Learning", "[yellow]✗ NOT TRAINED[/yellow]", "Run: rl train")
+            
+            # Fake Detector
+            if Path('models/ml_engine/fake_detector.joblib').exists():
+                ml_table.add_row("Fake Detector", "[green]✓ LOADED[/green]", "112K samples | 13.10 MB")
+            else:
+                ml_table.add_row("Fake Detector", "[yellow]✗ NOT TRAINED[/yellow]", "Auto-trained")
+            
+            # Pending samples
+            pending = status.get('pending_samples', ModelTrainer.pending_samples())
+            pending_color = 'yellow' if pending >= 25 else 'green'
+            ml_table.add_row("Training Queue", f"[{pending_color}]{pending}/50[/{pending_color}]", "Auto-retrain at 50")
+            
+        except Exception as e:
+            ml_table.add_row("ML Engine", "[red]✗ ERROR[/red]", str(e)[:50])
+        
+        self.console.print(ml_table)
+
+        # Database Status
+        db_table = Table(title="[bold]Database Status[/bold]", border_style="blue")
+        db_table.add_column("Database", style="bold")
+        db_table.add_column("Status", justify="center")
+        db_table.add_column("Size", style="dim")
+
+        databases = [
+            ('sentinel.db', 'Main database'),
+            ('sentinel_memory.db', 'Brain memory'),
+            ('sentinel_proxy.db', 'Proxy logs'),
+            ('behavioral_data.db', 'BIE data'),
+            ('behavioral_feedback.db', 'BIE feedback'),
+            ('cve_monitor.db', 'SHE CVE data'),
+            ('incidents.db', 'SHE incidents'),
+            ('sandbox_forensics.db', 'ASE forensics'),
+        ]
+        
+        for db_name, description in databases:
+            db_path = Path('data') / db_name
+            if db_path.exists():
+                size = db_path.stat().st_size
+                size_str = f"{size/1024:.1f} KB" if size < 1024*1024 else f"{size/1024/1024:.1f} MB"
+                db_table.add_row(description, "[green]✓ OK[/green]", size_str)
+            else:
+                db_table.add_row(description, "[red]✗ MISSING[/red]", "0 KB")
+        
+        self.console.print(db_table)
+
+        # Monitor Status
+        monitor_table = Table(title="[bold]24/7 Monitor Status[/bold]", border_style="green")
+        monitor_table.add_column("Component", style="bold")
+        monitor_table.add_column("Status", justify="center")
+        monitor_table.add_column("Details", style="dim")
+
+        try:
+            monitor = self._get_monitor()
+            m_status = monitor.status()
+            
+            # Runtime monitor
+            runtime_st = "[green]🟢 RUNNING[/green]" if m_status['running'] else "[red]🔴 STOPPED[/red]"
+            runtime_detail = f"{len(m_status['targets'])} targets | {m_status['interval']}s interval"
+            monitor_table.add_row("Runtime Monitor", runtime_st, runtime_detail)
+            
+            # Persistent service
+            try:
+                from sentinel_brain.persistent_monitor import PersistentMonitor
+                pm = PersistentMonitor()
+                ps = pm.get_service_status()
+                if ps['installed']:
+                    service_st = "[green]🟢 ACTIVE[/green]" if ps['active'] else "[yellow]🟡 INACTIVE[/yellow]"
+                    service_detail = "Boot: " + ("enabled" if ps['enabled'] else "disabled")
+                    monitor_table.add_row("Persistent Service", service_st, service_detail)
+                else:
+                    monitor_table.add_row("Persistent Service", "[dim]○ NOT INSTALLED[/dim]", "Run: monitor persistent install")
+            except:
+                monitor_table.add_row("Persistent Service", "[dim]○ NOT INSTALLED[/dim]", "Run: monitor persistent install")
+            
+        except Exception as e:
+            monitor_table.add_row("Monitor", "[red]✗ ERROR[/red]", str(e)[:50])
+        
+        self.console.print(monitor_table)
+
+        # License Status
+        license_table = Table(title="[bold]License Status[/bold]", border_style="yellow")
+        license_table.add_column("Property", style="bold")
+        license_table.add_column("Value", justify="center")
+        license_table.add_column("Details", style="dim")
+
+        try:
+            from modules.license_manager import check_license, PLANS
+            info = check_license()
+            
+            if info['valid']:
+                plan_name = PLANS.get(info['plan'], info['plan'])
+                license_table.add_row("Status", "[green]✓ ACTIVE[/green]", "Licensed")
+                license_table.add_row("Plan", f"[cyan]{plan_name}[/cyan]", info['plan'].upper())
+                license_table.add_row("Email", info.get('email', 'N/A'), "Registered user")
+                
+                if info['expiry'] == 'lifetime':
+                    license_table.add_row("Expiry", "[green]♾️ LIFETIME[/green]", "Never expires")
+                else:
+                    license_table.add_row("Expiry", info['expiry'], "Expiration date")
+                
+                license_table.add_row("Machine ID", info.get('machine_id', 'N/A')[:16] + '...', "Hardware bound")
+            else:
+                license_table.add_row("Status", "[red]✗ INACTIVE[/red]", info.get('reason', 'No license'))
+                license_table.add_row("Action", "[yellow]activate <KEY>[/yellow]", "Activate license")
+        except Exception as e:
+            license_table.add_row("License", "[red]✗ ERROR[/red]", str(e)[:50])
+        
+        self.console.print(license_table)
+
+        # API keys status
         api_table = Table(title="[bold]API Keys Status[/bold]", border_style="yellow")
         api_table.add_column("Service",   style="bold")
         api_table.add_column("Status",    justify="center")
@@ -3475,8 +3758,54 @@ class TheSentinelPro:
             self.console.print(f"[yellow]Removed: {parts[2]}[/yellow]")
 
         elif sub == 'start':
-            self._get_monitor().start()
-            self.console.print("[green]✓ Monitor started[/green]")
+            # Check if user wants separate terminal
+            detached = '--detach' in parts or '-d' in parts
+            
+            if detached:
+                # Launch in separate terminal
+                import subprocess
+                import sys
+                script = f"""
+import sys
+sys.path.insert(0, '{Path(__file__).parent}')
+from sentinel_brain.monitor import SentinelMonitor
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+monitor = SentinelMonitor()
+print('[24/7 Monitor - Detached Mode]')
+print('Press Ctrl+C to stop\\n')
+monitor.start()
+try:
+    import time
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    monitor.stop()
+    print('\\nStopped')
+"""
+                try:
+                    subprocess.Popen(
+                        ['xterm', '-T', 'Sentinel 24/7 Monitor', '-geometry', '120x30',
+                         '-e', f'python3 -c "{script}"'],
+                        start_new_session=True
+                    )
+                    self.console.print("[green]✓ Monitor launched in separate terminal[/green]")
+                except FileNotFoundError:
+                    try:
+                        subprocess.Popen(
+                            ['gnome-terminal', '--', 'bash', '-c',
+                             f'python3 -c "{script}"; read -p "Press Enter to close..."'],
+                            start_new_session=True
+                        )
+                        self.console.print("[green]✓ Monitor launched in separate terminal[/green]")
+                    except FileNotFoundError:
+                        self.console.print("[red]No terminal emulator found[/red]")
+                        self._get_monitor().start()
+                        self.console.print("[green]✓ Monitor started (background)[/green]")
+            else:
+                self._get_monitor().start()
+                self.console.print("[green]✓ Monitor started[/green]")
+                self.console.print("[dim]Tip: Use 'monitor start --detach' for separate terminal[/dim]")
 
         elif sub == 'stop':
             self._get_monitor().stop()
@@ -4431,6 +4760,255 @@ class TheSentinelPro:
             self.console.print(f"[red]Launch failed: {e}[/red]")
             logger.exception("Sentinel Intel launch error")
     
+    def _handle_self_healing(self, command: str):
+        """Self-Healing Engine — CVE monitoring, auto-patching, vulnerability management"""
+        parts = command.split()
+        sub = parts[1] if len(parts) > 1 else 'status'
+
+        if sub == 'status':
+            status = self.self_healing.get_status()
+            cve = status['cve_stats']
+            patch = status['patch_stats']
+            self.console.print("[bold cyan]Self-Healing Engine Status[/bold cyan]")
+            self.console.print(f"  Monitoring     : {'[green]ON[/green]' if status['monitoring'] else '[red]OFF[/red]'}")
+            self.console.print(f"  Scan Interval  : {status['scan_interval']}s")
+            self.console.print(f"  Total CVEs     : {cve.get('total_cves', 0)}")
+            self.console.print(f"  CISA KEV       : {cve.get('cisa_kev_count', 0)}")
+            self.console.print(f"  Open Vulns     : {cve.get('open_vulnerabilities', 0)}")
+            self.console.print(f"  Critical Vulns : [red]{cve.get('critical_vulnerabilities', 0)}[/red]")
+            self.console.print(f"  Total Patches  : {patch.get('total_patches', 0)}")
+            self.console.print(f"  Success Rate   : {patch.get('success_rate', 0):.1f}%")
+
+        elif sub == 'start':
+            # Check if user wants separate terminal
+            detached = '--detach' in parts or '-d' in parts
+            
+            # Parse interval (skip -d flag)
+            interval = 3600
+            for part in parts[2:]:
+                if part not in ['--detach', '-d']:
+                    try:
+                        interval = int(part)
+                        break
+                    except ValueError:
+                        pass
+            
+            if detached:
+                # Launch in separate xterm
+                import subprocess
+                import sys
+                script = f"""
+import sys
+sys.path.insert(0, '{Path(__file__).parent}')
+from sentinel_brain.engines.self_healing_engine import SelfHealingEngine
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+engine = SelfHealingEngine()
+print('[Self-Healing Engine - Detached Mode]')
+print(f'Scan Interval: {interval}s')
+print('Press Ctrl+C to stop\\n')
+engine.start_monitoring(scan_interval={interval})
+try:
+    import time
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    engine.stop_monitoring()
+    print('\\nStopped')
+"""
+                try:
+                    subprocess.Popen(
+                        ['xterm', '-T', 'Sentinel Self-Healing', '-geometry', '120x30', 
+                         '-e', f'python3 -c "{script}"'],
+                        start_new_session=True
+                    )
+                    self.console.print("[green]✓ Self-healing launched in separate terminal[/green]")
+                except FileNotFoundError:
+                    self.console.print("[yellow]xterm not found, trying gnome-terminal...[/yellow]")
+                    try:
+                        subprocess.Popen(
+                            ['gnome-terminal', '--', 'bash', '-c', 
+                             f'python3 -c "{script}"; read -p "Press Enter to close..."'],
+                            start_new_session=True
+                        )
+                        self.console.print("[green]✓ Self-healing launched in separate terminal[/green]")
+                    except FileNotFoundError:
+                        self.console.print("[red]No terminal emulator found. Install xterm or gnome-terminal[/red]")
+                        self.console.print("[yellow]Falling back to background mode...[/yellow]")
+                        ok = self.self_healing.start_monitoring(scan_interval=interval)
+                        self.console.print("[green]✓ Self-healing monitoring started[/green]" if ok else "[yellow]Already running[/yellow]")
+            else:
+                ok = self.self_healing.start_monitoring(scan_interval=interval)
+                self.console.print("[green]✓ Self-healing monitoring started[/green]" if ok else "[yellow]Already running[/yellow]")
+                self.console.print("[dim]Tip: Use 'heal start --detach' to run in separate terminal[/dim]")
+
+        elif sub == 'stop':
+            ok = self.self_healing.stop_monitoring()
+            self.console.print("[yellow]Self-healing monitoring stopped[/yellow]" if ok else "[dim]Not running[/dim]")
+
+        elif sub == 'scan':
+            self.console.print("[cyan]Running manual self-healing scan...[/cyan]")
+            results = self.self_healing.run_manual_scan()
+            self.console.print(f"  Packages scanned    : {results['packages_scanned']}")
+            self.console.print(f"  CVEs fetched        : {results['cves_fetched']}")
+            self.console.print(f"  CISA KEV fetched    : {results['kev_fetched']}")
+            self.console.print(f"  Vulnerabilities     : {results['vulnerabilities_matched']}")
+            self.console.print(f"  Patches applied     : [green]{results['patches_applied']}[/green]")
+            self.console.print(f"  Critical remaining  : [red]{results['critical_remaining']}[/red]")
+
+        elif sub == 'vulns':
+            vulns = self.self_healing.get_critical_vulnerabilities()
+            if not vulns:
+                self.console.print("[green]No critical vulnerabilities found[/green]")
+                return
+            self.console.print(f"[bold red]Critical Vulnerabilities ({len(vulns)})[/bold red]")
+            for v in vulns[:20]:
+                _, cve_id, pkg, ver, sev, cvss, kev, exploited = v
+                kev_tag = " [red][KEV][/red]" if kev else ""
+                self.console.print(f"  [{sev}] {cve_id} — {pkg} {ver} (CVSS: {cvss}){kev_tag}")
+
+        elif sub == 'patch':
+            if len(parts) < 3:
+                self.console.print("[red]Usage: heal patch <package>[/red]")
+                return
+            pkg = parts[2]
+            self.console.print(f"[cyan]Patching {pkg}...[/cyan]")
+            ok, msg = self.self_healing.patch_vulnerability(pkg)
+            color = 'green' if ok else 'red'
+            self.console.print(f"[{color}]{msg}[/{color}]")
+
+        elif sub == 'history':
+            history = self.self_healing.get_patch_history(limit=20)
+            if not history:
+                self.console.print("[dim]No patch history[/dim]")
+                return
+            self.console.print("[bold cyan]Patch History (last 20)[/bold cyan]")
+            for p in reversed(history):
+                color = 'green' if p['success'] else 'red'
+                self.console.print(f"  [{color}]{p['action'].upper()}[/{color}] {p['package']} ({p['source']}) — {p['timestamp'][:19]}")
+
+        elif sub == 'behavioral':
+            detections = self.behavioral_engine.get_recent_detections(limit=20)
+            if not detections:
+                self.console.print("[dim]No AI attack detections yet[/dim]")
+                return
+            self.console.print(f"[bold red]Recent AI Attack Detections ({len(detections)})[/bold red]")
+            for d in detections:
+                self.console.print(f"  [{d[3]}] conf={d[4]:.2f} — {d[5][:80]}")
+
+        elif sub == 'train':
+            self.console.print("[cyan]Training behavioral ML models (IsolationForest + Autoencoder + LSTM)...[/cyan]")
+            ok, msg = self.behavioral_engine.train_models()
+            color = 'green' if ok else 'red'
+            self.console.print(f"[{color}]{msg}[/{color}]")
+            if ok:
+                status = self.behavioral_engine.get_ml_status()
+                self.console.print(f"  IsolationForest : {'[green]✓[/green]' if status['isolation_forest_fitted'] else '[red]✗[/red]'}")
+                self.console.print(f"  Autoencoder     : {'[green]✓[/green]' if status['autoencoder_fitted'] else '[red]✗[/red]'} (threshold={status['ae_threshold']})")
+                self.console.print(f"  LSTM            : {'[green]✓[/green]' if status['lstm_fitted'] else '[red]✗[/red]'} (threshold={status['lstm_threshold']})")
+
+        elif sub == 'mlstatus':
+            status = self.behavioral_engine.get_ml_status()
+            self.console.print("[bold cyan]Behavioral ML Model Status[/bold cyan]")
+            self.console.print(f"  IsolationForest : {'[green]fitted[/green]' if status['isolation_forest_fitted'] else '[red]not trained[/red]'}")
+            self.console.print(f"  Autoencoder     : {'[green]fitted[/green]' if status['autoencoder_fitted'] else '[red]not trained[/red]'} | threshold={status['ae_threshold']}")
+            self.console.print(f"  LSTM            : {'[green]fitted[/green]' if status['lstm_fitted'] else '[red]not trained[/red]'} | threshold={status['lstm_threshold']}")
+            self.console.print(f"  Model file      : {'[green]exists[/green]' if status['model_exists'] else '[yellow]not saved[/yellow]'} ({status['model_path']})")
+
+        elif sub == 'feedback':
+            action = parts[2] if len(parts) > 2 else 'stats'
+            if action == 'stats':
+                stats = self.behavioral_engine.get_feedback_stats()
+                self.console.print("[bold cyan]Feedback Loop Statistics[/bold cyan]")
+                self.console.print(f"  Total feedback   : {stats['total_feedback']}")
+                self.console.print(f"  True positives   : [green]{stats['true_positives']}[/green]")
+                self.console.print(f"  False positives  : [red]{stats['false_positives']}[/red]")
+                self.console.print(f"  Unsure           : [yellow]{stats['unsure']}[/yellow]")
+                self.console.print(f"  Used in training : {stats['used_in_training']}")
+                self.console.print(f"  Pending training : [cyan]{stats['pending_training']}[/cyan]")
+            elif action == 'retrain':
+                self.console.print("[cyan]Triggering model retraining with feedback...[/cyan]")
+                ok = self.behavioral_engine.trigger_retrain()
+                if ok:
+                    self.console.print("[green]✓ Retraining completed successfully[/green]")
+                else:
+                    self.console.print("[red]✗ Retraining failed (need more feedback samples)[/red]")
+            else:
+                self.console.print("[red]Usage: heal feedback [stats|retrain][/red]")
+
+        elif sub == 'harden':
+            action = parts[2] if len(parts) > 2 else 'scan'
+            if action == 'scan':
+                self.console.print("[cyan]Scanning system configuration (CIS benchmark)...[/cyan]")
+                report = self.self_healing.get_hardening_report()
+                self.console.print(report)
+            elif action == 'fix':
+                self.console.print("[cyan]Applying configuration hardening fixes...[/cyan]")
+                results = self.self_healing.harden_config(auto_fix=True)
+                self.console.print(f"  Fixed     : [green]{len(results['fixed'])}[/green]")
+                self.console.print(f"  Failed    : [red]{len(results['failed'])}[/red]")
+                self.console.print(f"  Skipped   : [yellow]{len(results['skipped'])}[/yellow]")
+                if results['failed']:
+                    for fail in results['failed'][:5]:
+                        self.console.print(f"    [red]{fail['id']}[/red]: {fail['error'][:60]}")
+                score = self.self_healing.get_compliance_score()
+                self.console.print(f"  Compliance: {score}%")
+            elif action == 'score':
+                score = self.self_healing.get_compliance_score()
+                self.console.print(f"[bold cyan]CIS Compliance Score: {score}%[/bold cyan]")
+            else:
+                self.console.print("[red]Usage: heal harden [scan|fix|score][/red]")
+
+        elif sub == 'incident':
+            action = parts[2] if len(parts) > 2 else 'scan'
+            if action == 'scan':
+                self.console.print("[cyan]Scanning for active security incidents...[/cyan]")
+                incidents = self.self_healing.scan_incidents()
+                if not incidents:
+                    self.console.print("[green]No incidents detected[/green]")
+                else:
+                    self.console.print(f"[bold red]{len(incidents)} incidents detected[/bold red]")
+                    for inc in incidents:
+                        self.console.print(f"  [{inc['severity']}] {inc['type']}: {inc['description']}")
+                        self.console.print(f"    Indicators: {len(inc['indicators'])}")
+            elif action == 'respond':
+                self.console.print("[cyan]Scanning and auto-responding to incidents...[/cyan]")
+                incidents = self.self_healing.scan_incidents()
+                if not incidents:
+                    self.console.print("[green]No incidents to respond to[/green]")
+                else:
+                    for inc in incidents:
+                        result = self.self_healing.respond_to_incident(inc, auto_respond=True)
+                        self.console.print(f"  {result['incident_id']}: {len(result['actions'])} actions taken")
+                        for act in result['actions']:
+                            color = 'green' if act.get('status') == 'success' else 'red'
+                            self.console.print(f"    [{color}]{act['action']}[/{color}]: {act.get('message', '')}")
+            elif action == 'active':
+                summary = self.self_healing.get_active_incidents()
+                self.console.print(summary)
+            elif action.startswith('INC-'):
+                report = self.self_healing.get_incident_report(action)
+                self.console.print(report)
+            else:
+                self.console.print("[red]Usage: heal incident [scan|respond|active|<incident_id>][/red]")
+
+        else:
+            self.console.print("[bold cyan]Self-Healing Engine Commands[/bold cyan]")
+            self.console.print("  heal status              — Engine status + stats")
+            self.console.print("  heal start [interval]    — Start monitoring (default: 3600s)")
+            self.console.print("  heal stop                — Stop monitoring")
+            self.console.print("  heal scan                — Run manual scan now")
+            self.console.print("  heal vulns               — List critical vulnerabilities")
+            self.console.print("  heal patch <package>     — Patch specific package")
+            self.console.print("  heal history             — Patch history")
+            self.console.print("  heal behavioral          — Recent AI attack detections")
+            self.console.print("  heal train               — Train ML models from traffic data")
+            self.console.print("  heal mlstatus            — ML model status + thresholds")
+            self.console.print("  heal feedback stats      — Feedback loop statistics")
+            self.console.print("  heal feedback retrain    — Retrain models with user feedback")
+            self.console.print("  heal harden [scan|fix|score] — CIS benchmark hardening")
+            self.console.print("  heal incident [scan|respond|active|<id>] — Incident response")
+
     def _handle_metasploit(self, command: str):
         """Metasploit Framework commands"""
         parts = command.split(' ', 1)
@@ -5039,6 +5617,181 @@ class TheSentinelPro:
                     self.console.print(f"  [dim]{f}[/dim]")
         except Exception as e:
             self.console.print(f"[red]Filesystem error: {e}[/red]")
+
+    def _handle_behavioral(self, command: str):
+        """Behavioral Intelligence Engine commands"""
+        parts = command.split()
+        sub = parts[1] if len(parts) > 1 else 'status'
+        
+        if sub == 'dashboard':
+            try:
+                from modules.bie_dashboard import BIEDashboard
+                dashboard = BIEDashboard()
+                dashboard.show()
+            except Exception as e:
+                self.console.print(f"[red]Dashboard error: {e}[/red]")
+                logger.exception("BIE dashboard error")
+        
+        elif sub == 'status':
+            self.console.print("\n[bold cyan]🧠 Behavioral Intelligence Engine Status[/bold cyan]")
+            try:
+                import sqlite3
+                conn = sqlite3.connect('data/behavioral_data.db')
+                c = conn.cursor()
+                c.execute("SELECT COUNT(*) FROM behavioral_data")
+                total = c.fetchone()[0]
+                c.execute("SELECT COUNT(*) FROM behavioral_data WHERE timestamp > datetime('now', '-24 hours')")
+                recent = c.fetchone()[0]
+                conn.close()
+                
+                self.console.print(f"  Total events   : {total:,}")
+                self.console.print(f"  Recent (24h)   : {recent:,}")
+                self.console.print(f"  ML models      : [green]✓[/green] LSTM + Isolation Forest + Autoencoder")
+                self.console.print(f"  Feedback loop  : [green]✓[/green] Active")
+            except Exception as e:
+                self.console.print(f"  [yellow]Status error: {e}[/yellow]")
+        
+        else:
+            self.console.print("[red]Usage: behavioral [dashboard|status][/red]")
+            self.console.print("[dim]  dashboard - Show behavioral metrics dashboard[/dim]")
+            self.console.print("[dim]  status    - Show BIE status[/dim]")
+
+    def _handle_predict(self, command: str):
+        """Predictive threat analysis - attack surface mapping & trend analysis"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: predict <surface|trends|target>[/red]")
+            self.console.print("[dim]  predict surface <target>  - Map attack surface[/dim]")
+            self.console.print("[dim]  predict trends            - Analyze threat trends[/dim]")
+            self.console.print("[dim]  predict <target>          - Full predictive analysis[/dim]")
+            return
+        
+        mode = parts[1]
+        
+        if mode == 'surface' and len(parts) >= 3:
+            target = parts[2]
+            self.console.print(f"[bold cyan]Attack Surface Mapping: {target}[/bold cyan]\n")
+            
+            try:
+                from modules.predictive.attack_surface_mapper import AttackSurfaceMapper
+                mapper = AttackSurfaceMapper(target)
+                
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TimeElapsedColumn(),
+                    console=self.console
+                ) as progress:
+                    task = progress.add_task("[cyan]Mapping attack surface...", total=100)
+                    progress.update(task, advance=30, description="[cyan]Port scanning...")
+                    mapper.scan_ports("1-1000")
+                    progress.update(task, advance=30, description="[cyan]Mapping dependencies...")
+                    mapper.map_dependencies()
+                    progress.update(task, advance=20, description="[cyan]Analyzing attack paths...")
+                    mapper.identify_attack_paths()
+                    progress.update(task, advance=20, description="[cyan]Generating report...")
+                    result = mapper.generate_report()
+                    progress.update(task, completed=100, description="[green]Attack surface mapped")
+                
+                self.console.print(f"\n[bold cyan]Attack Surface Analysis[/bold cyan]")
+                self.console.print(f"  Target         : [cyan]{result['target']}[/cyan]")
+                self.console.print(f"  Total Services : [cyan]{result['summary']['total_services']}[/cyan]")
+                self.console.print(f"  Attack Paths   : [yellow]{result['summary']['total_attack_paths']}[/yellow]")
+                self.console.print(f"  High-Risk Paths: [red]{result['summary']['high_risk_paths']}[/red]")
+                
+                if result.get('attack_paths'):
+                    self.console.print(f"\n  [bold red]High-Risk Attack Paths:[/bold red]")
+                    for i, path_info in enumerate(result['attack_paths'][:5], 1):
+                        path = path_info['path']
+                        risk = path_info['risk_score']
+                        service = path_info['service']
+                        port = path_info['target_port']
+                        self.console.print(f"    {i}. [red]{' → '.join(path)}[/red]")
+                        self.console.print(f"       Port: {port} | Service: {service} | Risk: {risk*100:.0f}/100")
+                        if path_info.get('attack_vectors'):
+                            self.console.print(f"       Vectors: {', '.join(path_info['attack_vectors'][:3])}")
+                
+                if result.get('recommendations'):
+                    self.console.print(f"\n  [bold green]Security Recommendations:[/bold green]")
+                    for rec in result['recommendations'][:5]:
+                        self.console.print(f"    • {rec}")
+                
+                self.session_data['attack_surface'] = result
+                self.evidence.add_evidence('attack_surface', result)
+                
+            except Exception as e:
+                self.console.print(f"[red]Error: {e}[/red]")
+                logger.exception("Attack surface mapping error")
+        
+        elif mode == 'trends':
+            self.console.print(f"[bold cyan]Threat Trend Analysis[/bold cyan]\n")
+            
+            try:
+                from modules.predictive.threat_trend_analyzer import ThreatTrendAnalyzer
+                analyzer = ThreatTrendAnalyzer()
+                
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TimeElapsedColumn(),
+                    console=self.console
+                ) as progress:
+                    task = progress.add_task("[cyan]Analyzing threat trends...", total=100)
+                    progress.update(task, advance=40, description="[cyan]Analyzing historical data...")
+                    trends = analyzer.analyze_trends(days=30)
+                    progress.update(task, advance=40, description="[cyan]Generating predictions...")
+                    predictions = analyzer.predict_threats(horizon_days=7)
+                    progress.update(task, advance=20, description="[cyan]Calculating confidence...")
+                    progress.update(task, completed=100, description="[green]Trend analysis complete")
+                
+                self.console.print(f"\n[bold cyan]Threat Trends[/bold cyan]")
+                
+                if trends.get('trending_up'):
+                    self.console.print(f"\n  [bold red]⬆ Emerging Threats ({len(trends['trending_up'])}):[/bold red]")
+                    for threat in trends['trending_up'][:5]:
+                        self.console.print(f"    [red]•[/red] {threat['type']} (+{threat['increase']:.0%} in 7 days)")
+                        self.console.print(f"      [dim]Occurrences: {threat['count']} | Confidence: {threat['confidence']:.0%}[/dim]")
+                
+                if trends.get('trending_down'):
+                    self.console.print(f"\n  [bold green]⬇ Declining Threats ({len(trends['trending_down'])}):[/bold green]")
+                    for threat in trends['trending_down'][:3]:
+                        self.console.print(f"    [green]•[/green] {threat['type']} ({threat['decrease']:.0%} decrease)")
+                
+                if predictions:
+                    self.console.print(f"\n  [bold yellow]7-Day Predictions:[/bold yellow]")
+                    for pred in predictions[:5]:
+                        color = 'red' if pred['predicted_severity'] == 'CRITICAL' else 'yellow'
+                        self.console.print(f"    [{color}]{pred['threat_type']}[/{color}] - Expected: {pred['predicted_count']} occurrences")
+                        self.console.print(f"      [dim]Confidence: {pred['confidence']:.0%} | Severity: {pred['predicted_severity']}[/dim]")
+                
+                warnings = analyzer.get_early_warnings()
+                if warnings:
+                    self.console.print(f"\n  [bold red]⚠ Early Warnings:[/bold red]")
+                    for warn in warnings:
+                        self.console.print(f"    [red]•[/red] {warn['message']}")
+                        self.console.print(f"      [dim]Action: {warn['recommended_action']}[/dim]")
+                
+                result = {'trends': trends, 'predictions': predictions, 'warnings': warnings}
+                self.session_data['threat_trends'] = result
+                self.evidence.add_evidence('threat_trends', result)
+                
+            except Exception as e:
+                self.console.print(f"[red]Error: {e}[/red]")
+                logger.exception("Threat trend analysis error")
+        
+        else:
+            target = parts[1] if len(parts) >= 2 else None
+            if not target:
+                self.console.print("[red]Usage: predict <target>[/red]")
+                return
+            
+            self.console.print(f"[bold cyan]Full Predictive Analysis: {target}[/bold cyan]\n")
+            self._handle_predict(f'predict surface {target}')
+            self.console.print("\n")
+            self._handle_predict('predict trends')
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

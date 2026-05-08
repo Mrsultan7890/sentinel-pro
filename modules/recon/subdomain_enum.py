@@ -111,6 +111,16 @@ class SubdomainEnum:
         self.session.headers.update(HEADERS)
 
     def run(self, domain: str) -> dict:
+        if not domain or not isinstance(domain, str):
+            logger.error('Invalid domain')
+            return {'error': 'Invalid domain', 'subdomains': [], 'total_found': 0}
+        
+        # Domain validation
+        domain = domain.strip().lower()
+        if len(domain) > 253 or not domain.replace('.', '').replace('-', '').isalnum():
+            logger.error(f'Invalid domain format: {domain}')
+            return {'error': 'Invalid domain format', 'subdomains': [], 'total_found': 0}
+        
         result = {
             'domain':    domain,
             'subdomains': [],
@@ -223,7 +233,12 @@ class SubdomainEnum:
                 timeout=20, verify=False
             )
             if resp.status_code == 200:
-                for entry in resp.json():
+                data = resp.json()
+                if not isinstance(data, list):
+                    return results
+                for entry in data:
+                    if not isinstance(entry, dict):
+                        continue
                     for n in entry.get('name_value', '').split('\n'):
                         n = n.strip().lstrip('*.')
                         if n.endswith(domain) and n not in found:
@@ -233,8 +248,12 @@ class SubdomainEnum:
                                 'subdomain': n, 'ip': ip,
                                 'source': 'crt.sh', 'alive': ip != 'unresolved'
                             })
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.warning(f"crt.sh network error: {e}")
+        except requests.exceptions.JSONDecodeError as e:
+            logger.warning(f"crt.sh JSON parse error: {e}")
         except Exception as e:
-            logger.warning(f"crt.sh failed: {e}")
+            logger.error(f"crt.sh failed: {e}")
         return results
 
     # ------------------------------------------------------------------ #
@@ -259,8 +278,10 @@ class SubdomainEnum:
                                 'subdomain': sub, 'ip': ip,
                                 'source': 'hackertarget', 'alive': True
                             })
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.warning(f"HackerTarget network error: {e}")
         except Exception as e:
-            logger.warning(f"HackerTarget failed: {e}")
+            logger.error(f"HackerTarget failed: {e}")
         return results
 
     # ------------------------------------------------------------------ #
@@ -278,7 +299,11 @@ class SubdomainEnum:
             )
             if resp.status_code == 200:
                 data = resp.json()
+                if not isinstance(data, dict):
+                    return results
                 for item in data.get('data', []):
+                    if not isinstance(item, dict):
+                        continue
                     sub = item.get('id', '')
                     if sub.endswith(domain) and sub not in found:
                         found.add(sub)
@@ -287,8 +312,12 @@ class SubdomainEnum:
                             'subdomain': sub, 'ip': ip,
                             'source': 'virustotal', 'alive': ip != 'unresolved'
                         })
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.warning(f"VirusTotal network error: {e}")
+        except requests.exceptions.JSONDecodeError as e:
+            logger.warning(f"VirusTotal JSON parse error: {e}")
         except Exception as e:
-            logger.warning(f"VirusTotal failed: {e}")
+            logger.error(f"VirusTotal failed: {e}")
         return results
 
     # ------------------------------------------------------------------ #
@@ -303,7 +332,12 @@ class SubdomainEnum:
                 timeout=15, verify=False
             )
             if resp.status_code == 200:
-                for entry in resp.json().get('passive_dns', []):
+                data = resp.json()
+                if not isinstance(data, dict):
+                    return results
+                for entry in data.get('passive_dns', []):
+                    if not isinstance(entry, dict):
+                        continue
                     hostname = entry.get('hostname', '').strip()
                     if hostname.endswith(domain) and hostname not in found:
                         found.add(hostname)
@@ -312,8 +346,12 @@ class SubdomainEnum:
                             'subdomain': hostname, 'ip': ip,
                             'source': 'alienvault_otx', 'alive': bool(ip and ip != 'unresolved')
                         })
+        except (requests.Timeout, requests.ConnectionError) as e:
+            logger.warning(f"AlienVault OTX network error: {e}")
+        except requests.exceptions.JSONDecodeError as e:
+            logger.warning(f"AlienVault OTX JSON parse error: {e}")
         except Exception as e:
-            logger.warning(f"AlienVault OTX failed: {e}")
+            logger.error(f"AlienVault OTX failed: {e}")
         return results
 
     # ------------------------------------------------------------------ #

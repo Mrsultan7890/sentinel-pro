@@ -62,6 +62,13 @@ VOIP_PREFIXES = {'google voice', 'twilio', 'vonage', 'bandwidth', 'telnyx', 'voi
 class PhoneOSINT:
 
     def run(self, phone: str) -> dict:
+        if not phone or not isinstance(phone, str):
+            return {'error': 'Invalid phone parameter', 'valid': False}
+        
+        phone = phone.strip()
+        if len(phone) > 20:
+            return {'error': 'Phone number too long', 'valid': False}
+        
         result = {
             'phone':        phone,
             'normalized':   None,
@@ -124,70 +131,123 @@ class PhoneOSINT:
 
     def _numverify_lookup(self, result: dict):
         """NumVerify API — free tier: 100 req/month."""
+        if not isinstance(result, dict):
+            return
+        
         api_key = config.NUMVERIFY_API_KEY if hasattr(config, 'NUMVERIFY_API_KEY') else ''
-        if not api_key:
+        if not api_key or not isinstance(api_key, str) or api_key.startswith('<'):
             result['numverify'] = {'error': 'NUMVERIFY_API_KEY not set'}
             return
-        number = result['normalized'].lstrip('+')
-        resp = rate_limited_get(
-            'https://apilayer.net/api/validate',
-            namespace='phone',
-            params={'access_key': api_key, 'number': number, 'format': 1},
-        )
-        if not resp or resp.status_code != 200:
-            result['numverify'] = {'error': 'NumVerify request failed'}
+        
+        number = result.get('normalized', '')
+        if not number:
             return
-        data = resp.json()
-        if not data.get('valid'):
-            result['numverify'] = {'error': data.get('error', {}).get('info', 'Invalid number')}
-            return
-        result['numverify'] = data
-        # Enrich main result
-        if data.get('carrier'):
-            result['carrier']   = data['carrier']
-        if data.get('line_type'):
-            result['line_type'] = data['line_type']
-        if data.get('location'):
-            result['location']  = data['location']
-        if data.get('country_name'):
-            result['country']   = data['country_name']
+        number = number.lstrip('+')
+        
+        try:
+            resp = rate_limited_get(
+                'https://apilayer.net/api/validate',
+                namespace='phone',
+                params={'access_key': api_key, 'number': number, 'format': 1},
+            )
+            if not resp or resp.status_code != 200:
+                result['numverify'] = {'error': 'NumVerify request failed'}
+                return
+            data = resp.json()
+            if not isinstance(data, dict):
+                result['numverify'] = {'error': 'Invalid response format'}
+                return
+            if not data.get('valid'):
+                result['numverify'] = {'error': data.get('error', {}).get('info', 'Invalid number')}
+                return
+            result['numverify'] = data
+            # Enrich main result
+            if data.get('carrier'):
+                result['carrier']   = data['carrier']
+            if data.get('line_type'):
+                result['line_type'] = data['line_type']
+            if data.get('location'):
+                result['location']  = data['location']
+            if data.get('country_name'):
+                result['country']   = data['country_name']
+        except (requests.Timeout, requests.ConnectionError) as e:
+            result['numverify'] = {'error': f'Network error: {e}'}
+            logger.debug(f'NumVerify network error: {e}')
+        except requests.exceptions.JSONDecodeError as e:
+            result['numverify'] = {'error': 'JSON parse error'}
+            logger.debug(f'NumVerify JSON error: {e}')
+        except Exception as e:
+            result['numverify'] = {'error': str(e)}
+            logger.error(f'NumVerify error: {e}')
 
     def _abstract_lookup(self, result: dict):
         """AbstractAPI Phone Validation — free tier: 250 req/month."""
+        if not isinstance(result, dict):
+            return
+        
         api_key = config.ABSTRACTAPI_PHONE_KEY if hasattr(config, 'ABSTRACTAPI_PHONE_KEY') else ''
-        if not api_key:
+        if not api_key or not isinstance(api_key, str) or api_key.startswith('<'):
             result['abstract'] = {'error': 'ABSTRACTAPI_PHONE_KEY not set'}
             return
-        resp = rate_limited_get(
-            'https://phonevalidation.abstractapi.com/v1/',
-            namespace='phone',
-            params={'api_key': api_key, 'phone': result['normalized'].lstrip('+')},
-        )
-        if not resp or resp.status_code != 200:
-            result['abstract'] = {'error': 'AbstractAPI request failed'}
+        
+        number = result.get('normalized', '')
+        if not number:
             return
-        data = resp.json()
-        result['abstract'] = data
-        # Fill gaps from numverify
-        if not result['carrier'] and data.get('carrier'):
-            result['carrier']   = data['carrier']
-        if not result['line_type'] and data.get('type'):
-            result['line_type'] = data['type']
-        if not result['location'] and data.get('location'):
-            result['location']  = data['location']
+        
+        try:
+            resp = rate_limited_get(
+                'https://phonevalidation.abstractapi.com/v1/',
+                namespace='phone',
+                params={'api_key': api_key, 'phone': number.lstrip('+')},
+            )
+            if not resp or resp.status_code != 200:
+                result['abstract'] = {'error': 'AbstractAPI request failed'}
+                return
+            data = resp.json()
+            if not isinstance(data, dict):
+                result['abstract'] = {'error': 'Invalid response format'}
+                return
+            result['abstract'] = data
+            # Fill gaps from numverify
+            if not result.get('carrier') and data.get('carrier'):
+                result['carrier']   = data['carrier']
+            if not result.get('line_type') and data.get('type'):
+                result['line_type'] = data['type']
+            if not result.get('location') and data.get('location'):
+                result['location']  = data['location']
+        except (requests.Timeout, requests.ConnectionError) as e:
+            result['abstract'] = {'error': f'Network error: {e}'}
+            logger.debug(f'AbstractAPI network error: {e}')
+        except requests.exceptions.JSONDecodeError as e:
+            result['abstract'] = {'error': 'JSON parse error'}
+            logger.debug(f'AbstractAPI JSON error: {e}')
+        except Exception as e:
+            result['abstract'] = {'error': str(e)}
+            logger.error(f'AbstractAPI error: {e}')
 
     # ── Social Hints ──────────────────────────────────────────────────────────
 
     def _social_hints(self, result: dict):
-        number_clean = result['normalized'].lstrip('+')
+        if not isinstance(result, dict) or 'normalized' not in result:
+            return
+        
+        number_clean = result.get('normalized', '').lstrip('+')
+        if not number_clean:
+            result['social_hints'] = []
+            return
+        
         hints = []
         for platform, url_tpl in SOCIAL_PATTERNS.items():
-            url  = url_tpl.format(number=number_clean)
-            resp = rate_limited_get(url, namespace='social',
-                                    headers={'User-Agent': 'Mozilla/5.0'},
-                                    allow_redirects=True)
-            status = 'found' if (resp and resp.status_code == 200) else 'not_found'
-            hints.append({'platform': platform, 'url': url, 'status': status})
+            try:
+                url  = url_tpl.format(number=number_clean)
+                resp = rate_limited_get(url, namespace='social',
+                                        headers={'User-Agent': 'Mozilla/5.0'},
+                                        allow_redirects=True)
+                status = 'found' if (resp and resp.status_code == 200) else 'not_found'
+                hints.append({'platform': platform, 'url': url, 'status': status})
+            except Exception as e:
+                logger.debug(f'Social hint check failed for {platform}: {e}')
+                hints.append({'platform': platform, 'url': '', 'status': 'error'})
         result['social_hints'] = hints
 
     # ── Reputation ────────────────────────────────────────────────────────────

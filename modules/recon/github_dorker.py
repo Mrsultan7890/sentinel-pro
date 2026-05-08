@@ -44,6 +44,57 @@ SECRET_PATTERNS = {
     'jwt':            re.compile(r'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'),
 }
 
+# False positive patterns to ignore
+FALSE_POSITIVE_PATTERNS = [
+    # Function calls
+    re.compile(r'\.(store_password|set_password|get_password|hash_password|check_password)\s*\('),
+    re.compile(r'(getpass\.getpass|input|raw_input)\s*\('),
+    
+    # Variable assignments from user input
+    re.compile(r'(password|pwd|passwd)\s*=\s*(input|getpass|request\.|os\.getenv)'),
+    
+    # Environment variables
+    re.compile(r'os\.getenv\s*\(["\']'),
+    re.compile(r'process\.env\.'),
+    
+    # Configuration placeholders
+    re.compile(r'["\']<[A-Z_]+>["\']'),  # '<API_KEY>'
+    re.compile(r'["\']your[_-]'),         # 'your_api_key'
+    re.compile(r'["\']example[_-]'),      # 'example_password'
+    re.compile(r'["\']changeme["\']'),
+    re.compile(r'["\']replace[_-]'),
+    
+    # Comments
+    re.compile(r'^\s*#'),
+    re.compile(r'^\s*//'),
+    re.compile(r'^\s*\*'),
+    
+    # Documentation
+    re.compile(r'(TODO|FIXME|NOTE|Example|Usage):'),
+    
+    # Test/Mock data
+    re.compile(r'(test|mock|fake|dummy|sample)[_-]?(password|token|key)', re.I),
+    
+    # Password validation functions
+    re.compile(r'(validate|verify|check|compare)_?(password|pwd)', re.I),
+    
+    # Keyring/secure storage
+    re.compile(r'keyring\.(set|get|delete)_password'),
+]
+
+# Whitelist patterns - known safe patterns
+WHITELIST_PATTERNS = [
+    'getpass.getpass',
+    'os.getenv',
+    'process.env',
+    'keyring.set_password',
+    'keyring.get_password',
+    'store_password',
+    'hash_password',
+    'bcrypt.hashpw',
+    'pbkdf2_hmac',
+]
+
 class GitHubDorker:
     API_BASE = 'https://api.github.com/search/code'
     TIMEOUT  = 10
@@ -140,13 +191,64 @@ class GitHubDorker:
             matches = pattern.findall(content)
             for match in matches:
                 match_str = match if isinstance(match, str) else match[-1]
+                
+                # Get context (3 lines before and after)
+                context = self._get_context(content, match_str)
+                
+                # Check if it's a false positive
+                if self._is_false_positive(context, match_str):
+                    logger.debug(f"False positive filtered: {secret_type} in {repo}/{path}")
+                    continue
+                
                 findings.append({
                     'repo':        repo,
                     'path':        path,
                     'url':         item.get('html_url', ''),
                     'secret_type': secret_type,
                     'match':       match_str[:80],
+                    'context':     context[:200],
                     'severity':    'CRITICAL' if secret_type in ('aws_key', 'private_key', 'github_token') else 'HIGH'
                 })
 
         return findings
+    
+    def _get_context(self, content: str, match: str) -> str:
+        """Get 3 lines of context around the match"""
+        lines = content.splitlines()
+        for i, line in enumerate(lines):
+            if match in line:
+                start = max(0, i - 1)
+                end = min(len(lines), i + 2)
+                return '\n'.join(lines[start:end])
+        return match
+    
+    def _is_false_positive(self, context: str, match: str) -> bool:
+        """Check if match is a false positive"""
+        # Check whitelist patterns first
+        for whitelist in WHITELIST_PATTERNS:
+            if whitelist in context:
+                return True
+        
+        # Check false positive patterns
+        for fp_pattern in FALSE_POSITIVE_PATTERNS:
+            if fp_pattern.search(context):
+                return True
+        
+        # Check if it's a placeholder value
+        placeholder_indicators = [
+            'example', 'sample', 'test', 'dummy', 'fake', 'mock',
+            'your_', 'replace_', 'changeme', '<', '>',
+            '***', '...', 'xxx'
+        ]
+        match_lower = match.lower()
+        if any(indicator in match_lower for indicator in placeholder_indicators):
+            return True
+        
+        # Check if value is too generic (all same character, sequential, etc.)
+        if len(set(match)) <= 2:  # e.g., "aaaaaa" or "111111"
+            return True
+        
+        if match in ('password', 'secret', 'token', 'key', 'api_key'):
+            return True
+        
+        return False

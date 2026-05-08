@@ -3,6 +3,10 @@ name = "sentinel_proxy_core"
 version = "2.0.0"
 edition = "2021"
 
+[lib]
+name = "sentinel_proxy_core"
+path = "src/lib.rs"
+
 [[bin]]
 name = "sentinel_proxy_core"
 path = "src/main.rs"
@@ -17,6 +21,7 @@ bytes          = "1"
 rustls         = { version = "0.23", features = ["ring"] }
 rustls-pemfile = "2"
 tokio-rustls   = "0.26"
+ring           = "0.17"
 rcgen          = "0.13"
 serde          = { version = "1", features = ["derive"] }
 serde_json     = "1"
@@ -35,6 +40,13 @@ flate2             = "1"
 brotli             = "7"
 regex              = "1"
 webpki-roots       = "0.26"
+pqcrypto-kyber     = "0.8"
+pqcrypto-dilithium = "0.5"
+pqcrypto-traits    = "0.3"
+x25519-dalek       = "2"
+ed25519-dalek      = "2"
+rand               = "0.8"
+sha2               = "0.10"
 
 [profile.release]
 opt-level     = 3

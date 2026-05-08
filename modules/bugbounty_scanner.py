@@ -88,7 +88,18 @@ class BugBountyScanner:
                 timeout=10, verify=False
             )
             if resp.status_code == 200:
-                for entry in resp.json():
+                try:
+                    data = resp.json()
+                    if not isinstance(data, list):
+                        logger.warning(f"crt.sh returned non-list data")
+                        data = []
+                except ValueError as e:
+                    logger.warning(f"crt.sh JSON parse error: {e}")
+                    data = []
+                
+                for entry in data:
+                    if not isinstance(entry, dict):
+                        continue
                     name = entry.get('name_value', '').strip()
                     for n in name.split('\n'):
                         n = n.strip().lstrip('*.')
@@ -99,6 +110,10 @@ class BugBountyScanner:
                                 'ip': self._resolve_ip(n),
                                 'source': 'crt.sh'
                             })
+        except requests.exceptions.Timeout:
+            logger.warning(f"crt.sh lookup timeout")
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(f"crt.sh connection error: {e}")
         except Exception as e:
             logger.warning(f"crt.sh lookup failed: {e}")
 
@@ -125,15 +140,21 @@ class BugBountyScanner:
         results = {'target': target, 'ip': ip, 'open_ports': [], 'timestamp': datetime.now().isoformat()}
 
         def check_port(port):
+            s = None
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(1)
                 if s.connect_ex((ip, port)) == 0:
                     service = self._get_service_name(port)
                     return {'port': port, 'state': 'open', 'service': service}
-                s.close()
             except Exception:
                 pass
+            finally:
+                if s:
+                    try:
+                        s.close()
+                    except Exception:
+                        pass
             return None
 
         with ThreadPoolExecutor(max_workers=50) as ex:
@@ -179,8 +200,12 @@ class BugBountyScanner:
                         'risk': risk,
                         'content_length': len(r.content)
                     }
-            except Exception:
-                pass
+            except requests.exceptions.Timeout:
+                logger.debug(f"Timeout checking {path}")
+            except requests.exceptions.ConnectionError:
+                logger.debug(f"Connection error checking {path}")
+            except Exception as e:
+                logger.debug(f"Error checking {path}: {e}")
             return None
 
         with ThreadPoolExecutor(max_workers=10) as ex:
@@ -215,7 +240,17 @@ class BugBountyScanner:
                 timeout=8, verify=False
             )
             if resp.status_code == 200:
-                for breach in resp.json():
+                try:
+                    data = resp.json()
+                    if not isinstance(data, list):
+                        data = []
+                except ValueError:
+                    logger.warning("HIBP returned invalid JSON")
+                    data = []
+                
+                for breach in data:
+                    if not isinstance(breach, dict):
+                        continue
                     results['breaches'].append({
                         'name': breach.get('Name'),
                         'domain': breach.get('Domain'),
@@ -227,6 +262,10 @@ class BugBountyScanner:
                 results['status'] = 'No breaches found'
             elif resp.status_code == 401:
                 results['status'] = 'API key required for HIBP - checking alternative sources'
+        except requests.exceptions.Timeout:
+            logger.warning(f"HIBP check timeout")
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(f"HIBP connection error: {e}")
         except Exception as e:
             logger.warning(f"HIBP check failed: {e}")
 
@@ -237,10 +276,17 @@ class BugBountyScanner:
                 timeout=8, verify=False
             )
             if resp.status_code == 200:
-                data = resp.json()
-                if data.get('found'):
-                    results['leakcheck_found'] = True
-                    results['leakcheck_sources'] = data.get('sources', [])
+                try:
+                    data = resp.json()
+                    if data.get('found'):
+                        results['leakcheck_found'] = True
+                        results['leakcheck_sources'] = data.get('sources', [])
+                except ValueError:
+                    logger.warning("LeakCheck returned invalid JSON")
+        except requests.exceptions.Timeout:
+            logger.warning(f"LeakCheck timeout")
+        except requests.exceptions.ConnectionError as e:
+            logger.warning(f"LeakCheck connection error: {e}")
         except Exception as e:
             logger.warning(f"LeakCheck failed: {e}")
 
@@ -259,6 +305,16 @@ class BugBountyScanner:
 
     def full_scan(self, target):
         """Run complete bug bounty recon on a target domain"""
+        # Validate input
+        if not target or not isinstance(target, str):
+            logger.error("Invalid target for full_scan")
+            return {'error': 'Invalid target', 'target': target}
+        
+        target = target.strip()
+        if not target:
+            logger.error("Empty target for full_scan")
+            return {'error': 'Empty target'}
+        
         is_domain = bool(re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', target))
         is_email = bool(re.match(r'^[^@]+@[^@]+\.[^@]+$', target))
 
