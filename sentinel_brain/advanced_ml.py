@@ -178,8 +178,8 @@ class SentinelIsolationForest:
                             'severity': 'HIGH',
                             'detail':   f"ML anomaly score: {score:.3f} — highly unusual pattern",
                         })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"IsolationForest ML anomaly detection error: {e}")
 
         return {
             'anomalies': anomalies,
@@ -288,8 +288,8 @@ class SentinelLightGBM:
                 import joblib
                 self._model = joblib.load(self.MODEL_PATH)
                 logger.info("LightGBM model loaded")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to load LightGBM model: {e}")
 
     def train(self, log_entries: list) -> dict:
         """Log entries se model train karo"""
@@ -565,6 +565,6 @@ class AdvancedMLEngine:
             if stats:
                 fitness = {s['tool']: s['effectiveness'] for s in stats}
                 return self.genetic.evolve(fitness)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to get tool stats from DB for genetic optimizer: {e}")
         return self.genetic.evolve()

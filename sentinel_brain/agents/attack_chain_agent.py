@@ -134,28 +134,42 @@ class AttackChainAgent:
         }
 
         for step in steps[:8]:  # Max 8 steps
-            if step not in TOOL_CMDS:
+            if isinstance(step, dict):
+                tool_name = step.get('tool', '')
+                cmd = step.get('command', TOOL_CMDS.get(tool_name))
+            else:
+                tool_name = step
+                cmd = TOOL_CMDS.get(tool_name)
+
+            if not tool_name or not cmd:
                 continue
-            if not self.kali.tool_available(step):
-                logger.debug(f"[AttackChain] {step} not available, skipping")
+            if not self.kali.tool_available(tool_name):
+                logger.debug(f"[AttackChain] {tool_name} not available, skipping")
                 continue
 
-            logger.info(f"[AttackChain] Running: {step}")
-            r = self.kali.run(TOOL_CMDS[step], timeout=90)
-            results[step] = {
-                'stdout':  r['stdout'][:500],
+            logger.info(f"[AttackChain] Running: {tool_name} with command: {cmd}")
+            r = self.kali.run(cmd, timeout=90)
+            results[tool_name] = {
+                'stdout':  r['stdout'][:4000],
                 'parsed':  r.get('parsed', {}),
                 'success': r['success'],
             }
 
             # Groq se output analyze karo — next step adapt karo
             if self._groq and r['stdout']:
-                analysis = self._groq.analyze_output(step, r['stdout'], target)
-                results[step]['analysis'] = analysis
+                analysis = self._groq.analyze_output(tool_name, r['stdout'], target)
+                results[tool_name]['analysis'] = analysis
                 next_tool = analysis.get('next_tool', '')
-                if next_tool and next_tool not in steps and next_tool in TOOL_CMDS:
-                    steps.append(next_tool)
-                    logger.info(f"[AttackChain] Groq added step: {next_tool}")
+                custom_cmd = analysis.get('custom_command', '')
+                
+                existing_tools = [s.get('tool') if isinstance(s, dict) else s for s in steps]
+                if next_tool and next_tool not in existing_tools:
+                    if custom_cmd:
+                        steps.append({'tool': next_tool, 'command': custom_cmd})
+                        logger.info(f"[AttackChain] Groq added custom step: {next_tool} ({custom_cmd})")
+                    elif next_tool in TOOL_CMDS:
+                        steps.append(next_tool)
+                        logger.info(f"[AttackChain] Groq added step: {next_tool}")
 
         return results
 

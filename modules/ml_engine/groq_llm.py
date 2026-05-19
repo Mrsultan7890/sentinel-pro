@@ -211,7 +211,7 @@ class GroqLLM:
             f"Create a security scan plan for: {target}\n"
             f"Objective: {objective}\n\n"
             f"Reply in JSON format:\n"
-            f'{{"steps": ["tool1", "tool2", ...], "reason": "brief explanation"}}\n'
+            f'{{"steps": [{{"tool": "tool_name", "command": "exact bash command to run"}}, ...], "reason": "brief explanation"}}\n'
             f"Use only tools from: {', '.join(TOOLS)}"
         )
         messages = [
@@ -244,11 +244,12 @@ class GroqLLM:
         
         prompt = (
             f"Analyze this {tool} output for target {target}:\n"
-            f"{output[:800]}\n\n"
+            f"{output[:4000]}\n\n"
             f"Reply in JSON:\n"
             f'{{"risk": "LOW/MEDIUM/HIGH/CRITICAL", '
             f'"findings": ["finding1", ...], '
             f'"next_tool": "tool_name", '
+            f'"custom_command": "exact bash command for next tool", '
             f'"summary": "brief"}}'
         )
         messages = [

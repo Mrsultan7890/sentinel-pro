@@ -1,11 +1,8 @@
 """
-Network Agent — Deep Network Scanning
-======================================
-- masscan: fast full port discovery
-- nmap: deep service fingerprinting
-- SSL/TLS audit
-- Firewall/WAF detection
-- Internal network discovery
+Network Agent v3 — AI-Driven Deep Network Scanning
+===================================================
+Uses LLM to dynamically select port scanning strategies, nmap scripts,
+and follow-up service enumerations.
 
 Author: @who_is_the_black_hat
 """
@@ -22,24 +19,12 @@ RISKY_PORTS = {
     21:    ('FTP',        'HIGH',     'Anonymous FTP possible'),
     22:    ('SSH',        'MEDIUM',   'Brute force possible'),
     23:    ('Telnet',     'CRITICAL', 'Unencrypted protocol'),
-    25:    ('SMTP',       'MEDIUM',   'Email relay possible'),
-    53:    ('DNS',        'MEDIUM',   'Zone transfer possible'),
-    80:    ('HTTP',       'LOW',      'Web server'),
-    443:   ('HTTPS',      'LOW',      'Web server'),
     445:   ('SMB',        'HIGH',     'EternalBlue/ransomware risk'),
-    1433:  ('MSSQL',      'HIGH',     'Database exposed'),
     3306:  ('MySQL',      'HIGH',     'Database exposed'),
     3389:  ('RDP',        'HIGH',     'Remote desktop exposed'),
-    5432:  ('PostgreSQL', 'HIGH',     'Database exposed'),
-    5900:  ('VNC',        'CRITICAL', 'Remote desktop unencrypted'),
     6379:  ('Redis',      'CRITICAL', 'No auth by default'),
-    8080:  ('HTTP-Alt',   'MEDIUM',   'Web server alternate port'),
-    8443:  ('HTTPS-Alt',  'MEDIUM',   'Web server alternate port'),
-    9200:  ('Elasticsearch','CRITICAL','No auth by default'),
     27017: ('MongoDB',    'CRITICAL', 'No auth by default'),
-    2375:  ('Docker',     'CRITICAL', 'Docker API exposed'),
 }
-
 
 class NetworkAgent:
     NAME = 'network_agent'
@@ -48,214 +33,158 @@ class NetworkAgent:
         self.kali     = kali
         self.memory   = memory
         self.sentinel = sentinel
+        from modules.ml_engine.groq_llm import get_groq
+        self._groq = get_groq()
 
     def run(self, target: str, fast: bool = False) -> dict:
         logger.info(f"[NetworkAgent] {target} fast={fast}")
-        result = {}
 
-        # ── Step 1: masscan fast discovery ────────────────────────────────────
-        if self.kali.tool_available('masscan') and not fast:
-            result['masscan'] = self._run_masscan(target)
-            open_ports = result['masscan'].get('ports', [])
-        else:
-            open_ports = []
+        # Build plan
+        plan = self._build_plan(target, fast)
+        logger.info(f"[NetworkAgent] Plan: {plan.get('steps', [])}")
 
-        # ── Step 2: nmap deep scan ────────────────────────────────────────────
-        result['nmap'] = self._run_nmap_deep(target, open_ports)
+        # Execute chain
+        chain_results = self._execute_chain(target, plan)
 
-        # ── Step 3: SSL/TLS audit ─────────────────────────────────────────────
-        nmap_ports = result['nmap'].get('open_ports', [])
-        https_ports = [p['port'] for p in nmap_ports
-                       if p.get('service', '') in ('https', 'ssl', 'http') and p['port'] in (443, 8443)]
-        if https_ports:
-            result['sslscan'] = self._run_sslscan(target, https_ports[0])
-
-        # ── Step 4: Service-specific scans ────────────────────────────────────
-        result['service_scans'] = self._service_specific_scans(target, nmap_ports)
-
-        # ── Findings ──────────────────────────────────────────────────────────
-        findings = self._extract_findings(target, result)
+        # Aggregate findings
+        findings = self._extract_findings(target, chain_results)
         risk     = self._overall_risk(findings)
+        summary   = f"{len(findings)} findings | risk={risk}"
 
-        all_ports = [p['port'] for p in nmap_ports]
-        summary   = (
-            f"{len(all_ports)} open ports: {all_ports[:10]} | "
-            f"{len(findings)} findings | risk={risk}"
-        )
-
-        self.memory.remember_scan(target, 'network', risk, summary, result)
+        self.memory.remember_scan(target, 'network', risk, summary, chain_results)
         for f in findings:
             self.memory.remember_finding(
                 target, self.NAME, f['severity'], f['title'], f['detail'], f.get('fix', '')
             )
         self.memory.remember_decision(target, self.NAME, 'network', 'Network scan', summary)
 
-        result['_findings']      = findings
-        result['_risk']          = risk
-        result['_agent_summary'] = summary
-        return result
+        # Groq overall summary
+        if self._groq and findings:
+            try:
+                critical = [f for f in findings if f['severity'] in ('CRITICAL', 'HIGH')][:3]
+                if critical:
+                    finding_text = '; '.join(f"{f['title']}: {f['detail'][:80]}" for f in critical)
+                    analysis = self._groq.ask(
+                        f"Network findings on {target}: {finding_text}\n"
+                        f"In 2 sentences: what is the most critical network vector?",
+                        max_tokens=80
+                    )
+                    if analysis:
+                        logger.info(f"[NetworkAgent] Groq vector: {analysis[:80]}")
+            except Exception as e:
+                logger.debug(f"[NetworkAgent] Groq summary failed: {e}")
 
-    # ── masscan ───────────────────────────────────────────────────────────────
+        return {
+            '_findings': findings,
+            '_risk': risk,
+            '_agent_summary': summary,
+            'chain_results': chain_results
+        }
 
-    def _run_masscan(self, target: str) -> dict:
-        result = {'ports': [], 'total': 0}
-        r = self.kali.run(
-            f'masscan {target} -p1-65535 --rate=1000 2>/dev/null | head -100',
-            timeout=120
-        )
-        import re
-        for line in r['stdout'].splitlines():
-            m = re.search(r'port (\d+)/(\w+)', line)
-            if m:
-                result['ports'].append(int(m.group(1)))
-        result['total'] = len(result['ports'])
-        logger.info(f"[NetworkAgent] masscan: {result['total']} ports")
-        return result
+    def _build_plan(self, target: str, fast: bool) -> dict:
+        if self._groq:
+            objective = f"Target: {target} | Network port scan and service enumeration. Fast={fast}"
+            plan = self._groq.plan(target, objective)
+            if plan.get('steps'):
+                return plan
+        return {
+            'steps': ['nmap' if fast else 'masscan', 'nmap_deep', 'sslscan'],
+            'reason': 'Default network chain'
+        }
 
-    # ── nmap deep ─────────────────────────────────────────────────────────────
-
-    def _run_nmap_deep(self, target: str, ports: list = None) -> dict:
-        if ports:
-            port_str = ','.join(str(p) for p in ports[:100])
-            cmd = f'nmap -sV -sC -A -p {port_str} {target} 2>/dev/null'
-        else:
-            cmd = f'nmap -sV -sC -T4 --open -p- --min-rate 1000 {target} 2>/dev/null'
-
-        r = self.kali.run(cmd, timeout=180)
-        parsed = r.get('parsed', {})
-        logger.info(f"[NetworkAgent] nmap: {parsed.get('total', 0)} open ports")
-        return parsed
-
-    # ── SSL/TLS ───────────────────────────────────────────────────────────────
-
-    def _run_sslscan(self, target: str, port: int = 443) -> dict:
-        result = {'grade': 'Unknown', 'issues': []}
-        r = self.kali.run(
-            f'sslscan --no-colour {target}:{port} 2>/dev/null',
-            timeout=30
-        )
-        out = r['stdout']
-
-        import re
-        # TLS versions
-        if re.search(r'TLSv1\.0.*enabled', out, re.I):
-            result['issues'].append({'severity': 'HIGH', 'issue': 'TLS 1.0 enabled'})
-        if re.search(r'TLSv1\.1.*enabled', out, re.I):
-            result['issues'].append({'severity': 'MEDIUM', 'issue': 'TLS 1.1 enabled'})
-        if re.search(r'SSLv[23].*enabled', out, re.I):
-            result['issues'].append({'severity': 'CRITICAL', 'issue': 'SSLv2/3 enabled'})
-
-        # Weak ciphers
-        if re.search(r'RC4|DES|NULL|EXPORT|anon', out, re.I):
-            result['issues'].append({'severity': 'HIGH', 'issue': 'Weak cipher suites'})
-
-        # Certificate
-        if re.search(r'expired', out, re.I):
-            result['issues'].append({'severity': 'HIGH', 'issue': 'Certificate expired'})
-
-        result['raw'] = out[:500]
-        return result
-
-    # ── Service-specific scans ────────────────────────────────────────────────
-
-    def _service_specific_scans(self, target: str, ports: list) -> dict:
+    def _execute_chain(self, target: str, plan: dict) -> dict:
         results = {}
-        for port_info in ports[:10]:
-            port = port_info.get('port')
-            svc  = port_info.get('service', '').lower()
+        steps   = plan.get('steps', [])
 
-            if port == 21 or 'ftp' in svc:
-                r = self.kali.run(
-                    f'nmap --script ftp-anon,ftp-vuln* -p 21 {target} 2>/dev/null',
-                    timeout=20
-                )
-                results['ftp'] = r['stdout'][:300]
+        TOOL_CMDS = {
+            'masscan':   f'masscan {target} -p1-65535 --rate=1000 2>/dev/null | head -100',
+            'nmap':      f'nmap -T4 --open {target} 2>/dev/null',
+            'nmap_deep': f'nmap -sV -sC -A -p- --min-rate 1000 {target} 2>/dev/null',
+            'sslscan':   f'sslscan --no-colour {target} 2>/dev/null | tail -50',
+            'ftp':       f'nmap --script ftp-anon,ftp-vuln* -p 21 {target} 2>/dev/null',
+            'smb':       f'nmap --script smb-vuln*,smb-security-mode -p 445 {target} 2>/dev/null',
+            'mysql':     f'nmap --script mysql-info,mysql-empty-password -p 3306 {target} 2>/dev/null',
+            'redis':     f'redis-cli -h {target} ping 2>/dev/null',
+            'mongodb':   f'nmap --script mongodb-info -p 27017 {target} 2>/dev/null',
+        }
 
-            elif port == 445 or 'smb' in svc:
-                r = self.kali.run(
-                    f'nmap --script smb-vuln*,smb-security-mode -p 445 {target} 2>/dev/null',
-                    timeout=30
-                )
-                results['smb'] = r['stdout'][:300]
+        for step in steps[:10]:
+            if isinstance(step, dict):
+                tool_name = step.get('tool', '')
+                cmd = step.get('command', TOOL_CMDS.get(tool_name))
+            else:
+                tool_name = step
+                cmd = TOOL_CMDS.get(tool_name)
 
-            elif port == 3306 or 'mysql' in svc:
-                r = self.kali.run(
-                    f'nmap --script mysql-info,mysql-empty-password -p 3306 {target} 2>/dev/null',
-                    timeout=20
-                )
-                results['mysql'] = r['stdout'][:300]
+            if not tool_name or not cmd:
+                continue
 
-            elif port == 6379 or 'redis' in svc:
-                r = self.kali.run(
-                    f'redis-cli -h {target} ping 2>/dev/null',
-                    timeout=10
-                )
-                if 'PONG' in r['stdout']:
-                    results['redis'] = 'UNAUTHENTICATED — redis responds to PING'
+            logger.info(f"[NetworkAgent] Running: {tool_name} with command: {cmd}")
+            r = self.kali.run(cmd, timeout=120)
+            results[tool_name] = {
+                'stdout':  r['stdout'][:4000],
+                'parsed':  r.get('parsed', {}),
+                'success': r['success']
+            }
 
-            elif port == 27017 or 'mongo' in svc:
-                r = self.kali.run(
-                    f'nmap --script mongodb-info -p 27017 {target} 2>/dev/null',
-                    timeout=20
-                )
-                results['mongodb'] = r['stdout'][:300]
+            if self._groq and r['stdout']:
+                analysis = self._groq.analyze_output(tool_name, r['stdout'], target)
+                results[tool_name]['analysis'] = analysis
+                next_tool = analysis.get('next_tool', '')
+                custom_cmd = analysis.get('custom_command', '')
+
+                existing_tools = [s.get('tool') if isinstance(s, dict) else s for s in steps]
+                if next_tool and next_tool not in existing_tools:
+                    if custom_cmd:
+                        steps.append({'tool': next_tool, 'command': custom_cmd})
+                        logger.info(f"[NetworkAgent] Groq added custom step: {next_tool} ({custom_cmd})")
+                    elif next_tool in TOOL_CMDS:
+                        steps.append(next_tool)
+                        logger.info(f"[NetworkAgent] Groq added step: {next_tool}")
 
         return results
 
-    # ── Findings ──────────────────────────────────────────────────────────────
-
-    def _extract_findings(self, target: str, data: dict) -> list:
+    def _extract_findings(self, target: str, chain_results: dict) -> list:
         findings = []
+        for tool, data in chain_results.items():
+            stdout = data.get('stdout', '')
+            parsed = data.get('parsed', {})
 
-        # Risky open ports
-        nmap = data.get('nmap', {})
-        for port_info in nmap.get('open_ports', []):
-            port = port_info.get('port')
-            if port in RISKY_PORTS:
-                svc_name, sev, reason = RISKY_PORTS[port]
-                findings.append({
-                    'type': f'port_{port}',
-                    'title': f'{svc_name} Port Open ({port})',
-                    'severity': sev,
-                    'detail': f"Port {port} ({svc_name}) open — {reason} | "
-                              f"version: {port_info.get('version','unknown')}",
-                    'fix': f'Close port {port} if not needed, or restrict with firewall',
-                })
+            if tool in ['nmap', 'nmap_deep']:
+                for port_info in parsed.get('open_ports', []):
+                    port = port_info.get('port')
+                    if port in RISKY_PORTS:
+                        svc_name, sev, reason = RISKY_PORTS[port]
+                        findings.append({
+                            'type': f'port_{port}',
+                            'title': f'{svc_name} Port Open ({port})',
+                            'severity': sev,
+                            'detail': f"Port {port} ({svc_name}) open — {reason} | version: {port_info.get('version','unknown')}",
+                            'fix': f'Close port {port} if not needed, or restrict with firewall',
+                        })
 
-        # SSL issues
-        for issue in data.get('sslscan', {}).get('issues', []):
-            findings.append({
-                'type': 'ssl_issue',
-                'title': f"SSL/TLS Issue: {issue['issue']}",
-                'severity': issue['severity'],
-                'detail': issue['issue'],
-                'fix': 'Disable legacy protocols, use TLS 1.2+ with strong ciphers',
-            })
+            elif tool == 'sslscan':
+                if 'SSLv3' in stdout or 'SSLv2' in stdout:
+                    findings.append({'severity': 'CRITICAL', 'title': 'SSLv2/3 enabled', 'detail': 'Legacy protocols', 'fix': 'Disable SSL'})
+            
+            elif tool == 'redis':
+                if 'PONG' in stdout:
+                    findings.append({'severity': 'CRITICAL', 'title': 'Redis Unauthenticated', 'detail': 'Redis responds to PING', 'fix': 'Requirepass'})
 
-        # Redis unauthenticated
-        if 'UNAUTHENTICATED' in str(data.get('service_scans', {}).get('redis', '')):
-            findings.append({
-                'type': 'redis_unauth',
-                'title': 'Redis Unauthenticated Access',
-                'severity': 'CRITICAL',
-                'detail': f'Redis on {target}:6379 responds without authentication',
-                'fix': 'Set requirepass in redis.conf, bind to localhost only',
-            })
+            elif tool == 'smb':
+                if 'VULNERABLE' in stdout.upper():
+                    findings.append({'severity': 'CRITICAL', 'title': 'SMB Vuln', 'detail': stdout[:200], 'fix': 'Patch SMB'})
 
-        # SMB vulnerabilities
-        smb_out = data.get('service_scans', {}).get('smb', '')
-        if 'VULNERABLE' in str(smb_out).upper():
-            findings.append({
-                'type': 'smb_vuln',
-                'title': 'SMB Vulnerability Detected',
-                'severity': 'CRITICAL',
-                'detail': str(smb_out)[:200],
-                'fix': 'Apply MS17-010 patch, disable SMBv1',
-            })
+            # General risk assessment from LLM
+            analysis = data.get('analysis', {})
+            risk = analysis.get('risk', '')
+            if risk in ['HIGH', 'CRITICAL'] and analysis.get('findings'):
+                for f in analysis['findings']:
+                    findings.append({'severity': risk, 'title': 'AI Discovered Vuln', 'detail': f, 'fix': 'Investigate'})
 
         return findings
 
     def _overall_risk(self, findings: list) -> str:
         if not findings:
             return 'LOW'
-        return min(findings, key=lambda f: _SEV_ORDER.get(f['severity'], 4))['severity']
+        return min(findings, key=lambda f: _SEV_ORDER.get(f.get('severity', 'LOW'), 4), default={'severity': 'LOW'}).get('severity', 'LOW')

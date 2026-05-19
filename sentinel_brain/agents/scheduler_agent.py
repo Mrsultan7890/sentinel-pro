@@ -159,7 +159,8 @@ class SchedulerAgent:
                     continue
                 try:
                     next_dt = datetime.fromisoformat(next_run)
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"[Scheduler] Date parsing error for {name}: {e}")
                     continue
 
                 if now >= next_dt:
@@ -229,8 +230,8 @@ class SchedulerAgent:
                 minute = int(parts[0]) if parts[0] != '*' else 0
                 hour   = int(parts[1]) if parts[1] != '*' else 0
                 return self._next_daily(hour, minute)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[Scheduler] Cron parsing error for '{cron}': {e}")
         return datetime.now() + timedelta(hours=1)
 
     def _save_schedules(self):
@@ -250,8 +251,8 @@ class SchedulerAgent:
                 if enabled:
                     self.start()
                 logger.info(f"[Scheduler] Loaded {len(self._schedules)} schedules ({enabled} enabled)")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"[Scheduler] Failed to load schedules: {e}")
 
     def status(self) -> dict:
         with self._lock:

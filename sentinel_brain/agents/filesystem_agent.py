@@ -61,8 +61,8 @@ class FileSystemAgent:
             try:
                 shutil.copy2(ss, dst)
                 collected.append(str(dst))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"[FileSystemAgent] Screenshot copy failed for {ss}: {e}")
 
         # Reports copy karo
         reports = self._find_reports(target)
@@ -71,8 +71,8 @@ class FileSystemAgent:
             try:
                 shutil.copy2(rpt, dst)
                 collected.append(str(dst))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"[FileSystemAgent] Report copy failed for {rpt}: {e}")
 
         # Hash manifest banao
         manifest = self._create_manifest(ev_dir, collected)
@@ -159,8 +159,8 @@ class FileSystemAgent:
                             'pattern': pattern,
                             'size':    Path(line).stat().st_size,
                         })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"[FileSystemAgent] Sensitive file search failed for {pattern}: {e}")
         return found[:50]
 
     def search_credentials_in_files(self, directory: str = '/home/kali/osints') -> list:
@@ -190,8 +190,8 @@ class FileSystemAgent:
                                 'match':   m.group(0)[:80],
                                 'line':    content[:m.start()].count('\n') + 1,
                             })
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"[FileSystemAgent] Credential search failed in {fpath}: {e}")
         return findings[:20]
 
     # ── File Integrity ────────────────────────────────────────────────────────
@@ -280,8 +280,8 @@ class FileSystemAgent:
                 try:
                     f.unlink()
                     deleted += 1
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"[FileSystemAgent] Cleanup failed for {f}: {e}")
         logger.info(f"[FileSystemAgent] Cleaned {deleted} old reports (>{days} days)")
         return deleted
 

@@ -653,8 +653,8 @@ class TheSentinelPro:
             c = depth_colors.get(SCAN_DEPTH, 'cyan')
             i = depth_icons.get(SCAN_DEPTH, '⚖')
             table.add_row("Scan Depth:", f"[{c}]{i} {SCAN_DEPTH}[/{c}]")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to load scan depth indicator: {e}")
         
         if 'target' in self.session_data:
             table.add_row("Current Target:", f"[magenta]{self.session_data['target']}[/magenta]")
@@ -1400,8 +1400,8 @@ class TheSentinelPro:
         try:
             from modules.wordlist_manager import wordlist_status_table
             self.console.print(wordlist_status_table())
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to load wordlist status table: {e}")
 
         # Session info
         if self.session_data:
@@ -3838,8 +3838,8 @@ except KeyboardInterrupt:
                     service_st = '[green]ACTIVE[/green]' if ps['active'] else '[red]INACTIVE[/red]'
                     boot_st = '[green]ENABLED[/green]' if ps['enabled'] else '[yellow]DISABLED[/yellow]'
                     self.console.print(f"Service : {service_st} | Boot: {boot_st}")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to load persistent service status: {e}")
             
             self.console.print("[dim]Commands: monitor add <target> | monitor persistent install | monitor persistent status[/dim]")
 
@@ -4168,8 +4168,8 @@ except KeyboardInterrupt:
                 if r.stdout.strip():
                     import time; time.sleep(0.5)
                     return True
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to kill port 8082: {e}")
             return False
 
         def _is_running() -> bool:

@@ -108,7 +108,7 @@ class NotificationAgent:
                 '--icon',    cfg['icon'],
                 '--expire-time', str(timeout),
                 f'🛡️ Sentinel — {title}',
-                message[:200],
+                message[:4000],
             ], capture_output=True, timeout=5)
             return True
         except Exception as e:
@@ -165,8 +165,8 @@ class NotificationAgent:
             subprocess.run(['paplay', '/usr/share/sounds/freedesktop/stereo/message.oga'],
                            capture_output=True, timeout=3)
             return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[NotificationAgent] System beep fallback failed: {e}")
 
         # Terminal bell
         print('\a', end='', flush=True)

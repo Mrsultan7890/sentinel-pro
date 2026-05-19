@@ -98,8 +98,8 @@ class CredentialAgent:
         if VAULT_FILE.exists():
             try:
                 return json.loads(VAULT_FILE.read_text())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"[CredentialAgent] Failed to load vault: {e}")
         return {}
 
     def _save_vault(self):
@@ -200,8 +200,8 @@ class CredentialAgent:
                     results['TELEGRAM_BOT_TOKEN'] = {'status': 'ACTIVE', 'valid': True}
                 else:
                     results['TELEGRAM_BOT_TOKEN'] = {'status': 'INVALID', 'valid': False}
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"[CredentialAgent] Telegram validation failed: {e}")
 
         return results
 
@@ -259,7 +259,7 @@ class CredentialAgent:
                 'public':     str(pub),
                 'public_key': pub.read_text().strip() if pub.exists() else '',
             }
-        return {'success': False, 'error': r.stderr[:200]}
+        return {'success': False, 'error': r.stderr[:4000]}
 
     # ── Status ────────────────────────────────────────────────────────────────
 

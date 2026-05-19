@@ -1,17 +1,10 @@
-# ============================================================================
-# Sentinel Pro v3.0 — Professional OSINT & Bug Bounty Platform
-# Copyright (c) 2026 @who_is_the_black_hat. All rights reserved.
-#
-# Unauthorized copying, distribution, or modification of this software,
-# via any medium, is strictly prohibited without written permission.
-#
-# Licensed users may use this software under the terms of their license.
-# For licensing: https://github.com/Mrsultan7890/osints
-# ============================================================================
-
 """
-OSINT Agent v2 — KaliController directly use karta hai
-Person, Email, Phone, Image + Kali tools (sherlock, holehe, theHarvester, phoneinfoga)
+OSINT Agent v3 — AI-Driven Open Source Intelligence
+===================================================
+Uses LLM to dynamically select and execute OSINT tools (sherlock,
+holehe, phoneinfoga, etc.) based on target type.
+
+Author: @who_is_the_black_hat
 """
 
 import re
@@ -21,7 +14,6 @@ from sentinel_brain.memory import Memory
 
 logger = logging.getLogger(__name__)
 
-
 class OsintAgent:
     NAME = 'osint_agent'
 
@@ -30,56 +22,21 @@ class OsintAgent:
         self.memory   = memory
         self.sentinel = sentinel
         self.terminal = kali
-        # Groq singleton — person profile summary ke liye
         from modules.ml_engine.groq_llm import get_groq
         self._groq = get_groq()
 
     def run(self, target: str, target_type: str = None) -> dict:
         target_type = target_type or self._detect_type(target)
-        # Domain pe osint skip karo
         if target_type == 'domain':
             return {'_agent_summary': 'domain target — osint skipped', '_risk': 'LOW', 'success': True}
         logger.info(f"[OsintAgent] {target_type} on {target}")
-        result = {}
 
-        if self.sentinel:
-            try:
-                if target_type == 'email':
-                    self.sentinel._handle_email(f'email {target}')
-                    result = self.sentinel.session_data.get('email', {})
-                elif target_type == 'phone':
-                    self.sentinel._handle_phone(f'phone {target}')
-                    result = self.sentinel.session_data.get('phone', {})
-                elif target_type == 'image':
-                    self.sentinel._handle_image(f'image {target}')
-                    result = self.sentinel.session_data.get('image', {})
-                else:
-                    self.sentinel._handle_person(f'person {target}')
-                    result = self.sentinel.session_data.get('person', {})
-            except Exception as e:
-                logger.error(f"[OsintAgent] sentinel failed: {e}")
-                result = self._kali_osint(target, target_type)
-        else:
-            # Check if any Kali tools are available before proceeding
-            available_tools = []
-            if self.kali.tool_available('sherlock'):
-                available_tools.append('sherlock')
-            if self.kali.tool_available('holehe'):
-                available_tools.append('holehe')
-            if self.kali.tool_available('phoneinfoga'):
-                available_tools.append('phoneinfoga')
-            
-            if not available_tools and target_type != 'domain':
-                logger.warning(f"[OsintAgent] No OSINT tools available for {target_type}")
-                result = {
-                    'error': f'No OSINT tools available for {target_type}',
-                    'risk_level': 'LOW',
-                    'target_type': target_type,
-                    'social_profiles': [],
-                    'available_tools': available_tools
-                }
-            else:
-                result = self._kali_osint(target, target_type)
+        plan = self._build_plan(target, target_type)
+        logger.info(f"[OsintAgent] Plan: {plan.get('steps', [])}")
+
+        chain_results = self._execute_chain(target, plan, target_type)
+
+        result = self._aggregate_results(chain_results, target_type)
 
         risk     = result.get('risk_level', 'LOW')
         profiles = len(result.get('social_profiles', []))
@@ -91,24 +48,20 @@ class OsintAgent:
         if result.get('total_breaches', 0) > 0:
             self.memory.remember_finding(target, self.NAME, 'HIGH',
                 'Breach Data', f"{result.get('total_breaches',0)} breaches", 'Passwords change karo, 2FA enable karo')
-        if result.get('total_stealer_logs', 0) > 0:
-            self.memory.remember_finding(target, self.NAME, 'CRITICAL',
-                'Infostealer Logs', f"{result.get('total_stealer_logs',0)} logs", 'Sab credentials rotate karo')
 
         result['_agent_summary'] = summary
         result['_risk']          = risk
         result['_target_type']   = target_type
+        result['chain_results']  = chain_results
 
-        # Groq — person profile ke liye threat narrative banao
+        # Groq
         if self._groq and target_type == 'person':
-            profiles = result.get('social_profiles', [])
-            if profiles:
+            profiles_list = result.get('social_profiles', [])
+            if profiles_list:
                 try:
-                    platform_list = ', '.join(p['platform'] for p in profiles[:5])
+                    platform_list = ', '.join(p['platform'] for p in profiles_list[:5])
                     groq_summary = self._groq.ask(
-                        f"OSINT target found on: {platform_list}. "
-                        f"Risk level: {risk}. "
-                        f"In 1 sentence: what is the OSINT threat profile of this person?",
+                        f"OSINT target found on: {platform_list}. Risk level: {risk}. In 1 sentence: what is the OSINT threat profile of this person?",
                         max_tokens=80
                     )
                     if groq_summary:
@@ -125,54 +78,101 @@ class OsintAgent:
             return 'phone'
         if target.endswith(('.jpg', '.jpeg', '.png', '.webp')):
             return 'image'
-        # Domain hai to person OSINT mat karo
         if re.match(r'^[a-zA-Z0-9][-a-zA-Z0-9.]+\.[a-zA-Z]{2,}$', target):
             return 'domain'
         return 'person'
 
-    def _kali_osint(self, target: str, target_type: str) -> dict:
-        """Direct Kali OSINT tools"""
-        results = {'target_type': target_type, 'social_profiles': []}
+    def _build_plan(self, target: str, target_type: str) -> dict:
+        if self._groq:
+            objective = f"Target: {target} | Type: {target_type} | Need OSINT intelligence."
+            plan = self._groq.plan(target, objective)
+            if plan.get('steps'):
+                return plan
+        
+        default_steps = []
+        if target_type == 'person': default_steps = ['sherlock', 'maigret']
+        elif target_type == 'email': default_steps = ['holehe', 'mx']
+        elif target_type == 'phone': default_steps = ['phoneinfoga']
 
-        if target_type == 'person':
-            # Sherlock
-            if self.kali.tool_available('sherlock'):
-                r = self.kali.run(
-                    f'sherlock {target} --timeout 5 --print-found 2>/dev/null | head -30',
-                    timeout=60
-                )
+        return {'steps': default_steps, 'reason': 'Default OSINT chain'}
+
+    def _execute_chain(self, target: str, plan: dict, target_type: str) -> dict:
+        results = {}
+        steps   = plan.get('steps', [])
+
+        domain = target.split('@')[-1] if target_type == 'email' else ''
+
+        TOOL_CMDS = {
+            'sherlock':    f'sherlock {target} --timeout 5 --print-found 2>/dev/null | head -50',
+            'maigret':     f'maigret {target} --print-found --no-color 2>/dev/null | head -50',
+            'holehe':      f'holehe {target} 2>/dev/null | head -50',
+            'mx':          f'dig +short MX {domain}',
+            'phoneinfoga': f'phoneinfoga scan -n {target} 2>/dev/null | head -50',
+        }
+
+        for step in steps[:6]:
+            if isinstance(step, dict):
+                tool_name = step.get('tool', '')
+                cmd = step.get('command', TOOL_CMDS.get(tool_name))
+            else:
+                tool_name = step
+                cmd = TOOL_CMDS.get(tool_name)
+
+            if not tool_name or not cmd:
+                continue
+            
+            logger.info(f"[OsintAgent] Running: {tool_name} with command: {cmd}")
+            r = self.kali.run(cmd, timeout=90)
+            results[tool_name] = {
+                'stdout':  r['stdout'][:4000],
+                'parsed':  r.get('parsed', {}),
+                'success': r['success']
+            }
+
+            if self._groq and r['stdout']:
+                analysis = self._groq.analyze_output(tool_name, r['stdout'], target)
+                results[tool_name]['analysis'] = analysis
+                next_tool = analysis.get('next_tool', '')
+                custom_cmd = analysis.get('custom_command', '')
+
+                existing_tools = [s.get('tool') if isinstance(s, dict) else s for s in steps]
+                if next_tool and next_tool not in existing_tools:
+                    if custom_cmd:
+                        steps.append({'tool': next_tool, 'command': custom_cmd})
+                        logger.info(f"[OsintAgent] Groq added custom step: {next_tool} ({custom_cmd})")
+                    elif next_tool in TOOL_CMDS:
+                        steps.append(next_tool)
+                        logger.info(f"[OsintAgent] Groq added step: {next_tool}")
+
+        return results
+
+    def _aggregate_results(self, chain_results: dict, target_type: str) -> dict:
+        results = {'target_type': target_type, 'social_profiles': [], 'risk_level': 'LOW'}
+
+        for tool, data in chain_results.items():
+            stdout = data.get('stdout', '')
+            parsed = data.get('parsed', {})
+
+            if tool == 'sherlock':
                 profiles = []
-                for line in r['stdout'].splitlines():
+                for line in stdout.splitlines():
                     if line.startswith('[+]'):
                         url = line.replace('[+]', '').strip()
                         platform = url.split('/')[2] if '/' in url else url
-                        profiles.append({'platform': platform, 'url': url, 'username': target})
-                results['social_profiles'] = profiles
-                results['sherlock_raw']    = r['stdout']
+                        profiles.append({'platform': platform, 'url': url})
+                results['social_profiles'].extend(profiles)
+                results['sherlock_raw'] = stdout
+            
+            elif tool == 'maigret':
+                results['maigret_raw'] = stdout
+            elif tool == 'holehe':
+                results['holehe_raw'] = stdout
+            elif tool == 'mx':
+                results['mx'] = parsed
+            elif tool == 'phoneinfoga':
+                results['phoneinfoga_raw'] = stdout
 
-            # Maigret
-            if self.kali.tool_available('maigret'):
-                r = self.kali.run(
-                    f'maigret {target} --print-found --no-color 2>/dev/null | head -30',
-                    timeout=60
-                )
-                results['maigret_raw'] = r['stdout']
-
-        elif target_type == 'email':
-            # Holehe
-            if self.kali.tool_available('holehe'):
-                r = self.kali.run(f'holehe {target} 2>/dev/null | head -30', timeout=30)
-                results['holehe_raw'] = r['stdout']
-            # MX check
-            domain = target.split('@')[-1]
-            r = self.kali.run(f'dig +short MX {domain}', timeout=10)
-            results['mx'] = r['parsed']
-
-        elif target_type == 'phone':
-            # PhoneInfoga
-            if self.kali.tool_available('phoneinfoga'):
-                r = self.kali.run(f'phoneinfoga scan -n {target} 2>/dev/null | head -30', timeout=30)
-                results['phoneinfoga_raw'] = r['stdout']
-
-        results['risk_level'] = 'LOW'
+        if results['social_profiles']:
+            results['risk_level'] = 'MEDIUM'
+            
         return results
