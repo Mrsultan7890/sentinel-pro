@@ -52,7 +52,8 @@ class WhoisLookup:
             import whois
             w = whois.whois(domain)
             if not w:
-                return {'error': 'No WHOIS data'}
+                logger.info(f"No WHOIS data for {domain} (subdomain or restricted TLD)")
+                return {'error': 'No WHOIS data', 'note': 'Subdomain or restricted TLD'}
             return {
                 'registrar':       self._str(w.registrar),
                 'creation_date':   self._date(w.creation_date),

@@ -12,7 +12,7 @@
 > **Professional OSINT · Bug Bounty · Threat Intelligence · Autonomous AI Platform**
 > Multi-language: **Python** · **Go** · **Rust** · **Solidity**
 > Built-in **Autonomous AI Brain** with ReAct Loop · Q-Learning RL · Custom Neural Networks
-> **26,395+ Code Files** · **6.5GB Project** · **181MB ML Models** · **34,458 Attack Payloads**
+> **257 Source Files** · **85K+ Lines of Code** · **181MB ML Models** · **34,458 Attack Payloads**
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)](https://rust-lang.org)
@@ -46,7 +46,7 @@ This is **not** a script collection. This is a fully autonomous AI security plat
 - The AI **orchestrates** — 19 autonomous agents working in parallel
 - The AI **attacks** — 34,458 attack payloads across 35+ vulnerability types
 - Everything runs on **your machine** — no cloud required for core features
-- **26,395+ code files** — Python, Go, Rust, Solidity across 6.5GB project
+- **257 source files** — 85,386 lines of hand-written code across 4 languages
 
 ---
 
@@ -110,7 +110,7 @@ sentinel-pro> brain investigate target.com
 |----------|-------------|
 | **Autonomous Brain** | ReAct loop, adaptive planning, retry logic, ML-driven decisions |
 | **19 Agents** | recon, exploit, osint, breach, report, darkweb, network, terminal, scheduler, credential, system_monitor, correlation, filesystem, monitor, notification, browser, attack_chain, threat_intel, behavioral |
-| **Sentinel Intel** | Maltego-style graph intelligence platform · 14 engines (Email, Phone, IP, Domain, Person, Username, Hash, Cryptocurrency, CVE, Breach, Company, Malware, URL, Database) · 40+ transforms · PyQt6 GUI · AI-powered auto-chaining · Risk visualization · Federated learning support |
+| **Sentinel Intel** | Maltego-style graph intelligence platform · 14 engines (Email, Phone, IP, Domain, Person, Username, Hash, Cryptocurrency, CVE, Breach, Company, Malware, URL, Database) · 40+ transforms · PyQt6 GUI · AI-powered auto-chaining · Risk visualization · Federated learning support · **SUB-ENTITY creation** (Maltego-style nested entities) |
 | **RL Agent** | Q-Learning, 19 tools, 171 states learned, epsilon-greedy |
 | **SentinelNet v5.0** | CNN+Transformer, F1=0.83, threat/type/action/confidence |
 | **Seq2Seq v2.0** | CNN Encoder + Transformer Decoder, cmd_gen/chain_gen/report_gen |
@@ -1546,6 +1546,141 @@ forensics       → YARA match → suggest: breach investigation
 ```
 
 Auto actions execute immediately. Pending actions shown as suggestions in CLI.
+
+---
+
+## API Keys Configuration
+
+**35 API keys supported across all modules**
+
+### Setup Methods
+
+**Method 1: Manual (.env file)**
+```bash
+cp .env.example .env
+nano .env
+```
+
+**Method 2: CLI Command**
+```bash
+sentinel-pro> cred add GROQ_API_KEY your_key_here
+sentinel-pro> cred list                    # List all keys
+sentinel-pro> cred validate                # Validate all keys
+```
+
+### Core Services (Required for Full Functionality)
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `GROQ_API_KEY` | Groq LLM (llama-3.3-70b) | Brain, SentinelProxy, Reports, Intel | [groq.com](https://console.groq.com) |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot | Notifications, Monitor, Alerts | [@BotFather](https://t.me/botfather) |
+| `TELEGRAM_CHAT_ID` | Telegram Chat | Notifications, Monitor, Alerts | Send `/start` to bot, check updates |
+
+### Security & Vulnerability APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `SHODAN_API_KEY` | Shodan | Bug Bounty, Recon, Intel | [shodan.io/account](https://account.shodan.io) |
+| `NVD_API_KEY` | NVD CVE Database | Bug Bounty, CVE Lookup | [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) |
+| `VIRUSTOTAL_API_KEY` | VirusTotal | Intel (Hash/URL/IP) | [virustotal.com](https://www.virustotal.com/gui/my-apikey) |
+
+### Breach & Leak Detection APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `HIBP_API_KEY` | HaveIBeenPwned | Breach Check, Intel | [haveibeenpwned.com/API/Key](https://haveibeenpwned.com/API/Key) |
+| `DEHASHED_EMAIL` | Dehashed Account | Breach Check | [dehashed.com](https://dehashed.com) |
+| `DEHASHED_API_KEY` | Dehashed | Breach Check | [dehashed.com](https://dehashed.com) |
+| `INTELX_API_KEY` | IntelX | Breach Check | [intelx.io](https://intelx.io) |
+| `LEAKCHECK_API_KEY` | LeakCheck | Breach Check | [leakcheck.io](https://leakcheck.io) |
+
+### OSINT & Intelligence APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `HUNTER_API_KEY` | Hunter.io | Email OSINT | [hunter.io](https://hunter.io/api) |
+| `PIPL_API_KEY` | Pipl | Person OSINT | [pipl.com](https://pipl.com) |
+| `FULLCONTACT_API_KEY` | FullContact | Email/Person OSINT | [fullcontact.com](https://www.fullcontact.com) |
+| `CLEARBIT_API_KEY` | Clearbit | Intel (Company) | [clearbit.com](https://clearbit.com) |
+
+### Network & Infrastructure APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `SECURITYTRAILS_API_KEY` | SecurityTrails | Recon, Intel (Domain) | [securitytrails.com](https://securitytrails.com) |
+| `CENSYS_API_ID` | Censys | Intel (IP) | [censys.io](https://censys.io) |
+| `CENSYS_API_SECRET` | Censys | Intel (IP) | [censys.io](https://censys.io) |
+| `URLSCAN_API_KEY` | URLScan.io | Intel (URL) | [urlscan.io](https://urlscan.io) |
+| `BUILTWITH_API_KEY` | BuiltWith | Intel (Domain) | [builtwith.com](https://builtwith.com) |
+
+### Threat Intelligence APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `ABUSEIPDB_API_KEY` | AbuseIPDB | Intel (IP) | [abuseipdb.com](https://www.abuseipdb.com) |
+| `GREYNOISE_API_KEY` | GreyNoise | Intel (IP) | [greynoise.io](https://greynoise.io) |
+| `PHISHTANK_API_KEY` | PhishTank | Intel (URL) | [phishtank.com](https://www.phishtank.com) |
+| `CHECKPHISH_API_KEY` | CheckPhish | Intel (URL) | [checkphish.ai](https://checkphish.ai) |
+
+### Malware Analysis APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `MALSHARE_API_KEY` | MalShare | Intel (Hash) | [malshare.com](https://malshare.com) |
+| `HYBRIDANALYSIS_API_KEY` | Hybrid Analysis | Intel (Hash) | [hybrid-analysis.com](https://www.hybrid-analysis.com) |
+
+### Development & Search APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `GITHUB_TOKEN` | GitHub | Recon (GitHub Dorking) | [github.com/settings/tokens](https://github.com/settings/tokens) |
+| `SERPAPI_KEY` | SerpAPI | Recon (Google Dorking) | [serpapi.com](https://serpapi.com) |
+
+### Phone Validation APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `NUMVERIFY_API_KEY` | NumVerify | Phone OSINT, Intel | [numverify.com](https://numverify.com) |
+| `ABSTRACTAPI_PHONE_KEY` | AbstractAPI | Phone OSINT, Intel | [abstractapi.com](https://www.abstractapi.com/phone-validation-api) |
+
+### Blockchain & Crypto APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `ETHERSCAN_API_KEY` | Etherscan | Intel (Cryptocurrency) | [etherscan.io](https://etherscan.io) |
+| `WHALE_ALERT_API_KEY` | Whale Alert | Intel (Cryptocurrency) | [whale-alert.io](https://whale-alert.io) |
+
+### Business Intelligence APIs
+
+| Key | Service | Used In | Get It From |
+|-----|---------|---------|-------------|
+| `CRUNCHBASE_API_KEY` | Crunchbase | Intel (Company) | [crunchbase.com](https://www.crunchbase.com) |
+| `COMPANIES_HOUSE_API_KEY` | Companies House UK | Intel (Company) | [companieshouse.gov.uk](https://developer.companieshouse.gov.uk) |
+
+### Other Configuration
+
+| Key | Service | Used In | Notes |
+|-----|---------|---------|-------|
+| `TOR_PASSWORD` | Tor Control | Dark Web, Stealth | Set in torrc file |
+
+### Test Your Configuration
+
+```bash
+# Run API key test
+python3 test_api_keys.py
+
+# Or from CLI
+sentinel-pro> cred validate
+```
+
+### Summary
+
+- **Total API Keys:** 35
+- **Required:** 1 (GROQ_API_KEY for AI features)
+- **Recommended:** 7 (Telegram, Shodan, GitHub, etc.)
+- **Optional:** 27 (Enhanced features)
+
+**Note:** Tool works without API keys but with limited functionality. Add keys as needed for specific features.
 
 ---
 

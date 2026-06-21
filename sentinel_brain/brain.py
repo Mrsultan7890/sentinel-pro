@@ -252,9 +252,23 @@ class SentinelBrain:
                 logger.error(f"Unexpected screenshot error: {e}")
 
         # Report
-        self._print("\n[Brain] → ReportAgent")
-        report = self.report_agent.run(target, all_results)
-        all_results['report'] = report
+        self._print("\n[Brain] → ReportAgent (generating report...)")
+        try:
+            report = self.report_agent.run(target, all_results)
+            all_results['report'] = report
+            self._print("[Brain] Report generated successfully")
+        except Exception as e:
+            logger.error(f"[Brain] Report generation failed: {e}")
+            # Fallback minimal report
+            report = {
+                'risk': 'MEDIUM',
+                'findings': self.memory.recall_findings(target),
+                'paths': {},
+                'telegram': False,
+                '_agent_summary': f'Report generation failed: {e}',
+            }
+            all_results['report'] = report
+            self._print(f"[Brain] Report fallback used due to error: {e}")
         
         # Create evidence chain for legal compliance
         try:
@@ -345,6 +359,11 @@ class SentinelBrain:
 
             # ── ACT ───────────────────────────────────────────────────────────
             action_result = self._act(target, next_action, results)
+            
+            # Check if action signals completion
+            if action_result.get('_done'):
+                self._print(f"[ReAct] Scan complete signal received\n")
+                break
 
             # ── OBSERVE ───────────────────────────────────────────────────────
             success = action_result.get('success', True)
@@ -471,12 +490,13 @@ class SentinelBrain:
         if not remaining:
             return 'done'
 
-        # Abhi tak kya mila — model ko context do
+        # Abhi tak kya mila — model ko ACCURATE context do (no hallucination)
         context_parts = [f"target={target}"]
         for action, result in results.items():
             summary = result.get('_agent_summary', '')
             if summary:
-                context_parts.append(summary)
+                # Clean summary - actual numbers only
+                context_parts.append(f"{action}: {summary}")
 
         context = ' '.join(context_parts)[:400]
 
@@ -484,25 +504,36 @@ class SentinelBrain:
             return remaining[0]
 
         try:
-            # ── Groq LLM: best reasoning ──────────────────────────────────────
+            # ── Groq LLM: best reasoning ──────────────────────────────────
             if self._groq and self._groq.is_ready and results:
                 last_action = list(results.keys())[-1]
                 last_result = results[last_action]
                 summary     = last_result.get('_agent_summary', '')
-                next_tool   = self._groq.chain_gen(last_action, summary)
-                if next_tool:
-                    tool_to_action = {
-                        'nmap': 'kali_recon', 'subfinder': 'kali_recon',
-                        'amass': 'kali_recon', 'theHarvester': 'kali_recon',
-                        'nikto': 'kali_exploit', 'nuclei': 'kali_exploit',
-                        'gobuster': 'kali_exploit', 'ffuf': 'kali_exploit',
-                        'sqlmap': 'bugbounty', 'commix': 'bugbounty',
-                        'wpscan': 'bugbounty', 'hydra': 'kali_exploit',
-                    }
-                    mapped = tool_to_action.get(next_tool, '')
-                    if mapped and mapped in remaining:
-                        self._print(f"  [Groq] next_tool={next_tool} → {mapped}")
-                        return mapped
+                
+                # Validate summary has actual findings before asking Groq
+                has_findings = any([
+                    'found' in summary.lower(),
+                    'detected' in summary.lower(),
+                    'vulnerable' in summary.lower(),
+                    any(str(num) in summary for num in range(1, 100) if f'{num} ' in summary or f'={num}' in summary)
+                ])
+                
+                # Only use Groq if there are actual findings to reason about
+                if has_findings:
+                    next_tool = self._groq.chain_gen(last_action, summary)
+                    if next_tool:
+                        tool_to_action = {
+                            'nmap': 'kali_recon', 'subfinder': 'kali_recon',
+                            'amass': 'kali_recon', 'theHarvester': 'kali_recon',
+                            'nikto': 'kali_exploit', 'nuclei': 'kali_exploit',
+                            'gobuster': 'kali_exploit', 'ffuf': 'kali_exploit',
+                            'sqlmap': 'bugbounty', 'commix': 'bugbounty',
+                            'wpscan': 'bugbounty', 'hydra': 'kali_exploit',
+                        }
+                        mapped = tool_to_action.get(next_tool, '')
+                        if mapped and mapped in remaining:
+                            self._print(f"  [Groq] next_tool={next_tool} → {mapped}")
+                            return mapped
 
             # ── Seq2Seq: fallback ─────────────────────────────────────────
             elif self._seq2seq and results:
@@ -571,6 +602,11 @@ class SentinelBrain:
             return {'success': False, '_agent_summary': 'Invalid action'}
         if not isinstance(results, dict):
             results = {}
+        
+        # Handle done/report/finish signals
+        if action in ('done', 'generate_report', 'finish', 'report', 'complete'):
+            return {'success': True, '_agent_summary': 'Scan complete - ready for report',
+                    '_done': True}
         
         try:
             if action == 'recon':
@@ -699,7 +735,8 @@ class SentinelBrain:
                 self._print(f"  [Adapt] SSTI/LFI found → commix")
 
         # GitHub secrets → breach
-        if last_result.get('github_dorks', {}).get('total_secrets', 0) > 0:
+        from modules.safe_data import has_findings
+        if has_findings(last_result, 'github_dorks', 'total_secrets'):
             if 'breach' not in plan:
                 new_steps.append('breach')
                 self._print(f"  [Adapt] GitHub secrets → breach check")

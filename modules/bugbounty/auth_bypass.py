@@ -98,9 +98,8 @@ class AuthBypassChecker:
                                     'evidence': f"{hit['username']}:{hit['password']} worked on {url}",
                                 })
                         break
-                except Exception:
-                    pass
-
+                except Exception as e:
+                    logger.debug(f"auth_bypass error: {e}")
         # ── 2. JWT analysis from cookies / response headers ───────────────────
         for scheme in ('https', 'http'):
             try:
@@ -117,9 +116,8 @@ class AuthBypassChecker:
                             'evidence': issue['detail'],
                         })
                 break
-            except Exception:
-                pass
-
+            except Exception as e:
+                logger.debug(f"auth_bypass error: {e}")
         # ── 3. Auth header checks ─────────────────────────────────────────────
         for scheme in ('https', 'http'):
             try:
@@ -131,9 +129,8 @@ class AuthBypassChecker:
                         'evidence': f"/api/v1/users returned HTTP 200 without auth",
                     })
                 break
-            except Exception:
-                pass
-
+            except Exception as e:
+                logger.debug(f"auth_bypass error: {e}")
         result['total'] = len(result['findings'])
         if any(f['severity'] == 'CRITICAL' for f in result['findings']):
             result['risk_level'] = 'CRITICAL'
@@ -185,8 +182,8 @@ class AuthBypassChecker:
                 if no_failure and (redirected_away or has_success):
                     return {'username': user, 'password': pwd,
                             'status': r.status_code, 'form_url': form_url}
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"auth_bypass error: {e}")
         return {}
 
     def _extract_jwts(self, response) -> list:
@@ -261,7 +258,6 @@ class AuthBypassChecker:
                     'detail': 'JWT has no exp claim — token never expires',
                 })
 
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug(f"auth_bypass error: {e}")
         return issues

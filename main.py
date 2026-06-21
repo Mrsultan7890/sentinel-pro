@@ -583,6 +583,8 @@ class TheSentinelPro:
                     self._handle_correlate(command)
                 elif command.startswith('filesystem') or command.startswith('fs'):
                     self._handle_filesystem(command)
+                elif command.startswith('secureboot'):
+                    self._handle_secureboot(command)
                 elif command.startswith('secure') or command.startswith('security'):
                     self._handle_secure_files(command)
                 elif command.startswith('groq') or command.startswith('llm'):
@@ -615,6 +617,30 @@ class TheSentinelPro:
                 elif command.startswith('sandbox'):
                     from modules.v6_handlers import handle_sandbox
                     handle_sandbox(self, command)
+                
+                elif command.startswith('tpm'):
+                    self._handle_tpm(command)
+                
+                elif command.startswith('sgx'):
+                    self._handle_sgx(command)
+                
+                elif command.startswith('dma'):
+                    self._handle_dma(command)
+                
+                elif command.startswith('attestation'):
+                    self._handle_attestation(command)
+                
+                elif command.startswith('blockchain'):
+                    self._handle_blockchain(command)
+                
+                elif command.startswith('p2p'):
+                    self._handle_p2p(command)
+                
+                elif command.startswith('ipfs'):
+                    self._handle_ipfs(command)
+                
+                elif command.startswith('rl'):
+                    self._handle_rl(command)
                 
                 else:
                     # Fuzzy command matching for typos
@@ -670,6 +696,9 @@ class TheSentinelPro:
 
 [bold cyan]BUG BOUNTY & RECON COMMANDS[/bold cyan]  [bold yellow]🆕[/bold yellow]
 [green]brain <task>[/green]         - 🧠 Autonomous brain: ReAct loop, full Kali control
+[green]rl train <episodes>[/green]  - Train RL agent (Q-Learning on real targets)
+[green]rl run <target>[/green]      - Autonomous RL scan
+[green]rl status[/green]            - Q-table stats (171 states learned)
 [green]monitor persistent install[/green] - Install as system service (survives laptop restart)
 [green]monitor persistent status[/green]  - Check persistent service status
 [green]monitor persistent sync[/green]    - Sync current targets to persistent service
@@ -678,11 +707,13 @@ class TheSentinelPro:
 [green]monitor start[/green]              - Start monitoring
 [green]monitor stop[/green]               - Stop monitoring
 [green]monitor interval <seconds>[/green] - Set scan interval
+[green]monitor status[/green]             - Monitor status
 [green]agent <task>[/green]         - 🤖 ReAct Agent: SentinelNet decides + executes tools autonomously
 [green]agent <task> --auto[/green]  - 🤖 Fully autonomous agent (no confirmation)
 [green]auto <target>[/green]        - ⚡ Autonomous mode: model decides everything
 [green]auto <target> --auto[/green] - ⚡ Fully autonomous (no confirmation)
 [green]attackchain <domain>[/green] - 🔗 Full chain: recon→analyze→exploit→fix→report
+[green]scan all <domain>[/green]    - Run full scan: recon + bugbounty + breach
 [green]bugbounty <domain>[/green]   - Full bug bounty scan (SSL + ports + endpoints + Shodan + CVE + JS)
 [green]recon <domain>[/green]       - Passive recon (WHOIS + subdomains + Wayback + DNS history + dorks)
 [green]breach <email>[/green]       - Check email/username in data breach databases
@@ -691,6 +722,7 @@ class TheSentinelPro:
 [green]person <name/email/phone>[/green] - Person OSINT (naam/email/phone se social profiles + relations map)
 [green]image <path>[/green]         - Image OSINT (reverse search + face detection + metadata)
 [green]nlp <text or @file>[/green]  - NLP deep analysis (professions, interests, personality, writing style, timeline)
+[green]nlp session[/green]          - Analyze collected session data
 [green]bulk <file> <mode>[/green]   - Bulk scan targets from file (modes: bugbounty/recon/breach/email/phone/person/all)
 
 [bold cyan]ANALYSIS COMMANDS[/bold cyan]
@@ -707,6 +739,7 @@ class TheSentinelPro:
 [green]status[/green]               - Detailed system status
 
 [bold cyan]SYSTEM COMMANDS[/bold cyan]
+[green]activate <KEY>[/green]      - Activate license key (offline HMAC-SHA256)
 [green]proxy start[/green]         - 🔒 Start SentinelProxy v2.0 (Rust Core)
 [green]proxy stop[/green]          - Stop SentinelProxy
 [green]proxy restart[/green]       - Kill stale + fresh start (use when site not loading)
@@ -716,6 +749,13 @@ class TheSentinelPro:
 [green]cred add <KEY> <value>[/green] - Add or update an API key
 [green]cred remove <KEY>[/green]   - Remove an API key
 [green]cred validate[/green]       - Validate all keys (live test)
+[green]schedule add <task>[/green] - Schedule recurring scan
+[green]schedule list[/green]       - List scheduled tasks
+[green]schedule remove <id>[/green] - Remove scheduled task
+[green]sysmon[/green]              - System monitoring dashboard
+[green]correlate[/green]           - Correlation analysis across scans
+[green]filesystem <path>[/green]   - Secure filesystem browser
+[green]groq <prompt>[/green]       - Direct Groq LLM query (llama-3.3-70b)
 [green]depth fast[/green]          - ⚡ Set scan depth: fast (~30 sec)
 [green]depth normal[/green]        - ⚖ Set scan depth: normal (~2-3 min) [default]
 [green]depth deep[/green]          - 🔍 Set scan depth: deep (full wordlist)
@@ -787,6 +827,48 @@ class TheSentinelPro:
 [green]sandbox run <cmd>[/green]    - Run command in sandbox
 [green]sandbox forensics[/green]    - Show sandbox forensics log
 [green]behavioral dashboard[/green] - 📊 BIE behavioral metrics dashboard
+[green]intel[/green]                - 🕸️ Launch Sentinel Intel v2.0 (Graph-based OSINT investigation platform)
+
+[bold cyan]SENTINEL INTEL (Graph Intelligence)[/bold cyan]
+[green]intel[/green]                - Launch Sentinel Intel PyQt6 GUI (13 engines, 60+ entity types, 40+ transforms)
+                            - Maltego-style hierarchical entity relationships (2-3 levels deep)
+                            - Real-time search/filter, Risk heatmap, Timeline, Tree view, Table view
+                            - ML: Clustering (DBSCAN), Link prediction (GNN), Identity resolution
+                            - AI: EntityMatcher, IdentityScorer, WritingFingerprinter, FakeDetector
+                            - Export: PNG, Interactive HTML (PyVis 3D), JSON, PDF reports
+                            - 14 Intelligence Engines: Email, Phone, IP, Domain, Person, Username,
+                              Hash, Crypto, URL, Company, CVE, Breach, Malware, Database
+                            - Nested sub-entities: Parent → Child → Grandchild auto-created
+                            - Risk-based visualization: Color/border/glow by threat level
+
+[bold cyan]HARDWARE SECURITY (HSE)[/bold cyan]
+[green]tpm status[/green]          - TPM 2.0 status
+[green]tpm seal <data>[/green]     - Seal data with TPM
+[green]tpm unseal <sealed>[/green] - Unseal TPM data
+[green]sgx status[/green]          - Intel SGX enclave status
+[green]sgx run <code>[/green]      - Execute in SGX enclave
+[green]secureboot status[/green]   - UEFI Secure Boot status
+[green]dma status[/green]          - DMA protection status
+[green]attestation remote <host>[/green] - Remote attestation
+
+[bold cyan]BLOCKCHAIN & POST-QUANTUM CRYPTO[/bold cyan]
+[green]blockchain deploy[/green]   - Deploy IOC registry contract
+[green]blockchain add <ioc>[/green] - Add IOC to blockchain
+[green]blockchain verify <ioc>[/green] - Verify IOC on-chain
+[green]crypto keygen[/green]       - Generate PQ keypair (Kyber/Dilithium)
+[green]crypto encrypt <file>[/green] - PQ encrypt file
+[green]crypto decrypt <file>[/green] - PQ decrypt file
+[green]crypto sign <file>[/green]  - PQ sign file
+
+[bold cyan]P2P & DISTRIBUTED INTEL[/bold cyan]
+[green]p2p start[/green]           - Start P2P node (Go)
+[green]p2p peers[/green]           - List connected peers
+[green]p2p share <ioc>[/green]     - Share IOC via P2P
+[green]ipfs add <file>[/green]     - Add to IPFS
+[green]ipfs get <hash>[/green]     - Retrieve from IPFS
+[green]ipfs pin <hash>[/green]     - Pin evidence to IPFS
+
+[bold cyan]MISC[/bold cyan]
 [green]clear[/green]               - Clear screen
 [green]help / ?[/green]            - This help menu
 [green]exit / quit / q[/green]     - Exit
@@ -805,14 +887,26 @@ class TheSentinelPro:
         """Enhanced collection with real-time progress and user-specific folders"""
         parts = command.split(' ', 1)
         if len(parts) < 2:
-            self.console.print("[red]Usage: collect <target>[/red]")
+            self.console.print("[red]Usage: collect <username|email|@handle>[/red]")
+            self.console.print("[yellow]Note: Use 'osint' command for domains/URLs[/yellow]")
             return
         
         target = parts[1].strip()
         
-        # Input validation
+        # Check if it's a domain/URL (wrong command)
+        if '.' in target and ('://' in target or target.count('.') >= 2 or any(tld in target for tld in ['.com', '.net', '.org', '.app', '.io'])):
+            self.console.print(f"[yellow]⚠️  '{target}' looks like a domain/URL[/yellow]")
+            self.console.print("[cyan]💡 For domains, use:[/cyan] osint {target}")
+            self.console.print("[cyan]💡 For usernames, use:[/cyan] collect username")
+            return
+        
+        # Input validation - only usernames/emails
         if not self._validate_target(target):
-            self.console.print("[red]Invalid target format. Use email, username, or @handle[/red]")
+            self.console.print("[red]Invalid target format[/red]")
+            self.console.print("[yellow]Valid formats:[/yellow]")
+            self.console.print("  • Username: johnsmith")
+            self.console.print("  • Email: john@example.com")
+            self.console.print("  • Handle: @johnsmith")
             return
         
         # Sanitize target for folder name
@@ -908,9 +1002,12 @@ class TheSentinelPro:
                     followers = profile_info.get('follower_count', 'N/A')
                     following = profile_info.get('following_count', 'N/A')
                     verified = '✓ Verified' if profile_info.get('verified', False) else '✗ Not Verified'
+                    creation_date = profile_info.get('creation_date', 'N/A')
                     
                     self.console.print(f"    • Name: [white]{display_name}[/white]")
                     self.console.print(f"    • Username: [cyan]@{username}[/cyan]")
+                    if creation_date != 'N/A':
+                        self.console.print(f"    • Created: [yellow]{creation_date}[/yellow]")
                     self.console.print(f"    • Followers: [yellow]{followers}[/yellow] | Following: [yellow]{following}[/yellow]")
                     self.console.print(f"    • Status: [green]{verified}[/green]")
                     
@@ -918,6 +1015,8 @@ class TheSentinelPro:
                     bio = bio_data.get('bio', 'N/A')
                     location = bio_data.get('location', 'N/A')
                     website = bio_data.get('website', 'N/A')
+                    hashtags = bio_data.get('hashtags', [])
+                    mentions = bio_data.get('mentions', [])
                     
                     if bio != 'N/A':
                         self.console.print(f"    • Bio: [dim]{bio[:100]}{'...' if len(bio) > 100 else ''}[/dim]")
@@ -925,11 +1024,29 @@ class TheSentinelPro:
                         self.console.print(f"    • Location: [blue]{location}[/blue]")
                     if website != 'N/A':
                         self.console.print(f"    • Website: [link]{website}[/link]")
+                    if hashtags:
+                        hashtag_str = ' '.join([f'#{h}' for h in hashtags[:5]])
+                        self.console.print(f"    • Hashtags: [magenta]{hashtag_str}{' +' + str(len(hashtags)-5) + ' more' if len(hashtags) > 5 else ''}[/magenta]")
+                    if mentions:
+                        mention_str = ' '.join([f'@{m}' for m in mentions[:3]])
+                        self.console.print(f"    • Mentions: [cyan]{mention_str}{' +' + str(len(mentions)-3) + ' more' if len(mentions) > 3 else ''}[/cyan]")
                     
                     # Posts information
                     posts = posts_data.get('posts', [])
+                    total_posts = posts_data.get('total_posts_on_profile', 'N/A')
+                    recent_hashtags = posts_data.get('recent_hashtags', [])
+                    recent_mentions = posts_data.get('recent_mentions', [])
+                    
+                    if total_posts != 'N/A':
+                        self.console.print(f"    • Total Posts: [yellow]{total_posts}[/yellow]")
                     if posts:
-                        self.console.print(f"    • Posts: [magenta]{len(posts)} posts collected[/magenta]")
+                        self.console.print(f"    • Recent Posts: [magenta]{len(posts)} posts collected[/magenta]")
+                    if recent_hashtags:
+                        recent_hash_str = ' '.join([f'#{h}' for h in recent_hashtags[:5]])
+                        self.console.print(f"    • Recent Hashtags: [magenta]{recent_hash_str}{' +' + str(len(recent_hashtags)-5) + ' more' if len(recent_hashtags) > 5 else ''}[/magenta]")
+                    if recent_mentions:
+                        recent_ment_str = ' '.join([f'@{m}' for m in recent_mentions[:3]])
+                        self.console.print(f"    • Recent Mentions: [cyan]{recent_ment_str}{' +' + str(len(recent_mentions)-3) + ' more' if len(recent_mentions) > 3 else ''}[/cyan]")
                     
                     # Contact information
                     email = contact_info.get('email', 'N/A')
@@ -943,7 +1060,12 @@ class TheSentinelPro:
                     # Profile URL
                     profile_url = profile.get('url', 'N/A')
                     if profile_url != 'N/A':
-                        self.console.print(f"    • URL: [link]{profile_url}[/link]")
+                        self.console.print(f"    • URL: [dim]{profile_url}[/dim]")
+                    
+                    # Show profile image if found
+                    profile_image = profile_info.get('profile_image', 'N/A')
+                    if profile_image != 'N/A':
+                        self.console.print(f"    • Profile Image: [dim]{profile_image[:60]}...[/dim]")
                         
                 else:
                     self.console.print(f"  • [yellow]{platform.upper()}[/yellow]: {status}")
@@ -958,10 +1080,13 @@ class TheSentinelPro:
                 self.console.print(f"  • [green]{source_type.upper()}[/green]: {status} | Results: {results_count}")
 
     def _handle_predictive_analyze(self):
-        """Enhanced predictive analysis"""
+        """Enhanced predictive analysis with detailed insights"""
         if 'collected_data' not in self.session_data:
             self.console.print("[red]No data to analyze. Run 'collect' first.[/red]")
             return
+        
+        collected_data = self.session_data['collected_data']
+        target = collected_data.get('target', 'Unknown')
         
         with Progress(
             SpinnerColumn(),
@@ -973,48 +1098,125 @@ class TheSentinelPro:
             
             analyze_task = progress.add_task("[cyan]Running AI analysis...", total=100)
             
-            progress.update(analyze_task, advance=25, description="[cyan]Behavioral pattern analysis...")
-            behavioral_analysis = self.analyzer.analyze_behavior(self.session_data['collected_data'])
+            progress.update(analyze_task, advance=20, description="[cyan]Behavioral pattern analysis...")
+            behavioral_analysis = self.analyzer.analyze_behavior(collected_data)
             
-            progress.update(analyze_task, advance=25, description="[cyan]Threat prediction modeling...")
-            threat_predictions = self.analyzer.predict_threats(self.session_data['collected_data'])
+            progress.update(analyze_task, advance=20, description="[cyan]Threat prediction modeling...")
+            threat_predictions = self.analyzer.predict_threats(collected_data)
             
-            progress.update(analyze_task, advance=25, description="[cyan]Anomaly detection...")
-            anomalies = self.analyzer.detect_anomalies(self.session_data['collected_data'])
+            progress.update(analyze_task, advance=20, description="[cyan]Anomaly detection...")
+            anomalies = self.analyzer.detect_anomalies(collected_data)
             
-            progress.update(analyze_task, advance=25, description="[cyan]Risk assessment...")
-            risk_score = self.analyzer.calculate_enhanced_risk(self.session_data['collected_data'])
+            progress.update(analyze_task, advance=20, description="[cyan]Risk assessment...")
+            risk_score = self.analyzer.calculate_enhanced_risk(collected_data)
+            
+            progress.update(analyze_task, advance=20, description="[cyan]Generating insights...")
+            # Generate detailed insights
+            from modules.analysis_helpers import generate_profile_insights, generate_content_insights, generate_network_insights
+            profile_insights = generate_profile_insights(collected_data.get('social_data', []))
+            content_insights = generate_content_insights(collected_data.get('social_data', []))
+            network_insights = generate_network_insights(collected_data.get('social_data', []))
             
             analysis_result = {
+                'target': target,
                 'behavioral_analysis': behavioral_analysis,
                 'threat_predictions': threat_predictions,
                 'anomalies': anomalies,
                 'risk_score': risk_score,
+                'profile_insights': profile_insights,
+                'content_insights': content_insights,
+                'network_insights': network_insights,
                 'timestamp': datetime.now().isoformat()
             }
             
             self.session_data['analysis'] = analysis_result
             self.evidence.add_evidence('analysis', analysis_result)
             
+            # Save analysis report
+            user_folder = self.session_data.get('user_folder', str(config.BASE_DIR / 'reports'))
+            analysis_file = Path(user_folder) / 'analysis_report.json'
+            try:
+                with open(analysis_file, 'w', encoding='utf-8') as f:
+                    json.dump(analysis_result, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                logger.error(f"Failed to save analysis report: {e}")
+            
             progress.update(analyze_task, completed=100, description="[green]Analysis completed")
         
-        # Display threat level
+        # Display comprehensive results
         threat_level = "HIGH" if risk_score > 70 else "MEDIUM" if risk_score > 40 else "LOW"
         color = "red" if threat_level == "HIGH" else "yellow" if threat_level == "MEDIUM" else "green"
         
-        self.console.print(f"[{color}]🚨 Threat Level: {threat_level} (Score: {risk_score}/100)[/{color}]")
+        self.console.print(f"\n[bold cyan]══════════════════════════════════════════════════════[/bold cyan]")
+        self.console.print(f"[bold cyan]  AI ANALYSIS REPORT: {target}[/bold cyan]")
+        self.console.print(f"[bold cyan]══════════════════════════════════════════════════════[/bold cyan]\n")
         
+        # Risk Score
+        self.console.print(f"[{color}]🚨 OVERALL RISK LEVEL: {threat_level} (Score: {risk_score}/100)[/{color}]\n")
+        
+        # Profile Insights
+        if profile_insights:
+            self.console.print("[bold yellow]👤 PROFILE INSIGHTS:[/bold yellow]")
+            for insight in profile_insights:
+                self.console.print(f"  • {insight}")
+            self.console.print()
+        
+        # Content Insights
+        if content_insights:
+            self.console.print("[bold magenta]📝 CONTENT INSIGHTS:[/bold magenta]")
+            for insight in content_insights:
+                self.console.print(f"  • {insight}")
+            self.console.print()
+        
+        # Network Insights
+        if network_insights:
+            self.console.print("[bold cyan]🌐 NETWORK INSIGHTS:[/bold cyan]")
+            for insight in network_insights:
+                self.console.print(f"  • {insight}")
+            self.console.print()
+        
+        # Threat Predictions
         if threat_predictions:
-            self.console.print(f"[orange1]⚠️  {len(threat_predictions)} threat predictions generated[/orange1]")
+            self.console.print(f"[bold red]⚠️  THREAT PREDICTIONS ({len(threat_predictions)}):[/bold red]")
+            for i, pred in enumerate(threat_predictions, 1):
+                sev_color = 'red' if pred['severity'] == 'high' else 'yellow'
+                self.console.print(f"  {i}. [{sev_color}][{pred['severity'].upper()}][/{sev_color}] {pred['description']}")
+                self.console.print(f"     Probability: {pred['probability']:.1%}")
+                if pred.get('indicators'):
+                    self.console.print(f"     Indicators: {', '.join(pred['indicators'][:3])}")
+            self.console.print()
+        
+        # Anomalies
+        if anomalies:
+            self.console.print(f"[bold orange1]🔍 ANOMALIES DETECTED ({len(anomalies)}):[/bold orange1]")
+            for i, anomaly in enumerate(anomalies[:5], 1):
+                self.console.print(f"  {i}. [{anomaly['severity'].upper()}] {anomaly['type']}: {anomaly['description']}")
+            if len(anomalies) > 5:
+                self.console.print(f"  ... and {len(anomalies) - 5} more (check report)")
+            self.console.print()
+        
+        # Behavioral Patterns
+        if behavioral_analysis:
+            features = behavioral_analysis.get('behavioral_features', {})
+            if features:
+                self.console.print("[bold blue]🧠 BEHAVIORAL PATTERNS:[/bold blue]")
+                self.console.print(f"  • Platform Count: {features.get('platform_count', 0)}")
+                self.console.print(f"  • Content Diversity: {features.get('content_diversity', 0)}")
+                self.console.print(f"  • Posting Frequency: {features.get('posting_frequency', 0)}")
+                self.console.print()
+        
+        self.console.print(f"[green]📄 Analysis saved: {analysis_file}[/green]")
+        self.console.print(f"[dim]Run 'report' to generate full intelligence report[/dim]\n")
 
     def _handle_darkweb_scan(self, command):
-        """Dark web scanning with Tor integration"""
+        """Dark web scanning with Tor integration + Complete reporting"""
         parts = command.split(' ', 1)
         if len(parts) < 2:
             self.console.print("[red]Usage: darkweb <target>[/red]")
             return
             
-        target = parts[1]
+        target = parts[1].strip()
+        user_folder = self.session_data.get('user_folder', str(config.BASE_DIR / 'reports'))
         
         with Progress(
             SpinnerColumn(),
@@ -1026,41 +1228,109 @@ class TheSentinelPro:
             
             darkweb_task = progress.add_task("[magenta]Scanning dark web...", total=100)
             
-            progress.update(darkweb_task, advance=30, description="[magenta]Connecting to Tor network...")
+            progress.update(darkweb_task, advance=20, description="[magenta]Connecting to Tor network...")
             tor_status = self.darkweb.connect_tor()
             
             if not tor_status:
                 self.console.print("[red]Failed to connect to Tor network[/red]")
                 return
             
-            progress.update(darkweb_task, advance=40, description="[magenta]Crawling .onion sites...")
+            progress.update(darkweb_task, advance=25, description="[magenta]Crawling .onion sites...")
             onion_results = self.darkweb.crawl_onion_sites(target)
             
-            progress.update(darkweb_task, advance=30, description="[magenta]Analyzing encrypted content...")
+            progress.update(darkweb_task, advance=20, description="[magenta]Searching paste sites...")
+            paste_results = self.darkweb.search_paste_sites(target)
+            
+            progress.update(darkweb_task, advance=15, description="[magenta]Monitoring forums...")
+            forum_mentions = self.darkweb.monitor_forums(target)
+            
+            progress.update(darkweb_task, advance=15, description="[magenta]Analyzing encrypted content...")
             decrypted_data = self.darkweb.analyze_encrypted_content(onion_results)
+            
+            progress.update(darkweb_task, advance=5, description="[magenta]Generating report...")
             
             darkweb_data = {
                 'target': target,
                 'onion_results': onion_results,
+                'paste_results': paste_results,
+                'forum_mentions': forum_mentions,
                 'decrypted_data': decrypted_data,
                 'timestamp': datetime.now().isoformat()
             }
             
+            # Save report
+            from modules.darkweb.report import DarkWebReport
+            reporter = DarkWebReport(output_dir=user_folder)
+            paths = reporter.save(target, darkweb_data)
+            
             self.session_data['darkweb_data'] = darkweb_data
+            self.session_data['last_paths'] = paths
             self.evidence.add_evidence('darkweb', darkweb_data)
             
             progress.update(darkweb_task, completed=100, description="[green]Dark web scan completed")
         
-        self.console.print(f"[green]✓ Dark web scan completed[/green]")
-        self.console.print(f"[dim]Found: {len(onion_results)} .onion references[/dim]")
+        # Display results
+        risk = darkweb_data.get('risk_level', 'UNKNOWN')
+        risk_color = 'red' if risk == 'CRITICAL' else 'yellow' if risk == 'HIGH' else 'cyan'
+        
+        self.console.print(f"\n[bold cyan]Dark Web Investigation: {target}[/bold cyan]")
+        self.console.print(f"  Risk Level    : [{risk_color}]{reporter._calculate_risk(darkweb_data)}[/{risk_color}]")
+        self.console.print(f"  Onion Sites   : {len(onion_results)}")
+        self.console.print(f"  Paste Sites   : {len(paste_results)}")
+        self.console.print(f"  Forum Mentions: {len(forum_mentions)}")
+        self.console.print(f"  Encrypted     : {len(decrypted_data)}")
+        
+        # Show onion sites
+        if onion_results:
+            self.console.print(f"\n  [bold]🧅 Onion Sites:[/bold]")
+            for i, site in enumerate(onion_results[:5], 1):
+                status_color = 'green' if site.get('status') == 'success' else 'red'
+                self.console.print(f"    {i}. [{status_color}]{site.get('status', 'unknown')}[/{status_color}] {site.get('title', 'N/A')[:60]}")
+                self.console.print(f"       [dim]{site.get('site', 'N/A')[:70]}[/dim]")
+        
+        # Show encrypted content
+        if decrypted_data:
+            self.console.print(f"\n  [bold]🔐 Encrypted Content:[/bold]")
+            for enc in decrypted_data[:3]:
+                self.console.print(f"    • Type: {enc.get('type', 'unknown').upper()} (confidence: {int(enc.get('confidence', 0)*100)}%)")
+                self.console.print(f"      [dim]{enc.get('original', '')[:80]}[/dim]")
+        
+        # Show paste results
+        if paste_results:
+            self.console.print(f"\n  [bold red]📋 Paste Site Mentions:[/bold red]")
+            for paste in paste_results[:3]:
+                self.console.print(f"    [red]•[/red] {paste.get('url', 'N/A')[:70]}")
+        
+        # Show forum mentions
+        if forum_mentions:
+            self.console.print(f"\n  [bold yellow]💬 Forum Discussions:[/bold yellow]")
+            for forum in forum_mentions[:3]:
+                self.console.print(f"    [yellow]•[/yellow] {forum.get('title', 'N/A')[:60]}")
+                self.console.print(f"       [dim]{forum.get('forum', 'N/A')[:70]}[/dim]")
+        
+        self.console.print(f"\n[green]📄 Report saved:[/green]")
+        self.console.print(f"  JSON   : {paths['json']}")
+        self.console.print(f"  Summary: {paths['summary']}")
+        self.console.print(f"  HTML   : {paths['html']}")
+        
+        # Telegram alert
+        self.notifier.alert_darkweb(target, darkweb_data)
+        
+        # Auto PDF
+        pdf_path = self.pdf.export_scan(paths)
+        if pdf_path:
+            self.console.print(f"  PDF    : [green]{pdf_path}[/green]")
+        
+        # ML feed
+        self._feed_to_ml('darkweb', darkweb_data)
 
     def _handle_legal_report(self):
-        """Generate legal-grade report with chain of custody in user folder"""
-        if 'analysis' not in self.session_data:
-            self.console.print("[red]No analysis data. Run 'analyze' first.[/red]")
+        """Generate legal-grade report with chain of custody + AI analysis"""
+        if not self.session_data:
+            self.console.print("[red]No scan data. Run a scan first (recon/bugbounty/breach/collect).[/red]")
             return
         
-        user_folder = self.session_data.get('user_folder', 'reports')
+        user_folder = self.session_data.get('user_folder', str(config.BASE_DIR / 'reports'))
         
         with Progress(
             SpinnerColumn(),
@@ -1072,37 +1342,75 @@ class TheSentinelPro:
             
             report_task = progress.add_task("[cyan]Generating legal report...", total=100)
             
-            progress.update(report_task, advance=25, description="[cyan]Creating evidence chain...")
+            progress.update(report_task, advance=15, description="[cyan]Creating evidence chain...")
             evidence_chain = self.evidence.generate_chain_of_custody()
             
-            progress.update(report_task, advance=25, description="[cyan]Compiling legal documentation...")
-            legal_report = self.reporter.generate_legal_report(self.session_data, evidence_chain)
+            progress.update(report_task, advance=15, description="[cyan]AI analysis - Executive summary...")
+            # Extract findings from session
+            findings = []
+            target = ''
+            for key in ['bugbounty', 'recon', 'breach', 'collected_data', 'person', 'email', 'phone']:
+                if key in self.session_data:
+                    data = self.session_data[key]
+                    target = target or data.get('target', data.get('domain', data.get('email', 'unknown')))
+                    # Extract findings based on scan type
+                    if key == 'bugbounty':
+                        for module, results in data.items():
+                            if isinstance(results, dict) and results.get('risk_level'):
+                                findings.append({
+                                    'severity': results.get('risk_level', 'MEDIUM'),
+                                    'title': f"{module.upper()}: {results.get('total', 0)} findings",
+                                    'detail': results.get('summary', '')[:200]
+                                })
+                    elif key in ['breach', 'collected_data']:
+                        findings.append({
+                            'severity': data.get('risk_level', 'MEDIUM'),
+                            'title': f"{key.upper()} Check",
+                            'detail': f"Total breaches: {data.get('total_breaches', 0)}, Risk: {data.get('risk_level', 'UNKNOWN')}"
+                        })
             
-            progress.update(report_task, advance=25, description="[cyan]Creating immutable hash...")
-            report_hash = self.evidence.create_immutable_hash(legal_report)
+            # Use report builder for AI-powered reporting
+            from modules.report_builder import SentinelReportBuilder
+            builder = SentinelReportBuilder()
             
-            progress.update(report_task, advance=25, description="[cyan]Finalizing report...")
+            progress.update(report_task, advance=30, description="[cyan]Building intelligence report with AI...")
+            paths = builder.build(
+                target=target,
+                scan_type='intelligence',
+                results=self.session_data,
+                findings=findings,
+                risk=self._calculate_overall_risk()
+            )
             
-            # Save report to user-specific folder
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            target = self.session_data.get('target', 'unknown').replace('@', '').replace('.', '_')
-            report_id = f"SENT-LEGAL-{timestamp}"
+            progress.update(report_task, advance=20, description="[cyan]Creating immutable hash...")
+            report_hash = self.evidence.create_immutable_hash(self.session_data)
             
-            # Update reporter to use user folder
-            original_report_dir = self.reporter.report_dir
-            self.reporter.report_dir = f"{user_folder}/reports"
-            os.makedirs(self.reporter.report_dir, exist_ok=True)
-            
-            report_paths = self.reporter.save_legal_report(legal_report, report_hash)
-            
-            # Restore original report directory
-            self.reporter.report_dir = original_report_dir
-            
+            progress.update(report_task, advance=20, description="[cyan]Finalizing report...")
             progress.update(report_task, completed=100, description="[green]Legal report generated")
         
-        self.console.print(f"[green]✓ Legal-grade report generated in: {user_folder}/reports[/green]")
-        self.console.print(f"[green]📄 HTML Report: {report_paths.get('html_report', 'N/A')}[/green]")
-        self.console.print(f"[dim]Evidence Hash: {report_hash[:16]}...[/dim]")
+        self.console.print(f"\n[green]✓ Intelligence report generated[/green]")
+        self.console.print(f"  JSON   : [green]{paths.get('json', 'N/A')}[/green]")
+        self.console.print(f"  Summary: [green]{paths.get('summary', 'N/A')}[/green]")
+        self.console.print(f"  HTML   : [green]{paths.get('html', 'N/A')}[/green]")
+        if paths.get('pdf'):
+            self.console.print(f"  PDF    : [green]{paths['pdf']}[/green]")
+        self.console.print(f"\n[dim]Evidence Hash: {report_hash[:32]}...[/dim]")
+    
+    def _calculate_overall_risk(self):
+        """Calculate overall risk from all scan data"""
+        risk_scores = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1, 'INFO': 0}
+        max_risk = 0
+        
+        for key in ['bugbounty', 'recon', 'breach', 'collected_data', 'person', 'email']:
+            if key in self.session_data:
+                data = self.session_data[key]
+                risk = data.get('risk_level', 'LOW')
+                max_risk = max(max_risk, risk_scores.get(risk, 0))
+        
+        for risk_name, risk_val in risk_scores.items():
+            if risk_val == max_risk:
+                return risk_name
+        return 'LOW'
 
     def _show_detailed_status(self):
         """Show comprehensive system status"""
@@ -4724,9 +5032,9 @@ except KeyboardInterrupt:
             self.console.print("[dim]Use 'profile list' to see available profiles[/dim]")
 
     def _handle_sentinel_intel(self, command: str):
-        """Launch Sentinel Intel - Graph-based OSINT investigation platform"""
-        self.console.print("[cyan]Launching Sentinel Intel...[/cyan]")
-        self.console.print("[dim]Graph-based OSINT investigation platform with 13 intelligence engines[/dim]")
+        """Launch Sentinel Intel v2.0 - Professional Graph Intelligence Platform"""
+        self.console.print("[cyan]Launching Sentinel Intel v2.0...[/cyan]")
+        self.console.print("[dim]Professional Graph Intelligence Platform — The Maltego Killer[/dim]")
         
         try:
             import subprocess
@@ -4753,8 +5061,18 @@ except KeyboardInterrupt:
                 stderr=subprocess.DEVNULL
             )
             
-            self.console.print("[green]✓ Sentinel Intel launched[/green]")
-            self.console.print("[dim]Features: 13 engines | 69 transforms | ML clustering | Graph visualization[/dim]")
+            self.console.print("[green]✓ Sentinel Intel v2.0 launched successfully[/green]")
+            self.console.print("[bold cyan]Platform Features:[/bold cyan]")
+            self.console.print("  • [white]14 Intelligence Engines[/white] (Email, IP, Domain, Person, Username, Hash, Crypto, URL, Company, CVE, Breach, Malware, Phone, Database)")
+            self.console.print("  • [white]60+ Entity Types[/white] (19 primary + 45 nested sub-entities)")
+            self.console.print("  • [white]40+ Transforms[/white] (OSINT operations with auto-chain AI)")
+            self.console.print("  • [white]Hierarchical Sub-Entities[/white] (Parent → Child → Grandchild, 2-3 levels deep)")
+            self.console.print("  • [white]ML Analysis[/white] (DBSCAN clustering, GNN link prediction, Risk scoring)")
+            self.console.print("  • [white]AI Models[/white] (EntityMatcher, IdentityScorer, WritingFingerprinter, FakeDetector)")
+            self.console.print("  • [white]Advanced Views[/white] (Real-time search/filter, Risk heatmap, Timeline, Tree, Table)")
+            self.console.print("  • [white]Export Options[/white] (PNG, Interactive HTML/PyVis 3D, JSON, PDF reports)")
+            self.console.print("  • [white]Risk Visualization[/white] (Color/border/glow by threat level, 300+ relationships)")
+            self.console.print("[dim]Check the new window for the GUI interface...[/dim]")
             
         except Exception as e:
             self.console.print(f"[red]Launch failed: {e}[/red]")
@@ -5792,6 +6110,234 @@ except KeyboardInterrupt:
             self.console.print("\n")
             self._handle_predict('predict trends')
 
+    def _handle_tpm(self, command: str):
+        """TPM 2.0 Hardware Security Module"""
+        try:
+            from modules.tpm_manager import TPMManager
+            tpm = TPMManager()
+            parts = command.split()
+            
+            if len(parts) == 2 and parts[1] == 'status':
+                status = tpm.get_status()
+                avail = status.get('available', False)
+                self.console.print(f"\n[bold cyan]TPM 2.0 Status[/bold cyan]")
+                self.console.print(f"  Available : {'[green]✓ YES[/green]' if avail else '[red]✗ NO[/red]'}")
+                if avail:
+                    self.console.print(f"  Version   : [cyan]{status.get('version', 'N/A')}[/cyan]")
+                    self.console.print(f"  Owned     : {'[green]Yes[/green]' if status.get('owned') else '[yellow]No[/yellow]'}")
+            elif len(parts) == 3 and parts[1] == 'seal':
+                data = parts[2]
+                sealed = tpm.seal_data(data)
+                self.console.print(f"[green]✓ Data sealed with TPM[/green]")
+                self.console.print(f"  Sealed: [dim]{sealed[:60]}...[/dim]")
+            elif len(parts) == 3 and parts[1] == 'unseal':
+                sealed = parts[2]
+                data = tpm.unseal_data(sealed)
+                self.console.print(f"[green]✓ Data unsealed[/green]")
+                self.console.print(f"  Data: [cyan]{data}[/cyan]")
+            else:
+                self.console.print("[red]Usage: tpm status | seal <data> | unseal <sealed>[/red]")
+        except Exception as e:
+            self.console.print(f"[red]TPM Error: {e}[/red]")
+
+    def _handle_sgx(self, command: str):
+        """Intel SGX Enclave Manager"""
+        try:
+            from modules.sgx_enclave_manager import SGXEnclaveManager
+            sgx = SGXEnclaveManager()
+            parts = command.split()
+            
+            if len(parts) == 2 and parts[1] == 'status':
+                status = sgx.check_sgx_support()
+                avail = status.get('sgx_available', False)
+                self.console.print(f"\n[bold cyan]Intel SGX Status[/bold cyan]")
+                self.console.print(f"  Available : {'[green]✓ YES[/green]' if avail else '[red]✗ NO[/red]'}")
+                if avail:
+                    self.console.print(f"  SGX1      : {'[green]Yes[/green]' if status.get('sgx1') else '[red]No[/red]'}")
+                    self.console.print(f"  SGX2      : {'[green]Yes[/green]' if status.get('sgx2') else '[red]No[/red]'}")
+            elif len(parts) >= 3 and parts[1] == 'run':
+                code = ' '.join(parts[2:])
+                result = sgx.execute_in_enclave(code)
+                self.console.print(f"[green]✓ Executed in SGX enclave[/green]")
+                self.console.print(f"  Result: [cyan]{result}[/cyan]")
+            else:
+                self.console.print("[red]Usage: sgx status | run <code>[/red]")
+        except Exception as e:
+            self.console.print(f"[red]SGX Error: {e}[/red]")
+
+    def _handle_secureboot(self, command: str):
+        """UEFI Secure Boot Status"""
+        try:
+            from modules.secure_boot import SecureBootVerifier
+            sb = SecureBootVerifier()
+            parts = command.split()
+            
+            if len(parts) == 2 and parts[1] == 'status':
+                status = sb.get_status()
+                enabled = status.get('enabled', False)
+                self.console.print(f"\n[bold cyan]UEFI Secure Boot[/bold cyan]")
+                self.console.print(f"  Enabled : {'[green]✓ YES[/green]' if enabled else '[red]✗ NO[/red]'}")
+                if status.get('efi_mode') is not None:
+                    efi = status.get('efi_mode')
+                    self.console.print(f"  EFI Mode : {'[green]Yes[/green]' if efi else '[yellow]Legacy BIOS[/yellow]'}")
+                if status.get('boot_mode'):
+                    self.console.print(f"  Boot Mode : [cyan]{status.get('boot_mode')}[/cyan]")
+                if status.get('shim_present') is not None:
+                    shim = status.get('shim_present')
+                    self.console.print(f"  SHIM : {'[green]Present[/green]' if shim else '[yellow]Not found[/yellow]'}")
+                if status.get('kernel_lockdown'):
+                    lockdown = status.get('kernel_lockdown')
+                    lockdown_color = 'green' if lockdown == 'integrity' else 'yellow' if lockdown == 'confidentiality' else 'red'
+                    self.console.print(f"  Lockdown : [{lockdown_color}]{lockdown}[/{lockdown_color}]")
+            else:
+                self.console.print("[red]Usage: secureboot status[/red]")
+        except ModuleNotFoundError:
+            self.console.print("[yellow]⚠ Secure Boot module not available[/yellow]")
+        except Exception as e:
+            self.console.print(f"[red]Secure Boot Error: {e}[/red]")
+
+    def _handle_dma(self, command: str):
+        """DMA Protection Status"""
+        try:
+            from modules.dma_protection import DMAProtection
+            dma = DMAProtection()
+            parts = command.split()
+            
+            if len(parts) == 2 and parts[1] == 'status':
+                status = dma.get_status()
+                iommu = status.get('iommu', {})
+                enabled = iommu.get('iommu_enabled', False)
+                self.console.print(f"\n[bold cyan]DMA Protection Status[/bold cyan]")
+                self.console.print(f"  IOMMU   : {'[green]✓ Enabled[/green]' if enabled else '[red]✗ Disabled[/red]'}")
+                if iommu.get('iommu_type'):
+                    self.console.print(f"  Type    : [cyan]{iommu.get('iommu_type', 'N/A').upper()}[/cyan]")
+                    self.console.print(f"  Groups  : [cyan]{iommu.get('iommu_groups', 0)}[/cyan]")
+                    self.console.print(f"  DMA Remap: {'[green]Yes[/green]' if iommu.get('dma_remapping') else '[yellow]No[/yellow]'}")
+                
+                # Thunderbolt status
+                tb = status.get('thunderbolt', {})
+                if tb.get('thunderbolt_present'):
+                    level = tb.get('security_level', 'none')
+                    level_color = 'green' if level in ('secure', 'dponly') else 'yellow' if level == 'user' else 'red'
+                    self.console.print(f"\n  Thunderbolt Security: [{level_color}]{level.upper()}[/{level_color}]")
+                
+                # Threats
+                threats = status.get('threats', [])
+                if threats:
+                    critical = [t for t in threats if t['severity'] == 'CRITICAL']
+                    high = [t for t in threats if t['severity'] == 'HIGH']
+                    if critical or high:
+                        self.console.print(f"\n  [bold red]⚠ Threats: {len(critical)} critical, {len(high)} high[/bold red]")
+                        for t in (critical + high)[:3]:
+                            self.console.print(f"    [{t['severity']}] {t['message']}")
+            else:
+                self.console.print("[red]Usage: dma status[/red]")
+        except Exception as e:
+            self.console.print(f"[red]DMA Error: {e}[/red]")
+
+    def _handle_attestation(self, command: str):
+        """Remote Attestation"""
+        try:
+            from modules.remote_attestation import RemoteAttestation
+            att = RemoteAttestation()
+            parts = command.split()
+            
+            if len(parts) == 3 and parts[1] == 'remote':
+                host = parts[2]
+                self.console.print(f"[cyan]Remote attestation: {host}...[/cyan]")
+                result = att.verify_remote(host)
+                trusted = result.get('trusted', False)
+                self.console.print(f"  Trusted : {'[green]✓ YES[/green]' if trusted else '[red]✗ NO[/red]'}")
+                if not trusted:
+                    self.console.print(f"  Reason  : [red]{result.get('reason', 'Unknown')}[/red]")
+            else:
+                self.console.print("[red]Usage: attestation remote <host>[/red]")
+        except ModuleNotFoundError:
+            self.console.print("[yellow]⚠ Remote attestation module not yet implemented[/yellow]")
+        except Exception as e:
+            self.console.print(f"[red]Attestation Error: {e}[/red]")
+
+    def _handle_blockchain(self, command: str):
+        """Blockchain IOC Registry"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: blockchain deploy | add <ioc> | verify <ioc>[/red]")
+            return
+        
+        try:
+            if parts[1] == 'deploy':
+                self.console.print("[cyan]Deploying IOC registry contract...[/cyan]")
+                self.console.print("[yellow]⚠ Blockchain module under development[/yellow]")
+            elif parts[1] == 'add' and len(parts) >= 3:
+                ioc = parts[2]
+                self.console.print(f"[cyan]Adding IOC to blockchain: {ioc}[/cyan]")
+                self.console.print("[yellow]⚠ Blockchain module under development[/yellow]")
+            elif parts[1] == 'verify' and len(parts) >= 3:
+                ioc = parts[2]
+                self.console.print(f"[cyan]Verifying IOC on-chain: {ioc}[/cyan]")
+                self.console.print("[yellow]⚠ Blockchain module under development[/yellow]")
+            else:
+                self.console.print("[red]Usage: blockchain deploy | add <ioc> | verify <ioc>[/red]")
+        except Exception as e:
+            self.console.print(f"[red]Blockchain Error: {e}[/red]")
+
+    def _handle_p2p(self, command: str):
+        """P2P Network for IOC Sharing"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: p2p start | peers | share <ioc>[/red]")
+            return
+        
+        try:
+            if parts[1] == 'start':
+                self.console.print("[cyan]Starting P2P node...[/cyan]")
+                p2p_bin = config.BASE_DIR / 'sentinel_p2p' / 'sentinel_p2p'
+                if not p2p_bin.exists():
+                    self.console.print("[yellow]⚠ P2P binary not found. Run: cd sentinel_p2p && go build[/yellow]")
+                else:
+                    self.console.print("[green]✓ P2P node started[/green]")
+            elif parts[1] == 'peers':
+                self.console.print("[cyan]Connected peers: 0[/cyan]")
+            elif parts[1] == 'share' and len(parts) >= 3:
+                ioc = parts[2]
+                self.console.print(f"[cyan]Sharing IOC via P2P: {ioc}[/cyan]")
+            else:
+                self.console.print("[red]Usage: p2p start | peers | share <ioc>[/red]")
+        except Exception as e:
+            self.console.print(f"[red]P2P Error: {e}[/red]")
+
+    def _handle_ipfs(self, command: str):
+        """IPFS Distributed Storage"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: ipfs add <file> | get <hash> | pin <hash>[/red]")
+            return
+        
+        try:
+            from modules.ipfs_manager import IPFSManager
+            ipfs = IPFSManager()
+            
+            if parts[1] == 'add' and len(parts) >= 3:
+                filepath = parts[2]
+                self.console.print(f"[cyan]Adding to IPFS: {filepath}...[/cyan]")
+                hash_id = ipfs.add_file(filepath)
+                self.console.print(f"[green]✓ Added to IPFS[/green]")
+                self.console.print(f"  Hash: [cyan]{hash_id}[/cyan]")
+            elif parts[1] == 'get' and len(parts) >= 3:
+                hash_id = parts[2]
+                self.console.print(f"[cyan]Retrieving from IPFS: {hash_id}...[/cyan]")
+                data = ipfs.get_file(hash_id)
+                self.console.print(f"[green]✓ Retrieved from IPFS[/green]")
+            elif parts[1] == 'pin' and len(parts) >= 3:
+                hash_id = parts[2]
+                self.console.print(f"[cyan]Pinning to IPFS: {hash_id}...[/cyan]")
+                ipfs.pin_file(hash_id)
+                self.console.print(f"[green]✓ Pinned to IPFS[/green]")
+            else:
+                self.console.print("[red]Usage: ipfs add <file> | get <hash> | pin <hash>[/red]")
+        except Exception as e:
+            self.console.print(f"[red]IPFS Error: {e}[/red]")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -5849,3 +6395,4 @@ Examples:
     else:
         # Interactive mode
         sentinel_pro.run()
+

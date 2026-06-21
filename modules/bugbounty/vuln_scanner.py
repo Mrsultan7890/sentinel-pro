@@ -197,8 +197,8 @@ class VulnScanner:
                             fields[name] = inp.get('value', 'test')
                     if fields:
                         forms.append({'action': action, 'method': method, 'fields': fields})
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"vuln_scanner error: {e}")
         return forms[:10]
 
     # ------------------------------------------------------------------ #
@@ -228,8 +228,8 @@ class VulnScanner:
                                 'severity': 'CRITICAL', 'method': 'GET'
                             })
                             return findings
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"vuln_scanner error: {e}")
         return findings
 
     # ------------------------------------------------------------------ #
@@ -279,8 +279,8 @@ class VulnScanner:
                         'severity': 'LOW', 'method': 'GET'
                     })
                     return findings
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"vuln_scanner error: {e}")
         return findings
 
     # ------------------------------------------------------------------ #
@@ -307,8 +307,8 @@ class VulnScanner:
                             'severity': 'HIGH', 'method': 'GET'
                         })
                         return findings
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"vuln_scanner error: {e}")
         return findings
 
     # ------------------------------------------------------------------ #
@@ -394,10 +394,10 @@ class VulnScanner:
                                     'method':   'GET',
                                 })
                                 return findings
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as e:
+                    logger.debug(f"vuln_scanner error: {e}")
+        except Exception as e:
+            logger.debug(f"vuln_scanner error: {e}")
         return findings
 
     # ------------------------------------------------------------------ #
@@ -431,8 +431,8 @@ class VulnScanner:
                             'evidence': 'Cloud metadata content in response',
                             'severity': 'CRITICAL', 'method': 'GET'
                         })
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"vuln_scanner error: {e}")
         return findings
 
     # ------------------------------------------------------------------ #
@@ -460,8 +460,8 @@ class VulnScanner:
                                 'severity': 'CRITICAL', 'method': form['method'].upper()
                             })
                             return findings
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"vuln_scanner error: {e}")
         return findings
 
     # ------------------------------------------------------------------ #
@@ -487,8 +487,8 @@ class VulnScanner:
                         'severity': 'HIGH', 'method': form['method'].upper()
                     })
                     return findings
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"vuln_scanner error: {e}")
         return findings
 
     # ------------------------------------------------------------------ #
@@ -523,6 +523,6 @@ class VulnScanner:
                         'evidence': f"HTTP 200 with {header}: /admin — possible access control bypass",
                         'severity': 'HIGH', 'method': 'GET'
                     })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"vuln_scanner error: {e}")
         return findings

@@ -41,7 +41,7 @@ LFI_SIGNATURES = [
     (r'\[boot loader\]',               'CRITICAL', 'Windows win.ini leaked'),
     (r'\[extensions\]',                'CRITICAL', 'Windows win.ini leaked'),
     (r'<\?php',                        'CRITICAL', 'PHP source code leaked via wrapper'),
-    (r'[A-Za-z0-9+/]{40,}={0,2}',     'HIGH',     'Base64 encoded file content (PHP wrapper)'),
+    # Removed overly sensitive Base64 regex that causes false positives
     (r'/bin/bash|/bin/sh',             'HIGH',     'Unix shell path in response'),
     (r'proc/self/environ',             'HIGH',     'Process environment leaked'),
     (r'HTTP_USER_AGENT',               'HIGH',     'Environment variable leaked'),
@@ -141,7 +141,7 @@ class LFIScanner:
                         'url': url, 'param': param,
                         'payload': payload, 'evidence': desc,
                     }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"lfi_scanner error: {e}")
         return {}
 

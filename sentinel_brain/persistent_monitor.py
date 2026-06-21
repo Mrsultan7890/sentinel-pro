@@ -33,6 +33,7 @@ class PersistentMonitor:
         """System service install karo jo boot time pe start hogi."""
         try:
             # Service file content
+            log_file = Path.home() / '.sentinel_monitor.log'
             service_content = f"""[Unit]
 Description=Sentinel Pro 24/7 Monitoring Service
 After=network.target
@@ -44,11 +45,12 @@ User={os.getenv('USER', 'kali')}
 WorkingDirectory={self.base_dir}
 Environment=PYTHONPATH={self.base_dir}
 Environment=DISPLAY=:0
+Environment=HOME={Path.home()}
 ExecStart=/usr/bin/python3 {self.script_path}
 Restart=always
 RestartSec=10
-StandardOutput=journal
-StandardError=journal
+StandardOutput=append:{log_file}
+StandardError=append:{log_file}
 
 [Install]
 WantedBy=multi-user.target
@@ -140,12 +142,13 @@ import config
 from sentinel_brain.monitor import SentinelMonitor
 from sentinel_brain.brain import SentinelBrain
 
-# Setup logging
+# Setup logging (use user home directory instead of /var/log)
+log_file = Path.home() / '.sentinel_monitor.log'
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/var/log/sentinel-monitor.log'),
+        logging.FileHandler(str(log_file)),
         logging.StreamHandler()
     ]
 )

@@ -52,7 +52,7 @@ class RaceConditionTab:
         self._results = []
 
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='  ⚡ Race Condition  ')
+        notebook.add(self.frame, text='⚡ RaceCondition')
         self._build()
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -274,10 +274,13 @@ class RaceConditionTab:
 
         # Get baseline first
         try:
-            r0       = _req.request(method, url,
-                                    data=body or None,
-                                    verify=False, timeout=10,
-                                    allow_redirects=False)
+            is_json = body.strip().startswith('{')
+            hdrs = {'Content-Type': 'application/json'} if is_json else {}
+            r0 = _req.request(method, url,
+                              data=body or None,
+                              headers=hdrs,
+                              verify=False, timeout=10,
+                              allow_redirects=False)
             base_len = len(r0.content)
             base_st  = r0.status_code
         except Exception as e:
@@ -311,6 +314,7 @@ class RaceConditionTab:
                 t0 = time.perf_counter()
                 r  = _req.request(method, url,
                                   data=req_body or None,
+                                  headers=hdrs,
                                   verify=False, timeout=10,
                                   allow_redirects=False)
                 elapsed = (time.perf_counter() - t0) * 1000

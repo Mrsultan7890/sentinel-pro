@@ -209,3 +209,7 @@ class CloudAssetDiscovery:
             words.extend(part.split('-'))
         return list(dict.fromkeys(w for w in words if len(w) >= 3))
 
+
+# Alias for backward compatibility
+CloudAssets = CloudAssetDiscovery
+

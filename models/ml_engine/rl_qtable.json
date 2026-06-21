@@ -1,47 +1,47 @@
 {
   "q_table": {
     "(0, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 0)": {
-      "kali_recon": 1.2252,
+      "kali_recon": 1.5882,
       "osint": -0.5217
     },
     "(1, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 0)": {
-      "osint": -0.5695,
+      "osint": -0.7712,
       "kali_recon": 1.0434,
       "network": 0.2
     },
     "(2, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 0)": {
-      "network": 5.9525,
+      "network": 5.9268,
       "kali_exploit": -0.1
     },
     "(3, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 0)": {
       "kali_exploit": -0.5695,
-      "recon": 1.0434,
+      "recon": 1.4917,
       "osint": -0.1
     },
     "(4, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 0)": {
       "recon": 1.2252,
-      "threat_intel": 1.0434
+      "threat_intel": 1.4917
     },
     "(5, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 0)": {
       "threat_intel": 1.2252,
-      "bugbounty": -0.5217
+      "bugbounty": 4.4084
     },
     "(6, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 0)": {
       "bugbounty": 40.0885,
-      "kali_exploit": -0.5217
+      "kali_exploit": -0.7458
     },
     "(7, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 0)": {
-      "breach": -0.8147
+      "breach": -0.9015
     },
     "(8, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 1)": {
-      "darkweb": -0.8147
+      "darkweb": -0.9015
     },
     "(9, 0, 0, 0, 0, 'LOW', 0, 0, 0, 0, 0, 0, 1)": {
       "kali_cmd:commix --url=\"http://learnshadowcode.netlify.app\" --batch 2>/dev/null | tail -20": -0.1
     }
   },
   "epsilon": 0.3,
-  "episodes_done": 145,
-  "avg_reward": 4.420689655172415,
-  "saved_at": "2026-05-08 08:10:26"
+  "episodes_done": 199,
+  "avg_reward": 3.763819095477388,
+  "saved_at": "2026-06-09 15:16:26"
 }

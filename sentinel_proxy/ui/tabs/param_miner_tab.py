@@ -91,7 +91,7 @@ class ParamMinerTab:
         self._base_len = None
 
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='  ⌕ Param Miner  ')
+        notebook.add(self.frame, text='⌕ ParamMiner')
         self._build()
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -321,9 +321,15 @@ class ParamMinerTab:
                     r        = _r.request(method, test_url, verify=False,
                                           timeout=6, allow_redirects=False)
                 elif location == 'body':
+                    # Try JSON first, fallback to form
                     r = _r.request(method, url,
-                                   data={param: 'SENTINEL_PROBE_1337'},
+                                   data=json.dumps({param: 'SENTINEL_PROBE_1337'}),
+                                   headers={'Content-Type': 'application/json'},
                                    verify=False, timeout=6, allow_redirects=False)
+                    if r.status_code == 415:
+                        r = _r.request(method, url,
+                                       data={param: 'SENTINEL_PROBE_1337'},
+                                       verify=False, timeout=6, allow_redirects=False)
                 elif location == 'header':
                     r = _r.request(method, url,
                                    headers={param: 'SENTINEL_PROBE_1337'},

@@ -76,8 +76,8 @@ class ClickjackingChecker:
                         result['vulnerable_pages'].append(url)
 
                     break  # https worked, skip http
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Clickjacking check failed for {url}: {e}")
 
         result['total'] = len(result['findings'])
 

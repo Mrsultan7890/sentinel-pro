@@ -144,8 +144,8 @@ class HeadersChecker:
                 if age < 31536000:  # 1 year
                     flags.append({'flag': 'HSTS_SHORT_MAX_AGE', 'severity': 'MEDIUM',
                                   'detail': f'HSTS max-age {age}s is less than 1 year'})
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"headers_checker error: {e}")
         if 'includesubdomains' not in val_lower:
             flags.append({'flag': 'HSTS_NO_SUBDOMAINS', 'severity': 'LOW',
                           'detail': 'HSTS does not include subdomains'})

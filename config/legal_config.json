@@ -1,0 +1,7 @@
+{
+  "evidence_standards": ["ISO 27037", "NIST SP 800-86", "RFC 3227"],
+  "chain_of_custody_required": true,
+  "cryptographic_integrity": true,
+  "legal_admissibility_mode": true,
+  "jurisdiction": "international"
+}

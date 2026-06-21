@@ -33,7 +33,7 @@ class WebSocketTab:
         self._msgs  = []   # all captured messages
 
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='  ⇆ WebSocket  ')
+        notebook.add(self.frame, text='⇆ WebSocket')
         self._build()
 
     def _build(self):

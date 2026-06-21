@@ -73,20 +73,22 @@ def smart_request(url: str, method: str = 'get', retries: int = 3, **kwargs):
 PRIORITY_ORDER = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}
 
 # Heuristic rules — (result se condition check karo, action, priority, reason)
+from modules.safe_data import has_findings, safe_get_count
+
 RULES = [
-    (lambda r: r.get('github_dorks', {}).get('total_secrets', 0) > 0,
+    (lambda r: has_findings(r, 'github_dorks', 'total_secrets'),
      'bugbounty', 'CRITICAL', 'GitHub secrets exposed'),
 
-    (lambda r: r.get('cloud_assets', {}).get('total', 0) > 0,
+    (lambda r: has_findings(r, 'cloud_assets', 'total'),
      'bugbounty', 'HIGH', 'Exposed cloud assets found'),
 
-    (lambda r: r.get('subdomains', {}).get('total_found', 0) > 15,
+    (lambda r: safe_get_count(r, 'subdomains', 'total_found') > 15,
      'bugbounty', 'HIGH', 'Large attack surface — subdomain takeover risk'),
 
     (lambda r: bool(r.get('dns', {}).get('zone_transfer')),
      'bugbounty', 'CRITICAL', 'DNS zone transfer allowed'),
 
-    (lambda r: r.get('risk_level') in ('CRITICAL', 'HIGH') and r.get('total_stealer_logs', 0) > 0,
+    (lambda r: r.get('risk_level') in ('CRITICAL', 'HIGH') and safe_get_count(r, 'total_stealer_logs') > 0,
      'alert', 'CRITICAL', 'Infostealer logs found'),
 
     (lambda r: r.get('risk_level') == 'CRITICAL',
@@ -297,11 +299,13 @@ class AutonomousAgent:
         return self._heuristic_risk(result)
 
     def _to_text(self, scan_type: str, result: dict) -> str:
+        from modules.safe_data import get_github_secrets_count, get_cloud_assets_count, get_subdomain_count
+        
         parts = [f'{scan_type}']
         if scan_type == 'recon':
-            s = result.get('github_dorks', {}).get('total_secrets', 0)
-            c = result.get('cloud_assets', {}).get('total', 0)
-            n = result.get('subdomains', {}).get('total_found', 0)
+            s = get_github_secrets_count(result)
+            c = get_cloud_assets_count(result)
+            n = get_subdomain_count(result)
             if s: parts.append(f'{s} github secrets exposed credentials leaked')
             if c: parts.append(f'{c} cloud assets exposed misconfiguration')
             if n > 20: parts.append(f'{n} subdomains large attack surface')
@@ -490,10 +494,12 @@ class AutonomousAgent:
             return False
 
     def _heuristic_risk(self, result: dict) -> str:
+        from modules.safe_data import has_findings
+        
         r = result.get('risk_level', '')
         if r in ('CRITICAL','HIGH','MEDIUM','LOW'): return r
-        if result.get('github_dorks', {}).get('total_secrets', 0) > 0: return 'CRITICAL'
-        if result.get('cloud_assets', {}).get('total', 0) > 0: return 'HIGH'
+        if has_findings(result, 'github_dorks', 'total_secrets'): return 'CRITICAL'
+        if has_findings(result, 'cloud_assets', 'total'): return 'HIGH'
         return 'MEDIUM'
 
     def _get_fix(self, vuln: str) -> str:

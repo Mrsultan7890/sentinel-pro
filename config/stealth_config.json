@@ -1,0 +1,7 @@
+{
+  "proxy_rotation_interval": 5,
+  "user_agent_randomization": true,
+  "tor_integration": true,
+  "anti_detection_mode": true,
+  "request_delays": {"min": 1, "max": 5}
+}

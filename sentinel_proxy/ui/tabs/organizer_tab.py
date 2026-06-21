@@ -34,7 +34,7 @@ class OrganizerTab:
         self.db  = app.db
 
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='  ⊞ Organizer  ')
+        notebook.add(self.frame, text='⊞ Organizer')
         self._build()
         self._load()
 

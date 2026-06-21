@@ -354,9 +354,8 @@ class EndpointScanner:
                                 break
                     logger.info(f'Wordlist loaded: {wl} ({count} paths, depth={SCAN_DEPTH})')
                     break
-            except Exception:
-                pass
-
+            except Exception as e:
+                logger.debug(f"endpoint_scanner error: {e}")
         # Add technology-specific paths
         for tech_name, tech_paths in self.TECH_PATHS.items():
             if tech_name.lower() in str(tech).lower():
@@ -398,6 +397,8 @@ class EndpointScanner:
                     return None
                 if r.status_code in (200, 403, 500):
                     risk = self._classify_risk(path, r.status_code, r.text)
+                    if risk == 'IGNORE':  # Skip false positives
+                        return None
                     return {
                         'path':           path,
                         'url':            url,
@@ -406,8 +407,8 @@ class EndpointScanner:
                         'risk':           risk,
                         'snippet':        r.text[:150].strip() if r.status_code == 200 else ''
                     }
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"endpoint_scanner error: {e}")
             return None
 
         with ThreadPoolExecutor(max_workers=30) as ex:
@@ -427,6 +428,22 @@ class EndpointScanner:
         return result
 
     def _classify_risk(self, path: str, status: int, body: str) -> str:
+        # Netlify/Cloudflare Pages/Vercel return 200 for 404 pages - detect false positives
+        if status == 200:
+            body_lower = body.lower()
+            # Common static hosting 404 patterns
+            false_positive_patterns = [
+                'page not found', 'not found', '404',
+                'the page you are looking for', 'couldn\'t find',
+                'does not exist', 'no such file',
+            ]
+            if any(pat in body_lower for pat in false_positive_patterns):
+                return 'IGNORE'  # Mark as false positive
+            
+            # Netlify/Vercel/Pages specific 404 indicators
+            if len(body) < 500 and ('netlify' in body_lower or 'vercel' in body_lower or 'cloudflare pages' in body_lower):
+                return 'IGNORE'
+        
         if status == 500:
             return 'MEDIUM'
         if status == 403:
@@ -473,9 +490,8 @@ class EndpointScanner:
             if r_trace.status_code == 200 and 'TRACE' not in result['allowed']:
                 result['allowed'].append('TRACE')
 
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug(f"endpoint_scanner error: {e}")
         if 'TRACE' in result['allowed'] or 'DELETE' in result['allowed']:
             result['risk'] = 'HIGH'
         elif result['allowed']:
@@ -558,6 +574,6 @@ class EndpointScanner:
                 tech['frontend'] = 'Angular'
             elif '__vue' in body or 'vue.js' in body.lower():
                 tech['frontend'] = 'Vue.js'
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"endpoint_scanner error: {e}")
         return tech

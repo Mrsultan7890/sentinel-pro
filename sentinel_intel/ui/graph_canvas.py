@@ -16,7 +16,7 @@ class NodeItem(QGraphicsEllipseItem):
         self.label_text = label
         self.risk_score = risk_score
         
-        # 15+ Entity type colors (vibrant palette)
+        # 19+ Entity type colors (vibrant palette)
         colors = {
             'email': '#4ECDC4',      # Cyan
             'phone': '#F38181',      # Pink
@@ -36,7 +36,51 @@ class NodeItem(QGraphicsEllipseItem):
             'certificate': '#9B59B6', # Violet
             'threat': '#E67E22',     # Dark Orange
             'technology': '#3498DB', # Blue
-            'transaction': '#1ABC9C' # Turquoise
+            'transaction': '#1ABC9C', # Turquoise
+            # NEW SUB-ENTITY TYPES
+            'social_profile': '#E91E63',  # Pink
+            'social_platform': '#FF6090',  # Rose
+            'paste': '#9C27B0',      # Deep Purple
+            'paste_site': '#BA68C8', # Light Purple
+            'data_leak': '#F44336',  # Red
+            'data_class': '#EF5350', # Light Red
+            'phone_property': '#EC407A', # Pink
+            'timezone': '#42A5F5',   # Blue
+            'asn': '#66BB6A',        # Green
+            'network_range': '#26A69A', # Teal
+            'service': '#FFA726',    # Orange
+            'file': '#8D6E63',       # Brown
+            'file_type': '#A1887F', # Light Brown
+            'file_size': '#BCAAA4', # Gray Brown
+            'exploit': '#D32F2F',    # Dark Red
+            'campaign': '#C62828',   # Darker Red
+            'threat_actor': '#B71C1C', # Darkest Red
+            'patch': '#689F38',      # Light Green
+            'version': '#7CB342',    # Green
+            'cwe': '#FF5722',        # Deep Orange
+            'registry_key': '#795548', # Brown
+            'mutex': '#8D6E63',      # Brown
+            'behavior': '#FFC107',   # Amber
+            'capability': '#FFB300', # Amber
+            'yara_rule': '#FF6F00',  # Dark Orange
+            'job': '#03A9F4',        # Light Blue
+            'education': '#0288D1',  # Blue
+            'institution': '#01579B', # Dark Blue
+            'image': '#E1BEE7',      # Purple
+            'social_post': '#F48FB1', # Pink
+            'identity_cluster': '#AB47BC', # Purple
+            'nameserver': '#00ACC1', # Cyan
+            'mail_server': '#0097A7', # Dark Cyan
+            'certificate_authority': '#7B1FA2', # Purple
+            'threat_report': '#D84315', # Red Orange
+            'balance': '#FDD835',    # Yellow
+            'currency': '#F9A825',   # Dark Yellow
+            'abuse_report': '#BF360C', # Dark Orange
+            'amount': '#FFD600',     # Bright Yellow
+            'timestamp': '#00BCD4',  # Cyan
+            'indicator': '#FF9800',  # Orange
+            'tag': '#9E9E9E',        # Gray
+            'report': '#607D8B'      # Blue Gray
         }
         
         base_color = colors.get(entity_type, '#00D9FF')
@@ -79,14 +123,31 @@ class NodeItem(QGraphicsEllipseItem):
             glow.setOffset(0, 0)
             self.setGraphicsEffect(glow)
         
-        # Label with emoji icon
+        # Label with entity icon
         icon_map = {
             'email': 'E', 'phone': 'P', 'ip': 'IP', 'person': 'U',
             'domain': 'D', 'username': 'UN', 'url': 'URL', 'hash': 'H',
             'cve': 'CVE', 'port': 'PT', 'company': 'C', 'location': 'L',
             'cryptocurrency': '$', 'malware': 'M', 'breach': 'B',
             'certificate': 'CT', 'threat': 'T', 'technology': 'TK',
-            'transaction': '💸'
+            'transaction': '💸',
+            # NEW SUB-ENTITY ICONS
+            'social_profile': 'SP', 'social_platform': 'PF', 'paste': 'PS',
+            'paste_site': 'PST', 'data_leak': 'DL', 'data_class': 'DC',
+            'phone_property': 'PP', 'timezone': 'TZ', 'asn': 'AS',
+            'network_range': 'NR', 'service': 'SV', 'file': 'F',
+            'file_type': 'FT', 'file_size': 'SZ', 'exploit': 'EX',
+            'campaign': 'CM', 'threat_actor': 'TA', 'patch': 'PX',
+            'version': 'V', 'cwe': 'CW', 'registry_key': 'RK',
+            'mutex': 'MX', 'behavior': 'BH', 'capability': 'CP',
+            'yara_rule': 'YR', 'job': 'JB', 'education': 'ED',
+            'institution': 'IN', 'image': 'IM', 'social_post': 'SO',
+            'identity_cluster': 'IC', 'nameserver': 'NS', 'mail_server': 'MX',
+            'certificate_authority': 'CA', 'threat_report': 'TR',
+            'balance': 'BL', 'currency': 'CR', 'abuse_report': 'AR',
+            'amount': 'AM', 'timestamp': 'TS', 'indicator': 'ID',
+            'tag': 'TG', 'report': 'RP', 'cloud_provider': 'CL',
+            'malware_type': 'MT'
         }
         
         icon = icon_map.get(entity_type, '🔹')

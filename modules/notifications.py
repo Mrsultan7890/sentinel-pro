@@ -319,6 +319,48 @@ class TelegramNotifier:
             f"Sentinel Pro — @who_is_the_black_hat"
         ]
         return self._send("\n".join(lines))
+    
+    def alert_darkweb(self, target: str, data: dict):
+        """Send dark web investigation alert"""
+        if not self.enabled:
+            return False
+        
+        if not target or not isinstance(target, str):
+            logger.error("Invalid target for alert_darkweb")
+            return False
+        
+        if not data or not isinstance(data, dict):
+            logger.error("Invalid data for alert_darkweb")
+            return False
+        
+        onion_count = len(data.get('onion_results', []))
+        paste_count = len(data.get('paste_results', []))
+        forum_count = len(data.get('forum_mentions', []))
+        
+        # Only alert if something found
+        if onion_count == 0 and paste_count == 0 and forum_count == 0:
+            return False
+        
+        lines = [
+            f"🕵️ DARK WEB ALERT",
+            f"Target : {target}",
+            f"Time   : {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"",
+            f"🧅 Onion Sites : {onion_count}",
+            f"📋 Paste Sites : {paste_count}",
+            f"💬 Forums      : {forum_count}",
+            f"",
+        ]
+        
+        # Add risk flags if present
+        if paste_count > 0:
+            lines.append(f"🔴 CRITICAL: Found in paste sites!")
+        if forum_count > 0:
+            lines.append(f"🟠 HIGH: Discussed in forums!")
+        
+        lines.append(f"")
+        lines.append(f"Sentinel Pro — @who_is_the_black_hat")
+        return self._send("\n".join(lines))
 
     def send(self, text: str) -> bool:
         """Public send — agent aur autonomous loop use karte hain"""

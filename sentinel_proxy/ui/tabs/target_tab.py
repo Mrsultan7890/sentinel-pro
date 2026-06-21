@@ -34,7 +34,7 @@ class TargetTab:
         self._tree_data = {}   # host -> set of paths
 
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='  ◎ Target  ')
+        notebook.add(self.frame, text='◎ Target')
         self._build()
 
     def _build(self):

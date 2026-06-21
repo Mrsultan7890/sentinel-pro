@@ -12,6 +12,7 @@ def main():
         from PyQt6.QtWidgets import QApplication
         from PyQt6.QtCore import Qt
         from sentinel_intel.ui.main_window import MainWindow
+        from sentinel_intel.ui.onboarding_splash import show_onboarding
         
         QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
         
@@ -19,8 +20,16 @@ def main():
         app.setApplicationName("Sentinel Intel")
         app.setOrganizationName("Sentinel Pro")
         
-        window = MainWindow()
-        window.show()
+        # Global window reference
+        main_window = None
+        
+        def launch_main_window():
+            nonlocal main_window
+            main_window = MainWindow()
+            main_window.show()
+        
+        # Show onboarding splash first
+        splash = show_onboarding(callback=launch_main_window)
         
         sys.exit(app.exec())
         

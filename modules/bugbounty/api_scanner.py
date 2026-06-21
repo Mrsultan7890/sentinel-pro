@@ -100,8 +100,8 @@ def _load_api_paths() -> list:
             logger.debug(f'API wordlist loaded: {wl} ({added} paths, depth={SCAN_DEPTH})')
             if limit and added >= limit:
                 break
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"api_scanner error: {e}")
     return paths
 
 
@@ -189,9 +189,8 @@ class APIScanner:
                         if re.search(r'/\d+', path):
                             result['idor_candidates'].append(url)
 
-            except Exception:
-                pass
-
+            except Exception as e:
+                logger.debug(f"api_scanner error: {e}")
         # ── 2. BOLA / IDOR probing ────────────────────────────────────────────
         idor_findings = self._probe_idor(session, base)
         result['findings'].extend(idor_findings)
@@ -248,9 +247,8 @@ class APIScanner:
                 r = session.get(base + path, timeout=6)
                 if r.status_code == 200 and self._looks_json(r.text):
                     responses[path] = r.text[:500]
-            except Exception:
-                pass
-
+            except Exception as e:
+                logger.debug(f"api_scanner error: {e}")
         # If both /1 and /2 return 200 with different content → IDOR
         for resource in ('users', 'orders', 'accounts', 'profile'):
             p1 = f'/api/v1/{resource}/1'
@@ -283,8 +281,8 @@ class APIScanner:
                         'url': url,
                         'evidence': f"{method} returned HTTP {r.status_code} — {desc} possible",
                     })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"api_scanner error: {e}")
         return findings
 
     def _test_graphql(self, session, base: str) -> dict:
@@ -300,8 +298,8 @@ class APIScanner:
                         'url': base + path,
                         'evidence': 'Full schema exposed via __schema introspection query',
                     }
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"api_scanner error: {e}")
         return {}
 
     def _test_mass_assignment(self, session, base: str) -> list:
@@ -324,6 +322,6 @@ class APIScanner:
                             'url': base + path,
                             'evidence': f"POST with role:admin returned HTTP {r.status_code} — privileged field reflected in response",
                         })
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"api_scanner error: {e}")
         return findings

@@ -48,11 +48,10 @@ class SSLChecker:
             with socket.create_connection((domain, port), timeout=10) as sock:
                 with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
                     return self._parse_cert(ssock)
-        except ssl.SSLCertVerificationError:
-            pass
-        except Exception:
-            pass
-
+        except ssl.SSLCertVerificationError as e:
+            logger.debug(f"ssl_checker error: {e}")
+        except Exception as e:
+            logger.debug(f"ssl_checker error: {e}")
         # Second try: without verification (self-signed certs)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.check_hostname = False
@@ -62,9 +61,8 @@ class SSLChecker:
             with socket.create_connection((domain, port), timeout=10) as sock:
                 with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
                     return self._parse_cert(ssock)
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug(f"ssl_checker error: {e}")
         # Last resort: no verification but use cryptography lib for cert parsing
         ctx2 = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx2.check_hostname = False
@@ -129,17 +127,15 @@ class SSLChecker:
                 subject_cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
                 issuer_cn  = cert.issuer.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
                 issuer_org = cert.issuer.get_attributes_for_oid(NameOID.ORGANIZATION_NAME)[0].value
-            except Exception:
-                pass
-
+            except Exception as e:
+                logger.debug(f"ssl_checker error: {e}")
             sans = []
             try:
                 from cryptography.x509 import SubjectAlternativeName, DNSName
                 ext = cert.extensions.get_extension_for_class(SubjectAlternativeName)
                 sans = [n.value for n in ext.value.get_values_for_type(DNSName)]
-            except Exception:
-                pass
-
+            except Exception as e:
+                logger.debug(f"ssl_checker error: {e}")
             protocol = ssock.version()
             cipher   = ssock.cipher()
 

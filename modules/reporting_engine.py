@@ -17,6 +17,7 @@ Generates court-admissible intelligence reports with chain of custody
 import json
 import os
 import subprocess
+import logging
 from datetime import datetime
 
 from modules.report_signature import sign_json, get_html_footer
@@ -26,6 +27,8 @@ from matplotlib.patches import Rectangle
 import numpy as np
 import hashlib
 import uuid
+
+logger = logging.getLogger(__name__)
 
 class LegalReportingEngine:
     def __init__(self):
@@ -185,13 +188,13 @@ class LegalReportingEngine:
         }
     
     def _run_legal_predictor(self, session_data):
-        """Execute Go legal predictor for court-ready recommendations"""
+        """Execute Go legal predictor for court-ready recommendations (optional)"""
         try:
-            # Build Go legal predictor if not exists
-            if not os.path.exists('legal_predictor/legal_predictor'):
-                print("[*] Building Go legal predictor...")
-                subprocess.run(['go', 'build', '-o', 'legal_predictor/legal_predictor', 'legal_predictor/main.go'], 
-                             cwd='/home/kali/osints', check=True)
+            # Check if Go binary exists
+            predictor_path = '/home/kali/osints/predictor/predictor'
+            if not os.path.exists(predictor_path):
+                logger.debug(f"Legal predictor not found at {predictor_path}, using fallback")
+                return self._fallback_legal_predictions(session_data)
             
             # Prepare legal analysis data
             legal_input = {
@@ -203,23 +206,31 @@ class LegalReportingEngine:
             
             input_data = json.dumps(legal_input)
             
-            # Run legal predictor
-            result = subprocess.run(['./legal_predictor/legal_predictor'], 
-                                  input=input_data,
-                                  cwd='/home/kali/osints',
-                                  capture_output=True, text=True)
+            # Run legal predictor with timeout
+            result = subprocess.run(
+                [predictor_path],
+                input=input_data,
+                cwd='/home/kali/osints',
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
             
             if result.returncode == 0:
                 try:
                     return json.loads(result.stdout)
                 except json.JSONDecodeError as e:
-                    logger.error(f"Invalid JSON from legal predictor: {e}")
+                    logger.debug(f"Invalid JSON from legal predictor: {e}")
                     return self._fallback_legal_predictions(session_data)
             else:
+                logger.debug(f"Legal predictor returned non-zero: {result.stderr}")
                 return self._fallback_legal_predictions(session_data)
                 
+        except subprocess.TimeoutExpired:
+            logger.debug("Legal predictor timeout, using fallback")
+            return self._fallback_legal_predictions(session_data)
         except Exception as e:
-            logger.error(f"Legal predictor failed: {e}")
+            logger.debug(f"Legal predictor error: {e}")
             return self._fallback_legal_predictions(session_data)
     
     def _fallback_legal_predictions(self, session_data):

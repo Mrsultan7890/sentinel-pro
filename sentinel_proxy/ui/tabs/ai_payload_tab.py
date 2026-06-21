@@ -47,7 +47,7 @@ class AIPayloadTab:
         self._payloads  = []   # generated payloads list
 
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='  ✦ AI Payloads  ')
+        notebook.add(self.frame, text='✦ AI Payloads')
         self._build()
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -203,6 +203,8 @@ class AIPayloadTab:
         vtype    = self._vuln_type.get()
         tech     = self._tech_entry.get().strip()
         context  = self._context_entry.get().strip()
+        if tech.startswith('e.g.'): tech = ''
+        if context.startswith('e.g.'): context = ''
         try:
             count = int(self._count_var.get() or 20)
         except ValueError:
@@ -221,6 +223,8 @@ class AIPayloadTab:
         vtype   = self._vuln_type.get()
         tech    = self._tech_entry.get().strip()
         context = self._context_entry.get().strip()
+        if tech.startswith('e.g.'): tech = ''
+        if context.startswith('e.g.'): context = ''
         try:
             count = int(self._count_var.get() or 20)
         except ValueError:

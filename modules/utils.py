@@ -28,6 +28,9 @@ logging.getLogger('urllib3.connectionpool').setLevel(logging.ERROR)
 # Suppress SSL warnings — intentional: scanner must handle self-signed certs
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Suppress WHOIS socket warnings — harmless fallback behavior
+logging.getLogger('whois').setLevel(logging.ERROR)
+
 logger = logging.getLogger(__name__)
 
 _last_call: dict[str, float] = {}
@@ -73,6 +76,7 @@ def tor_session(pool_size: int = 10) -> requests.Session:
     """
     Returns a requests.Session pre-configured with Tor SOCKS5 proxy.
     pool_size: set higher (e.g. 30-50) for modules using ThreadPoolExecutor.
+    Note: Only uses Tor proxy if explicitly enabled via config.
     """
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(
@@ -82,6 +86,8 @@ def tor_session(pool_size: int = 10) -> requests.Session:
     )
     session.mount('http://', adapter)
     session.mount('https://', adapter)
+    # Only set proxy if Tor is actually enabled
     if config.is_tor_active():
         session.proxies = config.get_proxies()
+        logger.debug(f"Tor session created with proxy: {config.TOR_PROXY}")
     return session

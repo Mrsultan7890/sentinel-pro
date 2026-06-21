@@ -166,15 +166,12 @@ class SentinelAgent:
                 priority=self._priority_from_threat(threat_ctx)
             )
 
-            # Store raw data in history for risk calculation
-            if hasattr(result, 'data') and isinstance(result.data, dict) and self._history:
-                self._history[-1]['data'] = result.data
-
             # ── Update context ──
             self._history.append({
                 'step': self._step, 'thought': thought,
                 'action': action, 'args': args,
-                'observation': observation, 'threat': threat_ctx
+                'observation': observation, 'threat': threat_ctx,
+                'data': result.data if hasattr(result, 'data') and isinstance(result.data, dict) else {}
             })
             context = self._update_context(context, thought, action, args,
                                            observation, threat_ctx)
@@ -250,25 +247,32 @@ class SentinelAgent:
 
         # After recon — check what was found
         if last_action == 'recon' and self._history:
-            data = self._history[-1].get('observation', '')
-            # GitHub secrets → bugbounty
-            if 'github secrets' in data.lower() and 'secrets=0' not in data.lower():
+            from modules.safe_data import has_findings, get_github_secrets_count, get_cloud_assets_count
+            
+            last_data = self._history[-1].get('data', {})
+            
+            # GitHub secrets → bugbounty (safe check)
+            if has_findings(last_data, 'github_dorks', 'total_secrets'):
+                github_secrets = get_github_secrets_count(last_data)
                 bb_key = f"bugbounty:{json.dumps({'target': target}, sort_keys=True)}"
                 if bb_key not in done_actions:
                     return ('bugbounty', {'target': target},
-                            f"GitHub secrets found — run full vuln scan. {reasoning}")
-            # Cloud assets → bugbounty
-            if 'cloud assets' in data.lower() and 'cloud assets=0' not in data.lower():
+                            f"GitHub secrets found ({github_secrets}) — run full vuln scan. {reasoning}")
+            
+            # Cloud assets → bugbounty (safe check)
+            if has_findings(last_data, 'cloud_assets', 'total'):
+                cloud_count = get_cloud_assets_count(last_data)
                 bb_key = f"bugbounty:{json.dumps({'target': target}, sort_keys=True)}"
                 if bb_key not in done_actions:
                     return ('bugbounty', {'target': target},
-                            f"Cloud assets exposed — check for misconfigs. {reasoning}")
+                            f"Cloud assets exposed ({cloud_count}) — check for misconfigs. {reasoning}")
+            
             # Model says HIGH/CRITICAL → bugbounty
             if label in ('HIGH', 'CRITICAL'):
                 bb_key = f"bugbounty:{json.dumps({'target': target}, sort_keys=True)}"
                 if bb_key not in done_actions:
                     return ('bugbounty', {'target': target},
-                            f"Model: {label} risk ({threat_type}) — vuln scan needed. {reasoning}")
+                            f"{reasoning}")
 
         # After bugbounty — check vulns
         if last_action == 'bugbounty' and self._history:

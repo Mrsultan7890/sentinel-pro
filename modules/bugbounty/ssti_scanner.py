@@ -127,9 +127,8 @@ class SSTIScanner:
                 # Agar baseline mein bhi expected string hai to false positive
                 if expected in base_r.text:
                     return {}
-            except Exception:
-                pass
-
+            except Exception as e:
+                logger.debug(f"ssti_scanner error: {e}")
             # Actual check
             if expected in r.text:
                 # Extra verify — payload ka result response mein clearly dikhna chahiye
@@ -152,7 +151,7 @@ class SSTIScanner:
                     'expected': expected, 'method': method,
                     'evidence': f"{engine} — payload evaluated: '{payload}' → '{expected}' found",
                 }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"ssti_scanner error: {e}")
         return {}
 

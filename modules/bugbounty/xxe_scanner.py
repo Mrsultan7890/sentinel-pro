@@ -130,9 +130,8 @@ class XXEScanner:
                             })
                             break
 
-                except Exception:
-                    pass
-
+                except Exception as e:
+                    logger.debug(f"xxe_scanner error: {e}")
             # Also test GET with xml param
             for param in ('xml', 'data', 'input', 'body'):
                 try:
@@ -151,9 +150,8 @@ class XXEScanner:
                                 'status_code': r.status_code,
                             })
                             break
-                except Exception:
-                    pass
-
+                except Exception as e:
+                    logger.debug(f"xxe_scanner error: {e}")
         # Deduplicate
         seen = set()
         deduped = []

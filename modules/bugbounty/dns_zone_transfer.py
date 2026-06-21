@@ -75,9 +75,9 @@ class DNSZoneTransfer:
                 result['total_records'] += len(records)
                 logger.warning(f"Zone transfer SUCCESS on {ns} for {domain} — {len(records)} records")
 
-            except (dns.exception.FormError, EOFError, ConnectionRefusedError, TimeoutError):
+            except (dns.exception.FormError, EOFError, ConnectionRefusedError, TimeoutError) as e:
                 # Transfer refused — expected / secure
-                pass
+                logger.debug(f"ZoneTransfer refused by {ns}: {type(e).__name__}")
             except Exception as e:
                 logger.debug(f"ZoneTransfer {ns}: {e}")
 

@@ -193,12 +193,13 @@ class AIAnalyzer:
             except Exception as e:
                 logger.debug(f'Behavioral analysis error: {e}')
 
-        # Build text to analyze
+        # Build text to analyze - ONLY request data, NOT response body
         text_parts = [
             flow.get('url', ''),
             flow.get('body', ''),
             json.dumps(flow.get('params', {})),
-            flow.get('resp_body', '')[:2000],
+            # NOTE: resp_body intentionally excluded - causes false positives
+            # Response body scan only for sensitive data leakage, not vuln detection
         ]
         full_text = ' '.join(text_parts)
 
@@ -267,13 +268,15 @@ class AIAnalyzer:
                 resp = (flow.get('resp_body') or '')[:300]
 
                 prompt = (
-                    f"Analyze this HTTP request for security vulnerabilities:\n"
+                    f"Analyze this HTTP request for security vulnerabilities.\n"
+                    f"IMPORTANT: Only flag vulnerabilities if the REQUEST (not response) contains malicious patterns.\n"
                     f"Method: {method}\nURL: {url}\n"
                     f"Params: {params}\nBody: {body}\n"
-                    f"Response: {status} {resp}\n\n"
+                    f"Response Status: {status}\n"
+                    f"Note: Response body is excluded to avoid false positives.\n\n"
                     f"Reply ONLY in JSON: {{\"risk\": \"LOW/MEDIUM/HIGH/CRITICAL\", "
                     f"\"vulns\": [\"vuln1\", ...], \"detail\": \"explanation\", "
-                    f"\"fix\": \"recommendation\"}}"
+                    f"\"fix\": \"recommendation\", \"is_false_positive\": true/false}}"
                 )
                 out = self._groq.ask(prompt, max_tokens=250)
                 if callback:
@@ -295,6 +298,17 @@ class AIAnalyzer:
     # ── Pattern Scanner ───────────────────────────────────────────────────────
 
     def _pattern_scan(self, text: str, flow: dict) -> list:
+        """
+        Scan ONLY request data for vulnerability patterns.
+        text = url + body + params (NO response body)
+        """
+        # Skip scan if no user-supplied input (params/body empty)
+        has_params = bool(flow.get('params'))
+        has_body = bool(flow.get('body', '').strip())
+        url = flow.get('url', '')
+        if not has_params and not has_body and '?' not in url:
+            return []
+
         vulns = []
         detected_types = set()
 

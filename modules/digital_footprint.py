@@ -151,7 +151,10 @@ class AdvancedFootprintCollector:
                 self._apply_rate_limit()
                 
                 session = self._get_stealth_session()
-                response = session.get(url, timeout=10, allow_redirects=True, verify=True)
+                # Disable SSL verification for subdomain-based platforms (substack, wordpress, etc.)
+                # These often have certificate hostname mismatches
+                verify_ssl = platform not in ['substack', 'wordpress', 'blogger', 'tumblr', 'carrd']
+                response = session.get(url, timeout=10, allow_redirects=True, verify=verify_ssl)
                 
                 # Only process successful responses
                 if response.status_code == 200:
@@ -908,6 +911,9 @@ class AdvancedFootprintCollector:
         soup = BeautifulSoup(html_content, 'html.parser')
         profile_info = {}
         
+        # Extract creation/join date first
+        profile_info['creation_date'] = self._extract_creation_date(soup, platform, html_content)
+        
         # Extract from meta tags first (most reliable)
         og_title = soup.find('meta', {'property': 'og:title'})
         if og_title:
@@ -1055,8 +1061,64 @@ class AdvancedFootprintCollector:
         
         return profile_info
     
+    def _extract_creation_date(self, soup, platform, html_content):
+        """Extract account creation/join date"""
+        import re
+        from datetime import datetime
+        
+        # Platform-specific extraction
+        if platform == 'twitter':
+            # Look for "Joined" text
+            joined_text = re.search(r'Joined\s+([A-Za-z]+\s+\d{4})', html_content)
+            if joined_text:
+                return joined_text.group(1)
+        
+        elif platform == 'github':
+            # GitHub shows "Joined on" or member since
+            time_elem = soup.find('time')
+            if time_elem and time_elem.get('datetime'):
+                return time_elem['datetime'][:10]  # YYYY-MM-DD
+        
+        elif platform == 'reddit':
+            # Reddit cake day
+            cake_elem = soup.find(string=re.compile(r'cake day', re.I))
+            if cake_elem:
+                parent = cake_elem.find_parent()
+                if parent:
+                    date_match = re.search(r'([A-Za-z]+\s+\d+,\s+\d{4})', parent.get_text())
+                    if date_match:
+                        return date_match.group(1)
+        
+        elif platform == 'linkedin':
+            # LinkedIn doesn't show exact join date publicly
+            pass
+        
+        elif platform == 'youtube':
+            # YouTube "Joined" date
+            joined_match = re.search(r'Joined\s+([A-Za-z]+\s+\d+,\s+\d{4})', html_content)
+            if joined_match:
+                return joined_match.group(1)
+        
+        elif platform == 'instagram':
+            # Instagram doesn't show creation date publicly
+            pass
+        
+        # Generic fallback - look for date patterns
+        date_patterns = [
+            r'(?:Joined|Member since|Created)\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})',
+            r'(?:Joined|Member since|Created)\s+([A-Za-z]+\s+\d{4})',
+            r'Since\s+([A-Za-z]+\s+\d{4})'
+        ]
+        
+        for pattern in date_patterns:
+            match = re.search(pattern, html_content, re.IGNORECASE)
+            if match:
+                return match.group(1)
+        
+        return 'N/A'
+    
     def _extract_bio_direct(self, html_content, platform):
-        """Direct bio extraction"""
+        """Direct bio extraction with location, website, hashtags"""
         soup = BeautifulSoup(html_content, 'html.parser')
         bio_data = {}
         
@@ -1066,6 +1128,17 @@ class AdvancedFootprintCollector:
             desc = meta_desc.get('content', '')
             if desc and len(desc) > 20:
                 bio_data['bio'] = desc
+                
+                # Extract hashtags from bio
+                import re
+                hashtags = re.findall(r'#([A-Za-z0-9_]+)', desc)
+                if hashtags:
+                    bio_data['hashtags'] = list(set(hashtags))[:20]
+                
+                # Extract mentions from bio
+                mentions = re.findall(r'@([A-Za-z0-9_]+)', desc)
+                if mentions:
+                    bio_data['mentions'] = list(set(mentions))[:10]
         
         # Platform-specific bio selectors
         bio_selectors = {
@@ -1083,14 +1156,65 @@ class AdvancedFootprintCollector:
                     bio_text = bio_elem.get_text(strip=True)
                     if bio_text:
                         bio_data['bio'] = bio_text
+                        
+                        # Extract hashtags from bio
+                        import re
+                        hashtags = re.findall(r'#([A-Za-z0-9_]+)', bio_text)
+                        if hashtags:
+                            bio_data['hashtags'] = list(set(hashtags))[:20]
+                        
+                        # Extract mentions
+                        mentions = re.findall(r'@([A-Za-z0-9_]+)', bio_text)
+                        if mentions:
+                            bio_data['mentions'] = list(set(mentions))[:10]
+                        
+                        break
+        
+        # Extract location (platform-specific)
+        location_selectors = {
+            'twitter': ['[data-testid="UserLocation"]', 'span[data-testid="UserLocation"]'],
+            'instagram': ['.-vDIg', '.x1lliihq'],
+            'github': ['.p-label', '[itemprop="homeLocation"]'],
+            'linkedin': ['.pv-top-card--list li', '.text-body-small'],
+            'facebook': ['.x193iq5w']
+        }
+        
+        if platform in location_selectors:
+            for selector in location_selectors[platform]:
+                loc_elem = soup.select_one(selector)
+                if loc_elem:
+                    loc_text = loc_elem.get_text(strip=True)
+                    if loc_text and len(loc_text) < 100:
+                        bio_data['location'] = loc_text
+                        break
+        
+        # Extract website/links
+        website_selectors = {
+            'twitter': ['a[href^="https://t.co/"]', '[data-testid="UserUrl"] a'],
+            'instagram': ['a[href]'],
+            'github': ['.vcard-details a[href^="http"]'],
+            'linkedin': ['.pv-contact-info__contact-link']
+        }
+        
+        if platform in website_selectors:
+            for selector in website_selectors[platform]:
+                web_elem = soup.select_one(selector)
+                if web_elem:
+                    href = web_elem.get('href', '')
+                    if href and href.startswith('http') and platform not in href:
+                        bio_data['website'] = href
                         break
         
         return bio_data
     
     def _extract_posts_direct(self, html_content, platform):
-        """Direct posts extraction"""
+        """Direct posts extraction with hashtags, mentions, timestamps"""
         soup = BeautifulSoup(html_content, 'html.parser')
-        posts_data = {'posts': []}
+        posts_data = {'posts': [], 'total_posts': 0, 'recent_hashtags': [], 'recent_mentions': []}
+        
+        import re
+        all_hashtags = []
+        all_mentions = []
         
         # Platform-specific post extraction
         if platform == 'twitter':
@@ -1099,8 +1223,16 @@ class AdvancedFootprintCollector:
             for tweet in tweets[:5]:
                 tweet_text = tweet.get_text(strip=True)
                 if tweet_text:
+                    # Extract hashtags and mentions
+                    hashtags = re.findall(r'#([A-Za-z0-9_]+)', tweet_text)
+                    mentions = re.findall(r'@([A-Za-z0-9_]+)', tweet_text)
+                    all_hashtags.extend(hashtags)
+                    all_mentions.extend(mentions)
+                    
                     posts_data['posts'].append({
                         'text': tweet_text,
+                        'hashtags': hashtags,
+                        'mentions': mentions,
                         'platform': platform
                     })
         
@@ -1110,8 +1242,16 @@ class AdvancedFootprintCollector:
             if meta_desc:
                 desc = meta_desc.get('content', '')
                 if len(desc) > 50:
+                    # Extract hashtags and mentions
+                    hashtags = re.findall(r'#([A-Za-z0-9_]+)', desc)
+                    mentions = re.findall(r'@([A-Za-z0-9_]+)', desc)
+                    all_hashtags.extend(hashtags)
+                    all_mentions.extend(mentions)
+                    
                     posts_data['posts'].append({
                         'caption': desc,
+                        'hashtags': hashtags,
+                        'mentions': mentions,
                         'platform': platform
                     })
         
@@ -1126,7 +1266,54 @@ class AdvancedFootprintCollector:
                         'platform': platform
                     })
         
+        # Count total posts
+        posts_data['total_posts'] = len(posts_data['posts'])
+        
+        # Get unique hashtags and mentions
+        posts_data['recent_hashtags'] = list(set(all_hashtags))[:20]
+        posts_data['recent_mentions'] = list(set(all_mentions))[:10]
+        
+        # Try to extract total post count from page
+        posts_data['total_posts_on_profile'] = self._extract_total_post_count(soup, platform, html_content)
+        
         return posts_data
+    
+    def _extract_total_post_count(self, soup, platform, html_content):
+        """Extract total number of posts from profile"""
+        import re
+        
+        if platform == 'instagram':
+            # Instagram shows post count in meta description
+            meta_desc = soup.find('meta', {'name': 'description'})
+            if meta_desc:
+                desc = meta_desc.get('content', '')
+                post_match = re.search(r'([0-9,.KMB]+)\s*[Pp]osts?', desc)
+                if post_match:
+                    return post_match.group(1)
+        
+        elif platform == 'twitter':
+            # Twitter shows tweet count
+            tweet_match = re.search(r'([0-9,.KMB]+)\s*[Tt]weets?', html_content)
+            if tweet_match:
+                return tweet_match.group(1)
+        
+        elif platform == 'reddit':
+            # Reddit post karma
+            karma_match = re.search(r'([0-9,.KMB]+)\s*[Pp]ost\s*[Kk]arma', html_content)
+            if karma_match:
+                return karma_match.group(1)
+        
+        elif platform == 'github':
+            # GitHub contributions
+            contrib_elem = soup.find(string=re.compile(r'contributions?', re.I))
+            if contrib_elem:
+                parent = contrib_elem.find_parent()
+                if parent:
+                    num_match = re.search(r'([0-9,]+)', parent.get_text())
+                    if num_match:
+                        return num_match.group(1)
+        
+        return 'N/A'
     
     def _extract_contact_direct(self, html_content):
         """Direct contact information extraction - only real contact info"""

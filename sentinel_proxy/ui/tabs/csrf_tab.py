@@ -48,7 +48,7 @@ class CSRFTab:
         self._poc_html = ''
 
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='  ⚡ CSRF PoC  ')
+        notebook.add(self.frame, text='⚡ CSRF PoC')
         self._build()
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -283,9 +283,16 @@ class CSRFTab:
         csrf_keys = [k for k in params
                      if any(t in k.lower() for t in
                             ['csrf', 'token', '_token', 'nonce', 'authenticity'])]
+        enc = self._enc_var.get()
+        is_json_api = enc == 'application/json'
+
         if csrf_keys:
             out += f'[MEDIUM] CSRF token found in params: {", ".join(csrf_keys)}\n'
             out += '         Verify if token is properly validated server-side.\n\n'
+        elif is_json_api:
+            out += '[LOW]    JSON API endpoint — CSRF risk is lower.\n'
+            out += '         Custom Content-Type header acts as implicit CSRF protection.\n'
+            out += '         However, verify CORS policy is restrictive.\n\n'
         else:
             out += '[HIGH]   No CSRF token detected in parameters.\n'
             out += '         Request may be vulnerable to CSRF.\n\n'

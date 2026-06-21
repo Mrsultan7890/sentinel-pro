@@ -148,8 +148,8 @@ class PortScanner:
                 if s:
                     try:
                         s.close()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"port_scanner error: {e}")
             return None
 
         with ThreadPoolExecutor(max_workers=50) as ex:

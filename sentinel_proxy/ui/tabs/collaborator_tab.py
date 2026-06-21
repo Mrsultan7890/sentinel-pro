@@ -57,7 +57,7 @@ class CollaboratorTab:
         self._local_ip  = self._get_local_ip()
 
         self.frame = ttk.Frame(notebook)
-        notebook.add(self.frame, text='  ◎ Collaborator  ')
+        notebook.add(self.frame, text='◎ Collaborator')
         self._build()
 
     # ── UI ────────────────────────────────────────────────────────────────────
@@ -410,7 +410,14 @@ class CollaboratorTab:
         def _send():
             try:
                 import requests as _req
-                r = _req.get(test_url, verify=False, timeout=10, allow_redirects=False)
+                is_json = payload.strip().startswith('{')
+                if '?' in url or vtype not in ('Blind SSRF', 'Blind SQLi'):
+                    r = _req.get(test_url, verify=False, timeout=10, allow_redirects=False)
+                else:
+                    body_data = json.dumps({param: payload})
+                    r = _req.post(url, data=body_data,
+                        headers={'Content-Type': 'application/json'},
+                        verify=False, timeout=10, allow_redirects=False)
                 self.app.root.after(0, lambda: self.app._set_status(
                     f'Injected {vtype} → {r.status_code}  ·  Waiting for callback...'))
             except Exception as e:
@@ -469,7 +476,14 @@ class CollaboratorTab:
         def _send():
             try:
                 import requests as _req
-                r = _req.get(test_url, verify=False, timeout=10, allow_redirects=False)
+                is_json_endpoint = not ('?' in url)
+                if is_json_endpoint:
+                    body_data = json.dumps({param: payload})
+                    r = _req.post(url, data=body_data,
+                        headers={'Content-Type': 'application/json'},
+                        verify=False, timeout=10, allow_redirects=False)
+                else:
+                    r = _req.get(test_url, verify=False, timeout=10, allow_redirects=False)
                 self.app.root.after(0, lambda: self.app._set_status(
                     f'OOB {vtype} injected → HTTP {r.status_code}  ·  Waiting for callback...'))
             except Exception as e:

@@ -155,11 +155,20 @@ class SentinelReportBuilder:
                 f"Keep it concise (3-4 sentences), professional, actionable."
             )
             try:
-                summary = self._groq.ask(prompt, max_tokens=200)
-                if summary and len(summary) > 50:
-                    return summary
-            except Exception:
-                pass
+                # Add timeout to prevent hanging
+                import signal
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("Groq API timeout")
+                signal.signal(signal.SIGALRM, timeout_handler)
+                signal.alarm(10)  # 10 second timeout
+                try:
+                    summary = self._groq.ask(prompt, max_tokens=200)
+                    if summary and len(summary) > 50:
+                        return summary
+                finally:
+                    signal.alarm(0)  # Cancel alarm
+            except (TimeoutError, Exception) as e:
+                logger.debug(f"Groq summary failed: {e}")
 
         # Fallback
         return (
@@ -208,7 +217,11 @@ class SentinelReportBuilder:
 
     def _severity_chart(self, target: str, findings: list,
                         base_path: str) -> str:
+        """Generate severity chart with timeout protection."""
         try:
+            # Skip if no findings to prevent empty chart issues
+            if not findings:
+                return ''
             import matplotlib
             matplotlib.use('Agg')
             import matplotlib.pyplot as plt

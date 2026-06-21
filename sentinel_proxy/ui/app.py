@@ -408,7 +408,7 @@ class SentinelProxyApp:
         s.configure('TNotebook', background=BG, borderwidth=0,
             tabmargins=[0, 0, 0, 0])
         s.configure('TNotebook.Tab', background=BG2, foreground=TEXT3,
-            padding=[20, 9], font=FONT_MONO_SM, borderwidth=0)
+            padding=[8, 7], font=('Fira Code', 8), borderwidth=0)
         s.map('TNotebook.Tab',
             background=[('selected', BG3), ('active', BG4)],
             foreground=[('selected', ACCENT), ('active', TEXT2)])
@@ -667,7 +667,7 @@ class SentinelProxyApp:
 
     def _build_proxy_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⬡ Proxy  ')
+        self.nb.add(frame, text='⬡ Proxy')
 
         pw = ttk.PanedWindow(frame, orient='horizontal')
         pw.pack(fill='both', expand=True)
@@ -788,7 +788,7 @@ class SentinelProxyApp:
 
     def _build_repeater_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ↺ Repeater  ')
+        self.nb.add(frame, text='↺ Repeater')
 
         # URL bar
         ub = tk.Frame(frame, bg=BG3)
@@ -858,7 +858,7 @@ class SentinelProxyApp:
 
     def _build_intruder_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⚡ Intruder  ')
+        self.nb.add(frame, text='⚡ Intruder')
 
         cfg = tk.Frame(frame, bg=BG3)
         cfg.pack(fill='x')
@@ -1020,7 +1020,7 @@ class SentinelProxyApp:
 
     def _build_scanner_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⌖ Scanner  ')
+        self.nb.add(frame, text='⌖ Scanner')
 
         ub = tk.Frame(frame, bg=BG3)
         ub.pack(fill='x')
@@ -1042,7 +1042,7 @@ class SentinelProxyApp:
 
     def _build_decoder_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⊞ Decoder  ')
+        self.nb.add(frame, text='⊞ Decoder')
 
         ub = tk.Frame(frame, bg=BG3)
         ub.pack(fill='x')
@@ -1078,7 +1078,7 @@ class SentinelProxyApp:
 
     def _build_logger_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ≡ Logger  ')
+        self.nb.add(frame, text='≡ Logger')
 
         tb = tk.Frame(frame, bg=BG3)
         tb.pack(fill='x')
@@ -1155,7 +1155,7 @@ class SentinelProxyApp:
 
     def _build_highlight_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ◈ Highlight  ')
+        self.nb.add(frame, text='◈ Highlight')
 
         # Info label
         tk.Label(frame,
@@ -1229,7 +1229,7 @@ class SentinelProxyApp:
 
     def _build_autofuzz_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⚙ Auto-Fuzz  ')
+        self.nb.add(frame, text='⚙ AutoFuzz')
 
         # Top bar
         tb = tk.Frame(frame, bg=BG3)
@@ -1324,7 +1324,7 @@ class SentinelProxyApp:
 
     def _build_comparer_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⇄ Comparer  ')
+        self.nb.add(frame, text='⇄ Comparer')
 
         # Toolbar
         tb = tk.Frame(frame, bg=BG3)
@@ -1406,7 +1406,7 @@ class SentinelProxyApp:
 
     def _build_scope_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ◎ Scope  ')
+        self.nb.add(frame, text='◎ Scope')
 
         tk.Label(frame,
             text='  Define which hosts are in scope. Out-of-scope requests are logged but not analyzed.',
@@ -1478,7 +1478,7 @@ class SentinelProxyApp:
 
     def _build_report_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⬒ Report  ')
+        self.nb.add(frame, text='⬒ Report')
 
         # Toolbar
         tb = tk.Frame(frame, bg=BG3)
@@ -1541,7 +1541,7 @@ class SentinelProxyApp:
 
     def _build_match_replace_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⇌ Match & Replace  ')
+        self.nb.add(frame, text='⇌ M&Replace')
 
         tk.Label(frame,
             text='  Auto-modify requests/responses matching rules. Applied to all intercepted traffic.',
@@ -1611,7 +1611,7 @@ class SentinelProxyApp:
 
     def _build_active_scanner_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ◉ Active Scanner  ')
+        self.nb.add(frame, text='◉ Scanner+')
 
         # Toolbar
         tb = tk.Frame(frame, bg=BG3)
@@ -1686,7 +1686,7 @@ class SentinelProxyApp:
 
     def _build_session_analyzer_tab(self):
         frame = ttk.Frame(self.nb)
-        self.nb.add(frame, text='  ⚿ Session  ')
+        self.nb.add(frame, text='⚿ Session')
 
         # Toolbar
         tb = tk.Frame(frame, bg=BG3)
@@ -2378,8 +2378,8 @@ class SentinelProxyApp:
         headers = {}
         body    = ''
         in_body = False
-        for line in raw.split('\n')[1:]:
-            if not line.strip():
+        for line in raw.replace('\r\n', '\n').split('\n')[1:]:
+            if not line.strip() and not in_body:
                 in_body = True
                 continue
             if in_body:
@@ -2716,12 +2716,19 @@ class SentinelProxyApp:
             try:
                 sep = '&' if '?' in url else '?'
                 if use_post and post_body:
-                    body_fuzzed = post_body.replace(f'§{param}§', urllib.parse.quote(str(p1)))
+                    body_fuzzed = post_body.replace(f'§{param}§', str(p1))
                     if param2:
-                        body_fuzzed = body_fuzzed.replace(f'§{param2}§', urllib.parse.quote(str(p2)))
-                    r = requests.post(url, data=body_fuzzed,
-                        headers={'Content-Type': 'application/x-www-form-urlencoded'},
-                        verify=False, timeout=8, allow_redirects=False)
+                        body_fuzzed = body_fuzzed.replace(f'§{param2}§', str(p2))
+                    # Auto-detect JSON vs form
+                    is_json = body_fuzzed.strip().startswith('{')
+                    if is_json:
+                        r = requests.post(url, data=body_fuzzed,
+                            headers={'Content-Type': 'application/json'},
+                            verify=False, timeout=8, allow_redirects=False)
+                    else:
+                        r = requests.post(url, data=body_fuzzed,
+                            headers={'Content-Type': 'application/x-www-form-urlencoded'},
+                            verify=False, timeout=8, allow_redirects=False)
                     target_url = url
                 else:
                     if mode == 'Sniper':
@@ -2742,7 +2749,7 @@ class SentinelProxyApp:
                 diff = length - base_len[0]
 
                 grep_hit    = bool(grep and grep.lower() in r.text.lower())
-                interesting = (r.status_code not in (200,301,302,404)
+                interesting = (r.status_code not in (200, 301, 302, 404, 403)
                                or abs(diff) > 50 or grep_hit)
                 tag = ('grep_match' if grep_hit
                        else ('critical'    if abs(diff) > 200 and r.status_code in (200,500)
@@ -2941,10 +2948,24 @@ class SentinelProxyApp:
                         r = requests.get(tu, headers=hdrs,
                             verify=False, timeout=6, allow_redirects=False)
                     flow = {'url': tu, 'method': method, 'body': body or '',
-                            'params': {}, 'resp_body': r.text[:3000],
+                            'params': dict(p.split('=', 1) for p in tu.split('?')[1].split('&') if '=' in p) if '?' in tu else {},
+                            'resp_body': '',
                             'status_code': r.status_code}
                     res  = self.analyzer.analyze(flow)
                     risk = res['risk']
+                    
+                    # Real vulnerability check: response must differ from baseline
+                    # Same size as other responses = likely false positive
+                    resp_sizes = [len(r.content)]
+                    if res['vulns'] and r.status_code == 200:
+                        # Check if response contains actual payload reflection
+                        payload_reflected = any(
+                            p in r.text for p in ['root:', 'etc/passwd', '49',  # 7*7=49 SSTI
+                                                   'uid=', 'gid=', 'syntax error']
+                        )
+                        if not payload_reflected:
+                            res['vulns'] = []  # False positive - payload not reflected
+                            risk = 'LOW'
                     mark = {'CRITICAL':'[!!]','HIGH':'[! ]','MEDIUM':'[~ ]','LOW':'[  ]'}.get(risk,'[  ]')
                     det  = '  <- POTENTIAL VULN' if res['vulns'] else ''
                     if res['vulns']:
@@ -2968,9 +2989,11 @@ class SentinelProxyApp:
                 try:
                     out = self.analyzer._groq.ask(
                         f"Security assessment of {url}.\n"
-                        f"Pattern scan found potential: {', '.join(found) or 'none'}.\n"
-                        f"Give: 1) Overall risk rating  2) Top vulnerabilities to test  "
-                        f"3) Specific recommendations. Concise bullet points.",
+                        f"Active scan probes were sent. Pattern scan found POTENTIAL issues: {', '.join(found) or 'none'}.\n"
+                        f"IMPORTANT: These are unconfirmed - same response size across all probes suggests possible false positives.\n"
+                        f"Only flag as confirmed if payload was actually reflected or caused different behavior.\n"
+                        f"Give: 1) Realistic risk rating (be conservative)  2) Which findings are likely real vs false positive  "
+                        f"3) Manual verification steps. Concise bullet points.",
                         max_tokens=400)
                     self.root.after(0, lambda: self.scan_out.insert('end', f"\n{out}\n"))
                 except Exception as e:
@@ -3698,14 +3721,23 @@ class SentinelProxyApp:
                     return
                 try:
                     sep = '&' if '?' in url else '?'
-                    r   = requests.get(
-                        f"{url}{sep}{pname}={urllib.parse.quote(str(payload))}",
-                        verify=False, timeout=6, allow_redirects=False)
+                    fuzz_url = f"{url}{sep}{pname}={urllib.parse.quote(str(payload))}"
+                    # Try JSON POST first, fallback to GET
+                    try:
+                        r = requests.post(url,
+                            data=json.dumps({pname: str(payload)}),
+                            headers={'Content-Type': 'application/json'},
+                            verify=False, timeout=6, allow_redirects=False)
+                        if r.status_code == 405:
+                            raise Exception('try GET')
+                    except Exception:
+                        r = requests.get(fuzz_url, verify=False,
+                            timeout=6, allow_redirects=False)
                     length = len(r.content)
                     if pname not in base_len:
                         base_len[pname] = length
                     diff        = length - base_len[pname]
-                    interesting = (r.status_code not in (200, 301, 302, 404)
+                    interesting = (r.status_code not in (200, 301, 302, 404, 403)
                                    or abs(diff) > 50)
                     tag = ('critical' if abs(diff) > 200 and r.status_code in (200, 500)
                            else ('interesting' if interesting else ''))
@@ -4010,7 +4042,8 @@ class SentinelProxyApp:
 
             # Groq executive summary
             exec_summary = ''
-            if use_groq and self.analyzer._groq and rows:
+            groq = getattr(self.analyzer, '_groq', None) if self.analyzer else None
+            if use_groq and groq and rows:
                 top_vulns = ', '.join(f"{k}({v})" for k, v in
                     sorted(vuln_types.items(), key=lambda x: -x[1])[:5])
                 prompt = (
@@ -4023,7 +4056,7 @@ class SentinelProxyApp:
                     f"Write a professional 3-paragraph executive summary "
                     f"for a security report. Be concise and actionable.")
                 try:
-                    exec_summary = self.analyzer._groq.ask(prompt, max_tokens=400)
+                    exec_summary = groq.ask(prompt, max_tokens=400)
                 except Exception:
                     exec_summary = 'Groq summary unavailable.'
 
@@ -4394,8 +4427,17 @@ class SentinelProxyApp:
                         try:
                             sep = '&' if '?' in url else '?'
                             test_url = f"{url}{sep}{param}={urllib.parse.quote(str(payload))}"
-                            r = requests.get(test_url, verify=False,
-                                timeout=6, allow_redirects=False)
+                            # Try JSON POST first, fallback to GET
+                            try:
+                                r = requests.post(url,
+                                    data=json.dumps({param: str(payload)}),
+                                    headers={'Content-Type': 'application/json'},
+                                    verify=False, timeout=6, allow_redirects=False)
+                                if r.status_code == 405:
+                                    raise Exception('try GET')
+                            except Exception:
+                                r = requests.get(test_url, verify=False,
+                                    timeout=6, allow_redirects=False)
                             if base_r is None:
                                 base_r = len(r.content)
                             resp_text = r.text[:3000]
@@ -4407,16 +4449,18 @@ class SentinelProxyApp:
                                     'unclosed quotation','you have an error in your sql',
                                     'warning: mysql','supplied argument is not a valid mysql',
                                 ]
+                                # Only flag if actual SQL error in response
                                 vuln_detected = any(e in resp_text.lower() for e in sqli_errors)
-                                if not vuln_detected and base_r and abs(len(r.content) - base_r) > 200:
-                                    vuln_detected = True
                             elif vtype == 'XSS':
                                 vuln_detected = str(payload)[:20] in resp_text
                             elif vtype == 'LFI':
                                 lfi_indicators = ['root:x:0:0','[boot loader]','[extensions]','daemon:x:']
                                 vuln_detected = any(i in resp_text for i in lfi_indicators)
                             elif vtype == 'SSRF':
-                                vuln_detected = r.status_code in (200, 500) and base_r and abs(len(r.content) - base_r) > 100
+                                # Only flag if actual internal content returned
+                                ssrf_indicators = ['root:', 'localhost', '127.0.0.1',
+                                                   'internal', 'metadata', 'amazonaws']
+                                vuln_detected = any(i in resp_text.lower() for i in ssrf_indicators)
                             elif vtype == 'SSTI':
                                 vuln_detected = '49' in resp_text
                             elif vtype == 'RCE':
@@ -4750,14 +4794,15 @@ class SentinelProxyApp:
             out += f'  Value  : {token[:100]}\n'
 
         # Groq deep analysis
-        if self.analyzer._groq:
+        groq = getattr(self.analyzer, '_groq', None) if self.analyzer else None
+        if groq:
             out += '\n── GROQ AI ANALYSIS ──\n'
             try:
                 prompt = (
                     f"Analyze this security token for vulnerabilities:\n{token[:300]}\n\n"
                     f"Give: 1) Token type 2) Security issues 3) Attack vectors. "
                     f"Be concise, bullet points.")
-                groq_out = self.analyzer._groq.ask(prompt, max_tokens=300)
+                groq_out = groq.ask(prompt, max_tokens=300)
                 out += groq_out + '\n'
             except Exception:
                 out += '  Groq analysis unavailable\n'
@@ -4819,23 +4864,16 @@ class SentinelProxyApp:
         except Exception:
             pass
         # Fallback: static common CVEs per vuln type
+        # NOTE: These are generic examples only - verify against actual tech stack
         STATIC = {
-            'SQLi':          [{'cve_id':'CVE-2023-23752','score':7.5,'desc':'SQL Injection in Joomla'},
-                              {'cve_id':'CVE-2022-21661','score':7.5,'desc':'WordPress SQL Injection'}],
-            'XSS':           [{'cve_id':'CVE-2023-2745', 'score':6.1,'desc':'WordPress XSS'},
-                              {'cve_id':'CVE-2022-3590', 'score':6.1,'desc':'WordPress XSS via pingback'}],
-            'LFI':           [{'cve_id':'CVE-2022-1329', 'score':9.8,'desc':'Elementor LFI'},
-                              {'cve_id':'CVE-2021-25003','score':8.8,'desc':'WPCargo LFI'}],
-            'SSRF':          [{'cve_id':'CVE-2021-26855','score':9.8,'desc':'Exchange SSRF (ProxyLogon)'},
-                              {'cve_id':'CVE-2022-22954','score':9.8,'desc':'VMware SSRF'}],
-            'RCE':           [{'cve_id':'CVE-2021-44228','score':10.0,'desc':'Log4Shell RCE'},
-                              {'cve_id':'CVE-2022-22965','score':9.8,'desc':'Spring4Shell RCE'}],
-            'SSTI':          [{'cve_id':'CVE-2022-22947','score':10.0,'desc':'Spring Cloud Gateway SSTI'},
-                              {'cve_id':'CVE-2021-25770','score':9.8,'desc':'Smarty SSTI'}],
-            'XXE':           [{'cve_id':'CVE-2021-40438','score':9.0,'desc':'Apache mod_proxy XXE'},
-                              {'cve_id':'CVE-2022-42889','score':9.8,'desc':'Apache Commons Text'}],
-            'Missing Header':[{'cve_id':'CWE-693',       'score':5.0,'desc':'Protection Mechanism Failure'},
-                              {'cve_id':'CWE-1021',      'score':4.3,'desc':'Improper Frame Restriction'}],
+            'SQLi':          [{'cve_id':'CWE-89',  'score':'N/A','desc':'SQL Injection (generic - verify tech stack)'}],
+            'XSS':           [{'cve_id':'CWE-79',  'score':'N/A','desc':'Cross-Site Scripting (generic)'}],
+            'LFI':           [{'cve_id':'CWE-22',  'score':'N/A','desc':'Path Traversal / LFI (generic)'}],
+            'SSRF':          [{'cve_id':'CWE-918', 'score':'N/A','desc':'Server-Side Request Forgery (generic)'}],
+            'RCE':           [{'cve_id':'CWE-78',  'score':'N/A','desc':'OS Command Injection (generic)'}],
+            'SSTI':          [{'cve_id':'CWE-94',  'score':'N/A','desc':'Code Injection via Template (generic)'}],
+            'XXE':           [{'cve_id':'CWE-611', 'score':'N/A','desc':'XML External Entity (generic)'}],
+            'Missing Header':[{'cve_id':'CWE-693', 'score':'N/A','desc':'Protection Mechanism Failure'}],
         }
         return STATIC.get(vuln_type, [])
 

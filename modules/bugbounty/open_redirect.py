@@ -120,6 +120,6 @@ class OpenRedirectScanner:
                             'severity':  'HIGH',
                             'evidence':  f'HTTP {resp.status_code} → Location: {location}'
                         }
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"OpenRedirect test failed {test_url}: {e}")
         return None

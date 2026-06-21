@@ -142,6 +142,20 @@ ERROR_SIGS = [
 
 class TechFingerprint:
 
+    def __init__(self):
+        self._groq = self._load_groq()
+
+    def _load_groq(self):
+        """Load Groq for intelligent tech validation."""
+        try:
+            from modules.ml_engine.groq_llm import get_groq
+            groq = get_groq()
+            if groq and groq.is_ready:
+                return groq
+        except Exception as e:
+            logger.debug(f"Groq not available: {e}")
+        return None
+
     def run(self, domain: str) -> dict:
         result = {
             'domain': domain,
@@ -208,9 +222,8 @@ class TechFingerprint:
                         add(name, cat, '', 'HIGH', f'Favicon hash:{fav_hash}')
                 except ImportError:
                     logger.debug('mmh3 not installed — favicon hash fingerprinting skipped. Run: pip install mmh3')
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug(f"tech_fingerprint error: {e}")
         # ── Error page fingerprint ────────────────────────────────────────────
         try:
             err_resp = requests.get(f"https://{domain}/this_path_does_not_exist_sentinel",
@@ -220,9 +233,8 @@ class TechFingerprint:
             for pattern, tech_name, category in ERROR_SIGS:
                 if re.search(pattern, err_html, re.IGNORECASE):
                     add(tech_name, category, '', 'MEDIUM', 'Error page')
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug(f"tech_fingerprint error: {e}")
         # ── robots.txt hints ─────────────────────────────────────────────────
         try:
             robots = requests.get(f"https://{domain}/robots.txt", timeout=6,
@@ -235,14 +247,100 @@ class TechFingerprint:
                     add('Joomla', 'CMS', '', 'MEDIUM', 'robots.txt')
                 if '/sites/default' in rb:
                     add('Drupal', 'CMS', '', 'MEDIUM', 'robots.txt')
-        except Exception:
-            pass
-
+        except Exception as e:
+            logger.debug(f"tech_fingerprint error: {e}")
         result['total']     = len(result['all_findings'])
         result['cve_hints'] = [e['name'] for e in result['all_findings']
                                 if e['category'] in ('Web Server', 'Framework', 'CMS', 'Language', 'App Server')]
 
+        # ── Groq Validation: Remove False Positives ──────────────────────────
+        if self._groq and result['all_findings']:
+            result = self._groq_validate(domain, result, html if 'html' in locals() else '')
+
         if result['total'] > 0:
             result['risk_level'] = 'INFO'  # findings are informational; CVE lookup uses cve_hints
 
+        return result
+
+    def _groq_validate(self, domain: str, result: dict, html_sample: str) -> dict:
+        """Use Groq to validate tech stack and filter false positives."""
+        try:
+            # Build tech list for Groq
+            detected = []
+            for finding in result['all_findings']:
+                tech = finding['name']
+                if finding['version']:
+                    tech += f" {finding['version']}"
+                detected.append(f"{tech} ({finding['category']})")
+            
+            # Get HTML indicators
+            html_short = html_sample[:3000] if html_sample else ''
+            
+            prompt = f"""Analyze this website tech stack detection:
+
+Domain: {domain}
+Detected Technologies:
+{chr(10).join(f'- {t}' for t in detected[:15])}
+
+HTML Sample (first 3000 chars):
+{html_short}
+
+Task: Identify FALSE POSITIVES in the detected list.
+A false positive is a technology that was incorrectly detected.
+
+Common false positives:
+- PHP/Magento detected on static HTML/JS sites (Netlify/Vercel)
+- React detected when it's just a keyword in text
+- WordPress detected on non-WordPress sites
+
+Return ONLY the names of FALSE POSITIVES (one per line), or 'NONE' if all correct.
+Example output:
+PHP
+Magento
+WordPress"""
+
+            response = self._groq.ask(prompt, max_tokens=150)
+            if not response:
+                return result
+            
+            # Parse Groq response
+            false_positives = []
+            for line in response.strip().split('\n'):
+                line = line.strip().strip('-').strip()
+                if line and line.upper() != 'NONE':
+                    # Extract tech name (before version/parenthesis)
+                    tech_name = line.split()[0] if line else ''
+                    if tech_name:
+                        false_positives.append(tech_name.lower())
+            
+            if false_positives:
+                logger.info(f"[Groq] False positives identified: {', '.join(false_positives)}")
+                
+                # Filter out false positives
+                filtered_findings = []
+                filtered_stack = {}
+                
+                for finding in result['all_findings']:
+                    name_lower = finding['name'].lower()
+                    is_false = any(fp in name_lower for fp in false_positives)
+                    
+                    if not is_false:
+                        filtered_findings.append(finding)
+                        cat = finding['category']
+                        if cat not in filtered_stack:
+                            filtered_stack[cat] = []
+                        filtered_stack[cat].append(finding)
+                
+                result['all_findings'] = filtered_findings
+                result['stack'] = filtered_stack
+                result['total'] = len(filtered_findings)
+                result['groq_filtered'] = false_positives
+                
+                # Update CVE hints
+                result['cve_hints'] = [e['name'] for e in filtered_findings
+                                       if e['category'] in ('Web Server', 'Framework', 'CMS', 'Language', 'App Server')]
+        
+        except Exception as e:
+            logger.debug(f"Groq validation failed: {e}")
+        
         return result

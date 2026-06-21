@@ -74,6 +74,17 @@ class OAuthScanner:
         for path in OAUTH_PATHS:
             resp = self._get(session, base + path)
             if resp and resp.status_code not in (404, 410):
+                # Verify it's actually an OAuth endpoint, not a false 200
+                body_lower = resp.text.lower()
+                has_oauth_content = any([
+                    'oauth' in body_lower,
+                    'authorize' in body_lower,
+                    'token' in body_lower,
+                    'openid' in body_lower,
+                    'client_id' in body_lower,
+                ])
+                if resp.status_code == 200 and not has_oauth_content:
+                    continue  # Skip false positive (static hosting 200s)
                 result['endpoints_found'].append(path)
                 logger.debug(f"OAuth endpoint found: {path} ({resp.status_code})")
 
@@ -107,10 +118,24 @@ class OAuthScanner:
             resp = self._get(session, url, allow_redirects=False)
             if not resp:
                 continue
+            
+            # Static sites often return 200 for everything - check for OAuth indicators
+            body_lower = resp.text.lower()
+            has_oauth_indicators = any([
+                'oauth' in body_lower,
+                'authorize' in body_lower,
+                'client_id' in body_lower,
+                'access_token' in body_lower,
+                'grant_type' in body_lower,
+            ])
+            
+            # If no OAuth indicators in response, skip false positive
+            if not has_oauth_indicators and resp.status_code == 200:
+                continue
+            
             # If server doesn't reject implicit flow with 400/error
             if resp.status_code not in (400, 401, 403):
-                body = resp.text.lower()
-                if 'unsupported_response_type' not in body and 'error' not in body[:200]:
+                if 'unsupported_response_type' not in body_lower and 'error' not in body_lower[:200]:
                     result['findings'].append({
                         'severity': 'HIGH',
                         'type':     'Implicit Flow Enabled',
