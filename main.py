@@ -1358,15 +1358,58 @@ class TheSentinelPro:
                         for module, results in data.items():
                             if isinstance(results, dict) and results.get('risk_level'):
                                 findings.append({
+                                    'type': 'vulnerability',
                                     'severity': results.get('risk_level', 'MEDIUM'),
                                     'title': f"{module.upper()}: {results.get('total', 0)} findings",
                                     'detail': results.get('summary', '')[:200]
                                 })
-                    elif key in ['breach', 'collected_data']:
+                    elif key == 'collected_data':
+                        # Add surface data findings
+                        if 'surface_data' in data:
+                            surf = data['surface_data']
+                            if isinstance(surf, dict):
+                                if surf.get('emails'):
+                                    findings.append({
+                                        'type': 'osint_email',
+                                        'severity': 'INFO',
+                                        'title': f"Emails Found: {len(surf['emails'])}",
+                                        'detail': ', '.join(list(surf['emails'])[:5])
+                                    })
+                                if surf.get('social_profiles'):
+                                    findings.append({
+                                        'type': 'osint_social',
+                                        'severity': 'INFO',
+                                        'title': f"Social Profiles: {len(surf['social_profiles'])}",
+                                        'detail': ', '.join([p.get('platform', 'Unknown') for p in surf['social_profiles'][:5]])
+                                    })
+                                if surf.get('phone_numbers'):
+                                    findings.append({
+                                        'type': 'osint_phone',
+                                        'severity': 'INFO',
+                                        'title': f"Phone Numbers: {len(surf['phone_numbers'])}",
+                                        'detail': ', '.join(surf['phone_numbers'][:3])
+                                    })
+                        # Add social data findings
+                        if 'social_data' in data:
+                            social = data['social_data']
+                            if isinstance(social, list):
+                                for platform_data in social:
+                                    if isinstance(platform_data, dict):
+                                        platform = platform_data.get('platform', 'Unknown')
+                                        profile = platform_data.get('profile_info', {})
+                                        if profile and isinstance(profile, dict):
+                                            findings.append({
+                                                'type': 'osint_social',
+                                                'severity': 'INFO',
+                                                'title': f"{platform.title()} Profile Found",
+                                                'detail': f"Username: {profile.get('username', 'N/A')}, Followers: {profile.get('follower_count', 'N/A')}"
+                                            })
+                    elif key in ['breach', 'person', 'email', 'phone']:
                         findings.append({
+                            'type': f'osint_{key}',
                             'severity': data.get('risk_level', 'MEDIUM'),
-                            'title': f"{key.upper()} Check",
-                            'detail': f"Total breaches: {data.get('total_breaches', 0)}, Risk: {data.get('risk_level', 'UNKNOWN')}"
+                            'title': f"{key.upper()} Intelligence",
+                            'detail': f"Total findings: {len(str(data))}, Risk: {data.get('risk_level', 'UNKNOWN')}"
                         })
             
             # Use report builder for AI-powered reporting

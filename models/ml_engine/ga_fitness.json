@@ -1,0 +1,54 @@
+{
+  "nmap": {
+    "score": 0.1,
+    "runs": 8
+  },
+  "nikto": {
+    "score": 0.7509,
+    "runs": 7
+  },
+  "nuclei": {
+    "score": 0.1,
+    "runs": 7
+  },
+  "gobuster": {
+    "score": 0.1,
+    "runs": 7
+  },
+  "ffuf": {
+    "score": 0.1,
+    "runs": 5
+  },
+  "sqlmap": {
+    "score": 0.1,
+    "runs": 3
+  },
+  "amass": {
+    "score": 0.1,
+    "runs": 5
+  },
+  "breach": {
+    "score": 0.1,
+    "runs": 3
+  },
+  "wafw00f": {
+    "score": 0.1,
+    "runs": 4
+  },
+  "theHarvester": {
+    "score": 0.1,
+    "runs": 2
+  },
+  "whatweb": {
+    "score": 0.1,
+    "runs": 4
+  },
+  "sslscan": {
+    "score": 0.1,
+    "runs": 2
+  },
+  "searchsploit": {
+    "score": 0.1,
+    "runs": 1
+  }
+}
