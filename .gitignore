@@ -156,6 +156,10 @@ sentinel_proxy/ui/tabs/websocket_tab.py
 sentinel_proxy/ui/tabs/autorize_tab.py
 sentinel_proxy/ui/tabs/upstream_proxy_tab.py
 sentinel_proxy/ui/tabs/crawler_tab.py
+sentinel_proxy/ui/tabs/extensions_tab.py
+sentinel_proxy/extensions/base.py
+sentinel_proxy/extensions/loader.py
+sentinel_proxy/extensions/example_auto_headers.py
 
 # ── All compiled .so files — osints is source-only repo ──────────────────
 *.so

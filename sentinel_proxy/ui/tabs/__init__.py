@@ -17,3 +17,6 @@ from sentinel_proxy.ui.tabs.ai_payload_tab import AIPayloadTab
 from sentinel_proxy.ui.tabs.csrf_tab import CSRFTab
 from sentinel_proxy.ui.tabs.param_miner_tab import ParamMinerTab
 from sentinel_proxy.ui.tabs.race_condition_tab import RaceConditionTab
+from sentinel_proxy.ui.tabs.autorize_tab import AutorizeTab
+from sentinel_proxy.ui.tabs.upstream_proxy_tab import UpstreamProxyTab
+from sentinel_proxy.ui.tabs.crawler_tab import CrawlerTab
