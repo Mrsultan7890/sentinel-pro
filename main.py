@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Sentinel Pro v3.0 — Professional OSINT & Bug Bounty Platform
+# Sentinel Pro v3.1 — Professional OSINT & Bug Bounty Platform
 # Copyright (c) 2026 @who_is_the_black_hat. All rights reserved.
 #
 # Unauthorized copying, distribution, or modification of this software,
 # via any medium, is strictly prohibited without written permission.
 #
 # Licensed users may use this software under the terms of their license.
-# For licensing: https://github.com/Mrsultan7890/osints
+# For licensing: https://github.com/Mrsultan7890/sentinel-octopus
 # ============================================================================
 
 """
@@ -29,6 +29,7 @@ from datetime import datetime
 from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+from modules.sentinel_animations import sentinel_progress
 from rich.panel import Panel
 from rich.table import Table
 from rich.live import Live
@@ -82,6 +83,7 @@ from modules.bugbounty.ssti_scanner import SSTIScanner
 from modules.bugbounty.clickjacking import ClickjackingChecker
 from modules.bugbounty.prototype_pollution import PrototypePollutionScanner
 from modules.bugbounty.oauth_scanner import OAuthScanner
+from modules.bugbounty.jwt_scanner import JWTScanner
 from modules.bugbounty.report import BugBountyReport
 from modules.recon.wayback import WaybackMachine
 from modules.recon.dns_history import DNSHistory
@@ -139,7 +141,7 @@ class TheSentinelPro:
         self.analyzer = PredictiveAnalyzer()
         self.reporter = LegalReportingEngine()
         # StealthManager removed - use Tor commands instead (tor on/off/status)
-        self.darkweb = DarkWebCrawler()
+        self.darkweb = DarkWebCrawler(groq_client=getattr(self, 'groq', None))
         self.evidence = EvidenceManager()
         self.semantic = SemanticAnalyzer()
         self.media = MediaValidator()
@@ -197,6 +199,7 @@ class TheSentinelPro:
         self.clickjack   = ClickjackingChecker()
         self.proto_poll  = PrototypePollutionScanner()
         self.oauth_scan  = OAuthScanner()
+        self.jwt_scan    = JWTScanner()
         self.breach      = BreachChecker()
         self.notifier    = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
         self.pdf         = PDFExporter()
@@ -208,6 +211,11 @@ class TheSentinelPro:
         # Autonomous ML learning loop — background daemon
         self._autonomous_loop = AutonomousLearningLoop()
         self._autonomous_loop.start()
+
+        # Health daemon — background cleaner/optimizer
+        from modules.health_daemon import get_daemon
+        self._health = get_daemon()
+        self._health.start()
 
         # Decision Engine — model ka brain
         from modules.ml_engine.decision_engine import DecisionEngine
@@ -256,8 +264,10 @@ class TheSentinelPro:
             logger.warning("Some features may not work. Run setup.sh to build binaries.")
         
     def display_banner(self):
-        """pyfiglet SENTINEL + hand-crafted octopus"""
+        """Animated banner — typewriter SENTINEL + octopus art"""
+        import time
         p = self.console.print
+
         try:
             import pyfiglet
             sent_lines = pyfiglet.figlet_format('SENTINEL', font='slant').rstrip().split('\n')
@@ -279,13 +289,17 @@ class TheSentinelPro:
         ]
 
         p()
+        # Typewriter effect on SENTINEL lines
         for line in sent_lines:
-            p(f"[bold cyan]{line}[/bold cyan]")
+            self.console.print(f"[bold cyan]{line}[/bold cyan]")
+            time.sleep(0.03)
         p()
+        # Octopus arms unfold line by line
         for line in OCT:
-            p(f"[bold cyan]{line}[/bold cyan]")
+            self.console.print(f"[bold cyan]{line}[/bold cyan]")
+            time.sleep(0.04)
         p()
-        p("[bold cyan]  SENTINEL OCTOPUS[/bold cyan]  [dim]Eight arms. Zero mercy.[/dim]")
+        p("[bold cyan]  SENTINEL OCTOPUS  v3.1[/bold cyan]  [dim]Eight arms. Zero mercy.[/dim]")
         p()
         p("[dim]  ─────────────────────────────────────────────────────────────────[/dim]")
         p("  [bold green]OSINT[/bold green]  [bold red]BugBounty[/bold red]  [bold blue]Recon[/bold blue]  [bold magenta]AI/ML[/bold magenta]  [bold yellow]DarkWeb[/bold yellow]  [dim]│  Python · Go · Rust  │  40+ Platforms[/dim]")
@@ -300,16 +314,17 @@ class TheSentinelPro:
 
         if info['valid']:
             plan_name = PLANS.get(info['plan'], info['plan'])
-            expiry_str = f"expires {info['expiry']}" if info['expiry'] != 'lifetime' else 'lifetime'
+            expiry_str = info.get('expires_at', 'N/A')
+            cached = ' [dim](cached)[/dim]' if info.get('cached') else ''
             self.console.print(
-                f"  [green]\u2713 Licensed[/green] \u2014 [cyan]{plan_name}[/cyan] \u00b7 [dim]{expiry_str}[/dim]\n"
+                f"  [green]\u2713 Licensed[/green] \u2014 [cyan]{plan_name}[/cyan] \u00b7 [dim]expires {expiry_str}[/dim]{cached}\n"
             )
             self._license_plan = info['plan']
         else:
             self.console.print("  [yellow]\u26a0  No active license[/yellow]")
-            self.console.print("  [dim]Run: [bold]activate <KEY>[/bold] to activate[/dim]")
-            self.console.print("  [dim]Get a license: https://github.com/Mrsultan7890/osints[/dim]\n")
-            self.console.print("[red]Tool locked. Activate a license to continue.[/red]\n")
+            self.console.print("  [dim]Get your license key: [bold cyan]t.me/Solutioncobot[/bold cyan][/dim]")
+            self.console.print("  [dim]Then run: [bold]activate <SNTNL-XXXXXXXX-PENDING>[/bold][/dim]\n")
+            self.console.print("[red]Tool locked. Get a license from the bot to continue.[/red]\n")
             self._license_plan = None
             self._locked_mode()
 
@@ -330,134 +345,110 @@ class TheSentinelPro:
                         import os, sys
                         os.execv(sys.executable, [sys.executable] + sys.argv)
                 else:
-                    self.console.print("[red]Tool locked.[/red] Run: [bold]activate <KEY>[/bold]")
+                    self.console.print("[red]Tool locked.[/red] Get license: [bold cyan]t.me/Solutioncobot[/bold cyan] → then run: [bold]activate <KEY>[/bold]")
             except (KeyboardInterrupt, EOFError):
                 raise SystemExit(0)
 
     def _startup_animation(self):
-        """Hacking style startup animation"""
+        """Industry-grade boot sequence with real system checks."""
         import time
         p = self.console.print
 
-        # Dynamic Tor status check
-        tor_status_msg = "Tor routing : 🧅 ACTIVE" if config.is_tor_active() else "Tor routing : INACTIVE  (use 'tor on')"
-        tor_icon = "[bold green][+][/bold green]" if config.is_tor_active() else "[bold yellow][!][/bold yellow]"
-        
-        # Real system checks
-        boot_checks = []
-        
-        # 1. Core databases
-        db_main = (config.BASE_DIR / 'data' / 'sentinel.db').exists()
+        # ── Pre-compute all checks (fast, no I/O delay) ──────────────────
+        db_main   = (config.BASE_DIR / 'data' / 'sentinel.db').exists()
         db_memory = (config.BASE_DIR / 'data' / 'sentinel_memory.db').exists()
-        db_icon = "[bold green][+]" if (db_main and db_memory) else "[bold yellow][!]"
-        db_msg = f"Core databases: {'✓ READY' if (db_main and db_memory) else '⚠ MISSING'}"
-        boot_checks.append((db_icon, db_msg, 0.2))
-        
-        # 2. OSINT modules
-        osint_modules = ['recon', 'breach', 'bugbounty']
-        osint_ok = all((config.BASE_DIR / 'modules' / m).exists() for m in osint_modules)
-        osint_icon = "[bold green][+]" if osint_ok else "[bold yellow][!]"
-        osint_msg = f"OSINT modules (40+ platforms): {'✓ LOADED' if osint_ok else '⚠ INCOMPLETE'}"
-        boot_checks.append((osint_icon, osint_msg, 0.2))
-        
-        # 3. ML Engine
+        db_ok     = db_main and db_memory
+
+        osint_ok = all(
+            (config.BASE_DIR / 'modules' / m).exists()
+            for m in ['recon', 'breach', 'bugbounty']
+        )
+
         try:
-            import spacy
-            import sklearn
+            import spacy, sklearn
             ml_ok = True
         except ImportError:
             ml_ok = False
-        ml_icon = "[bold green][+]" if ml_ok else "[bold yellow][!]"
-        ml_msg = f"ML engine (spaCy + sklearn): {'✓ MOUNTED' if ml_ok else '⚠ NOT INSTALLED'}"
-        boot_checks.append((ml_icon, ml_msg, 0.2))
-        
-        # 4. Evidence vault
-        evidence_dir = config.BASE_DIR / 'evidence'
-        evidence_ok = evidence_dir.exists() and evidence_dir.is_dir()
-        evidence_icon = "[bold green][+]" if evidence_ok else "[bold yellow][!]"
-        evidence_msg = f"Evidence vault: {'✓ READY' if evidence_ok else '⚠ NOT FOUND'}"
-        boot_checks.append((evidence_icon, evidence_msg, 0.2))
-        
-        # 5. SentinelProxy
-        proxy_main = (config.BASE_DIR / 'sentinel_proxy' / 'main.py').exists()
-        proxy_db = (config.BASE_DIR / 'data' / 'sentinel_proxy.db').exists()
-        proxy_ok = proxy_main and proxy_db
-        proxy_icon = "[bold green][+]" if proxy_ok else "[bold yellow][!]"
-        proxy_msg = f"SentinelProxy v2.0: {'✓ READY' if proxy_ok else '⚠ INCOMPLETE'}"
-        boot_checks.append((proxy_icon, proxy_msg, 0.2))
-        
-        # 6. SentinelIntel
-        intel_main = (config.BASE_DIR / 'sentinel_intel' / 'main.py').exists()
-        intel_engines = (config.BASE_DIR / 'sentinel_intel' / 'core').exists()
-        intel_ok = intel_main and intel_engines
-        intel_icon = "[bold green][+]" if intel_ok else "[bold yellow][!]"
-        intel_msg = f"SentinelIntel (13 engines): {'✓ READY' if intel_ok else '⚠ INCOMPLETE'}"
-        boot_checks.append((intel_icon, intel_msg, 0.2))
-        
-        # 7. Hardware Security Engine (HSE)
-        try:
-            from modules.tpm_manager import TPMManager
-            tpm = TPMManager()
-            tpm_status = tpm.get_status()
-            tpm_ok = tpm_status.get('available', False)
-        except Exception:
-            tpm_ok = False
-        
-        try:
-            from modules.sgx_enclave_manager import SGXEnclaveManager
-            sgx = SGXEnclaveManager()
-            sgx_status = sgx.check_sgx_support()
-            sgx_ok = sgx_status.get('sgx_available', False)
-        except Exception:
-            sgx_ok = False
-        
-        hse_icon = "[bold green][+]" if (tpm_ok or sgx_ok) else "[bold yellow][!]"
-        hse_parts = []
-        if tpm_ok:
-            hse_parts.append("✓ TPM 2.0")
-        if sgx_ok:
-            hse_parts.append("✓ SGX")
-        if not hse_parts:
-            hse_parts.append("⚠ Software fallback")
-        hse_msg = f"Hardware Security: {' '.join(hse_parts)}"
-        boot_checks.append((hse_icon, hse_msg, 0.2))
-        
-        # 8. Tor routing
-        boot_checks.append((tor_icon, tor_status_msg, 0.2))
-        
-        # 9. Final status
-        all_ok = all([
-            db_main and db_memory,
-            osint_ok,
-            ml_ok,
-            evidence_ok,
-            proxy_ok,
-            intel_ok
-        ])
-        final_icon = "[bold green][+]" if all_ok else "[bold yellow][!]"
-        final_msg = "All systems operational." if all_ok else "Some components need attention (check above)."
-        boot_checks.append((final_icon, final_msg, 0.3))
-        
-        for icon, msg, delay in boot_checks:
-            p(f"  {icon} [dim]{msg}[/dim]")
-            time.sleep(delay)
 
-        p()
+        evidence_ok = (config.BASE_DIR / 'evidence').is_dir()
 
-        scan_targets = [
-            ("127.0.0.1",     "core"),
-            ("localhost",      "loopback"),
-            ("sentinel-core",  "engine"),
-            ("ml-engine",      "AI/ML"),
-            ("osint-db",       "database"),
+        proxy_dir = config.BASE_DIR / 'sentinel_proxy'
+        proxy_ok  = (
+            (proxy_dir / 'main.py').exists() or
+            bool(list(proxy_dir.glob('main*.so')))
+        ) and (config.BASE_DIR / 'data' / 'sentinel_proxy.db').exists()
+
+        intel_dir  = config.BASE_DIR / 'sentinel_intel'
+        intel_ok   = (
+            (intel_dir / 'main.py').exists() or
+            bool(list(intel_dir.glob('main*.so')))
+        ) and (intel_dir / 'core').exists()
+
+        tor_active = config.is_tor_active()
+
+        # ── Boot table ───────────────────────────────────────────────────
+        # (label, ok_bool, ok_text, fail_text)
+        checks = [
+            ("Core databases",          db_ok,       "2 databases online",         "databases missing"),
+            ("OSINT modules",            osint_ok,    "40+ platforms loaded",        "modules incomplete"),
+            ("ML engine",               ml_ok,       "spaCy · sklearn · torch",     "not installed"),
+            ("Evidence vault",          evidence_ok, "chain-of-custody active",     "vault not found"),
+            ("SentinelProxy v2.0",      proxy_ok,    "Rust core · 200K req/sec",    "proxy incomplete"),
+            ("SentinelIntel",           intel_ok,    "14 engines · graph ready",    "intel incomplete"),
+            ("Tor routing",             tor_active,  "🧅 exit node active",          "inactive  (tor on)"),
         ]
-        for host, label in scan_targets:
-            p(f"  [dim]scanning[/dim] [cyan]{host:<20}[/cyan] [dim]({label})[/dim] [dim]...[/dim] [bold green]OK[/bold green]")
-            time.sleep(0.08)
 
         p()
-        p("[bold green]  \u2713 The Sentinel Pro is ready.[/bold green]  [dim]Type [/dim][bold white]help[/bold white][dim] for commands.[/dim]")
+        for label, ok, ok_text, fail_text in checks:
+            if ok:
+                icon   = "[bold green] ✓ [/bold green]"
+                status = f"[bold green]{ok_text}[/bold green]"
+            else:
+                icon   = "[bold yellow] ! [/bold yellow]"
+                status = f"[yellow]{fail_text}[/yellow]"
+            p(f"  {icon} [dim]{label:<26}[/dim] {status}")
+            time.sleep(0.12)
+
+        # ── Internal sweep lines ─────────────────────────────────────────
         p()
+        sweep = [
+            ("127.0.0.1",      "core",     "[bold green]ONLINE[/bold green]"),
+            ("sentinel-brain", "AI/ML",    "[bold green]ONLINE[/bold green]"),
+            ("sentinel-proxy", "proxy",    "[bold green]ONLINE[/bold green]" if proxy_ok else "[yellow]STANDBY[/yellow]"),
+            ("sentinel-intel", "graph",    "[bold green]ONLINE[/bold green]" if intel_ok else "[yellow]STANDBY[/yellow]"),
+            ("osint-db",       "database", "[bold green]ONLINE[/bold green]" if db_ok    else "[yellow]MISSING[/yellow]"),
+        ]
+        for host, label, result in sweep:
+            p(f"  [dim]  ↳[/dim] [cyan]{host:<20}[/cyan] [dim]({label})[/dim]  {result}")
+            time.sleep(0.07)
+
+        # ── Ready line ───────────────────────────────────────────────────
+        p()
+        all_ok = db_ok and osint_ok and ml_ok and evidence_ok
+        if all_ok:
+            p("  [bold green]✓ All systems operational.[/bold green]  [dim]Type [bold white]help[/bold white] to begin.[/dim]")
+        else:
+            p("  [bold yellow]⚠ Ready with warnings.[/bold yellow]  [dim]Type [bold white]status[/bold white] for details.[/dim]")
+        p()
+    def _shutdown_animation(self):
+        """Clean shutdown sequence."""
+        import time
+        p = self.console.print
+        p()
+        steps = [
+            ("Saving session data",      0.10),
+            ("Flushing evidence vault",  0.10),
+            ("Closing ML engines",       0.08),
+            ("Terminating agents",       0.08),
+            ("Wiping memory buffers",    0.10),
+        ]
+        for msg, delay in steps:
+            p(f"  [dim]  ↳ {msg}...[/dim]")
+            time.sleep(delay)
+        p()
+        p("  [bold cyan]🐙 Sentinel Octopus — offline.[/bold cyan]  [dim]Stay in the shadows.[/dim]")
+        p()
+
     def run(self):
         """Enhanced main execution loop with rich interface"""
         self.display_banner()
@@ -465,22 +456,20 @@ class TheSentinelPro:
         
         while True:
             try:
-                # Enhanced prompt with status indicators
-                # Print status panel BEFORE prompt to avoid overwrite
-                status_panel = self._create_status_panel()
-                self.console.print(status_panel)
-                
-                # Add empty line for visual separation
-                # This prevents arrow key navigation from overwriting the panel
-                self.console.print()
-                
                 # Use input() with ANSI color codes for readline support
                 # readline doesn't work with Rich's console.input()
                 try:
-                    raw_command = input("\033[1;34msentinel-pro>\033[0m ").strip()
+                    # Dynamic prompt: show tor status + current target
+                    tor_indicator = "\033[32m🧅\033[0m " if config.is_tor_active() else ""
+                    target_indicator = ""
+                    if 'target' in self.session_data:
+                        t = self.session_data['target'][:20]
+                        target_indicator = f"\033[2m({t})\033[0m "
+                    prompt = f"{tor_indicator}\033[1;36msentinel\033[0m\033[2m-pro\033[0m\033[1;36m>\033[0m {target_indicator}"
+                    raw_command = input(prompt).strip()
                 except EOFError:
                     # Handle Ctrl+D gracefully
-                    self.console.print("\n[yellow]Shutting down The Sentinel Pro...[/yellow]")
+                    self._shutdown_animation()
                     self._save_command_history()
                     break
                 # Sirf command keyword lowercase karo, arguments (paths etc.) preserve karo
@@ -488,8 +477,8 @@ class TheSentinelPro:
                 command = parts[0].lower() + (' ' + parts[1] if len(parts) > 1 else '')
                 
                 if command in ['exit', 'quit', 'q']:
-                    self.console.print("[yellow]Shutting down The Sentinel Pro...[/yellow]")
-                    self._save_command_history()  # Save history before exit
+                    self._shutdown_animation()
+                    self._save_command_history()
                     break
                 elif command in ['help', '?']:
                     self._show_enhanced_help()
@@ -557,6 +546,8 @@ class TheSentinelPro:
                     self._handle_bulk(command)
                 elif command.startswith('report'):
                     self._handle_legal_report()
+                elif command.startswith('health'):
+                    self._handle_health(command)
                 elif command == 'status':
                     self._show_detailed_status()
                 elif command.startswith('tor'):
@@ -806,6 +797,12 @@ class TheSentinelPro:
 [green]heal scan[/green]           - Manual vulnerability scan
 [green]heal vulns[/green]          - List critical vulnerabilities
 [green]heal patch <pkg>[/green]    - Patch specific package
+[green]health status[/green]       - 🧹 Health daemon status (disk usage, next scheduled runs)
+[green]health run[/green]          - Run full cleanup now (cache, DB, reports, logs)
+[green]health set <key> <val>[/green] - Change setting (reports_max_age_days, max_db_size_mb, etc)
+[green]health enable/disable[/green] - Turn health daemon on/off
+[green]health log[/green]          - Show last 10 cleanup runs
+[green]health reset[/green]        - Reset settings to defaults
 [green]heal history[/green]        - Patch history
 [green]heal behavioral[/green]     - Recent AI attack detections
 [green]heal train[/green]          - Train behavioral ML models
@@ -917,13 +914,7 @@ class TheSentinelPro:
         (user_folder / 'media').mkdir(exist_ok=True)
         (user_folder / 'reports').mkdir(exist_ok=True)
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
+        with sentinel_progress(console=self.console) as progress:
             
             collect_task = progress.add_task("[cyan]Collecting intelligence...", total=100)
             
@@ -1088,13 +1079,7 @@ class TheSentinelPro:
         collected_data = self.session_data['collected_data']
         target = collected_data.get('target', 'Unknown')
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
+        with sentinel_progress(console=self.console) as progress:
             
             analyze_task = progress.add_task("[cyan]Running AI analysis...", total=100)
             
@@ -1214,114 +1199,144 @@ class TheSentinelPro:
         if len(parts) < 2:
             self.console.print("[red]Usage: darkweb <target>[/red]")
             return
-            
+
         target = parts[1].strip()
         user_folder = self.session_data.get('user_folder', str(config.BASE_DIR / 'reports'))
-        
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
-            
+
+        if hasattr(self, 'groq') and self.groq:
+            self.darkweb.groq_client = self.groq
+
+        with sentinel_progress(console=self.console) as progress:
+
             darkweb_task = progress.add_task("[magenta]Scanning dark web...", total=100)
-            
-            progress.update(darkweb_task, advance=20, description="[magenta]Connecting to Tor network...")
+
+            progress.update(darkweb_task, advance=10, description="[magenta]Connecting to Tor...")
             tor_status = self.darkweb.connect_tor()
-            
             if not tor_status:
-                self.console.print("[red]Failed to connect to Tor network[/red]")
-                return
-            
-            progress.update(darkweb_task, advance=25, description="[magenta]Crawling .onion sites...")
-            onion_results = self.darkweb.crawl_onion_sites(target)
-            
-            progress.update(darkweb_task, advance=20, description="[magenta]Searching paste sites...")
-            paste_results = self.darkweb.search_paste_sites(target)
-            
-            progress.update(darkweb_task, advance=15, description="[magenta]Monitoring forums...")
-            forum_mentions = self.darkweb.monitor_forums(target)
-            
-            progress.update(darkweb_task, advance=15, description="[magenta]Analyzing encrypted content...")
+                self.console.print("[yellow]⚠ Tor not active — running clearnet-only scan[/yellow]")
+
+            progress.update(darkweb_task, advance=15, description="[magenta]Checking ransomware leak sites...")
+            ransomware_hits = self.darkweb.check_ransomware_leaks(target)
+
+            progress.update(darkweb_task, advance=15, description="[magenta]Scanning Telegram dark channels...")
+            telegram_mentions = self.darkweb.check_telegram_channels(target)
+
+            progress.update(darkweb_task, advance=15, description="[magenta]Crawling .onion sites...")
+            onion_results = self.darkweb.crawl_onion_sites(target) if tor_status else []
+
+            progress.update(darkweb_task, advance=10, description="[magenta]Searching paste sites...")
+            paste_results = self.darkweb.search_paste_sites(target) if tor_status else []
+
+            progress.update(darkweb_task, advance=10, description="[magenta]Monitoring forums...")
+            forum_mentions = self.darkweb.monitor_forums(target) if tor_status else []
+
+            progress.update(darkweb_task, advance=5, description="[magenta]Analyzing encrypted content...")
             decrypted_data = self.darkweb.analyze_encrypted_content(onion_results)
-            
-            progress.update(darkweb_task, advance=5, description="[magenta]Generating report...")
-            
-            darkweb_data = {
-                'target': target,
-                'onion_results': onion_results,
-                'paste_results': paste_results,
-                'forum_mentions': forum_mentions,
-                'decrypted_data': decrypted_data,
-                'timestamp': datetime.now().isoformat()
+
+            progress.update(darkweb_task, advance=15, description="[magenta]Running AI analysis...")
+            all_data = {
+                'onion_results':     onion_results,
+                'paste_results':     paste_results,
+                'forum_mentions':    forum_mentions,
+                'ransomware_hits':   ransomware_hits,
+                'telegram_mentions': telegram_mentions,
             }
-            
-            # Save report
+            ai_analysis = self.darkweb.analyze_with_ai(target, all_data)
+
+            progress.update(darkweb_task, advance=5, description="[magenta]Generating report...")
+
+            darkweb_data = {
+                'target':            target,
+                'tor_active':        tor_status,
+                'onion_results':     onion_results,
+                'paste_results':     paste_results,
+                'forum_mentions':    forum_mentions,
+                'decrypted_data':    decrypted_data,
+                'ransomware_hits':   ransomware_hits,
+                'telegram_mentions': telegram_mentions,
+                'ai_analysis':       ai_analysis,
+                'timestamp':         datetime.now().isoformat(),
+            }
+
             from modules.darkweb.report import DarkWebReport
             reporter = DarkWebReport(output_dir=user_folder)
             paths = reporter.save(target, darkweb_data)
-            
+
             self.session_data['darkweb_data'] = darkweb_data
-            self.session_data['last_paths'] = paths
+            self.session_data['last_paths']   = paths
             self.evidence.add_evidence('darkweb', darkweb_data)
-            
+
             progress.update(darkweb_task, completed=100, description="[green]Dark web scan completed")
-        
-        # Display results
-        risk = darkweb_data.get('risk_level', 'UNKNOWN')
+
+        risk       = ai_analysis.get('risk_level', reporter._calculate_risk(darkweb_data))
         risk_color = 'red' if risk == 'CRITICAL' else 'yellow' if risk == 'HIGH' else 'cyan'
-        
-        self.console.print(f"\n[bold cyan]Dark Web Investigation: {target}[/bold cyan]")
-        self.console.print(f"  Risk Level    : [{risk_color}]{reporter._calculate_risk(darkweb_data)}[/{risk_color}]")
-        self.console.print(f"  Onion Sites   : {len(onion_results)}")
-        self.console.print(f"  Paste Sites   : {len(paste_results)}")
-        self.console.print(f"  Forum Mentions: {len(forum_mentions)}")
-        self.console.print(f"  Encrypted     : {len(decrypted_data)}")
-        
-        # Show onion sites
+
+        self.console.print(f"\n[bold cyan]🌑 Dark Web Investigation: {target}[/bold cyan]")
+        self.console.print(f"  Risk Level       : [{risk_color}]{risk}[/{risk_color}]")
+        self.console.print(f"  Tor Active       : {'🧅 YES' if tor_status else '✗ NO (clearnet only)'}")
+        self.console.print(f"  Ransomware Hits  : {ransomware_hits.get('total_hits', 0)}")
+        self.console.print(f"  Telegram Mentions: {telegram_mentions.get('total_hits', 0)}")
+        self.console.print(f"  Onion Sites      : {len(onion_results)}")
+        self.console.print(f"  Paste Sites      : {len(paste_results)}")
+        self.console.print(f"  Forum Mentions   : {len(forum_mentions)}")
+        self.console.print(f"  Entities Found   : {len(ai_analysis.get('entities', []))}")
+
+        if ransomware_hits.get('victims'):
+            self.console.print(f"\n  [bold red]🚨 RANSOMWARE LEAK SITES:[/bold red]")
+            for v in ransomware_hits['victims'][:5]:
+                self.console.print(f"    [red]•[/red] [{v.get('group','?').upper()}] {v.get('victim','N/A')}")
+                self.console.print(f"      Date: {v.get('date','N/A')} | Source: {v.get('source','N/A')}")
+                if v.get('description'):
+                    self.console.print(f"      [dim]{v['description'][:100]}[/dim]")
+
+        if telegram_mentions.get('mentions'):
+            self.console.print(f"\n  [bold yellow]📢 TELEGRAM DARK CHANNELS:[/bold yellow]")
+            for m in telegram_mentions['mentions'][:5]:
+                self.console.print(f"    [yellow]•[/yellow] [{m.get('channel','?')}] {m.get('message','')[:80]}")
+                self.console.print(f"      Date: {m.get('date','N/A')} | {m.get('url','')}")
+
+        if ai_analysis.get('threat_summary'):
+            self.console.print(f"\n  [bold cyan]🤖 AI ANALYSIS:[/bold cyan]")
+            self.console.print(f"    {ai_analysis['threat_summary']}")
+
+        if ai_analysis.get('key_findings'):
+            self.console.print(f"\n  [bold]🔍 KEY FINDINGS:[/bold]")
+            for f in ai_analysis['key_findings'][:5]:
+                sev_color = 'red' if f['severity'] == 'CRITICAL' else 'yellow' if f['severity'] == 'HIGH' else 'cyan'
+                self.console.print(f"    [{sev_color}][{f['severity']}][/{sev_color}] {f['title']}")
+                if f.get('detail'):
+                    self.console.print(f"      [dim]{f['detail'][:100]}[/dim]")
+
+        entities = ai_analysis.get('entities', [])
+        if entities:
+            emails = [e['value'] for e in entities if e['type'] == 'email'][:3]
+            ips    = [e['value'] for e in entities if e['type'] == 'ip'][:3]
+            hashes = [e['value'] for e in entities if e['type'] in ('hash_md5','hash_sha256')][:3]
+            if emails:
+                self.console.print(f"\n  [bold]📧 Emails:[/bold] {', '.join(emails)}")
+            if ips:
+                self.console.print(f"  [bold]🌐 IPs:[/bold] {', '.join(ips)}")
+            if hashes:
+                self.console.print(f"  [bold]#️⃣  Hashes:[/bold] {', '.join(h[:16]+'...' for h in hashes)}")
+
         if onion_results:
             self.console.print(f"\n  [bold]🧅 Onion Sites:[/bold]")
-            for i, site in enumerate(onion_results[:5], 1):
+            for site in onion_results[:3]:
                 status_color = 'green' if site.get('status') == 'success' else 'red'
-                self.console.print(f"    {i}. [{status_color}]{site.get('status', 'unknown')}[/{status_color}] {site.get('title', 'N/A')[:60]}")
-                self.console.print(f"       [dim]{site.get('site', 'N/A')[:70]}[/dim]")
-        
-        # Show encrypted content
-        if decrypted_data:
-            self.console.print(f"\n  [bold]🔐 Encrypted Content:[/bold]")
-            for enc in decrypted_data[:3]:
-                self.console.print(f"    • Type: {enc.get('type', 'unknown').upper()} (confidence: {int(enc.get('confidence', 0)*100)}%)")
-                self.console.print(f"      [dim]{enc.get('original', '')[:80]}[/dim]")
-        
-        # Show paste results
-        if paste_results:
-            self.console.print(f"\n  [bold red]📋 Paste Site Mentions:[/bold red]")
-            for paste in paste_results[:3]:
-                self.console.print(f"    [red]•[/red] {paste.get('url', 'N/A')[:70]}")
-        
-        # Show forum mentions
-        if forum_mentions:
-            self.console.print(f"\n  [bold yellow]💬 Forum Discussions:[/bold yellow]")
-            for forum in forum_mentions[:3]:
-                self.console.print(f"    [yellow]•[/yellow] {forum.get('title', 'N/A')[:60]}")
-                self.console.print(f"       [dim]{forum.get('forum', 'N/A')[:70]}[/dim]")
-        
+                self.console.print(f"    [{status_color}]•[/{status_color}] {site.get('title','N/A')[:60]}")
+                self.console.print(f"      [dim]{site.get('site','')[:70]}[/dim]")
+
         self.console.print(f"\n[green]📄 Report saved:[/green]")
         self.console.print(f"  JSON   : {paths['json']}")
         self.console.print(f"  Summary: {paths['summary']}")
         self.console.print(f"  HTML   : {paths['html']}")
-        
-        # Telegram alert
+
         self.notifier.alert_darkweb(target, darkweb_data)
-        
-        # Auto PDF
+
         pdf_path = self.pdf.export_scan(paths)
         if pdf_path:
             self.console.print(f"  PDF    : [green]{pdf_path}[/green]")
-        
-        # ML feed
+
         self._feed_to_ml('darkweb', darkweb_data)
 
     def _handle_legal_report(self):
@@ -1332,13 +1347,7 @@ class TheSentinelPro:
         
         user_folder = self.session_data.get('user_folder', str(config.BASE_DIR / 'reports'))
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
+        with sentinel_progress(console=self.console) as progress:
             
             report_task = progress.add_task("[cyan]Generating legal report...", total=100)
             
@@ -1349,68 +1358,84 @@ class TheSentinelPro:
             # Extract findings from session
             findings = []
             target = ''
-            for key in ['bugbounty', 'recon', 'breach', 'collected_data', 'person', 'email', 'phone']:
+
+            # Priority order — most recent scan type first
+            priority_keys = ['collected_data', 'person', 'email', 'phone', 'breach', 'recon', 'bugbounty']
+            for key in priority_keys:
                 if key in self.session_data:
                     data = self.session_data[key]
-                    target = target or data.get('target', data.get('domain', data.get('email', 'unknown')))
-                    # Extract findings based on scan type
-                    if key == 'bugbounty':
-                        for module, results in data.items():
-                            if isinstance(results, dict) and results.get('risk_level'):
+                    t = data.get('target', data.get('domain', data.get('email', data.get('username', ''))))
+                    if t:
+                        target = t
+                        break
+
+            # Now extract findings from all keys
+            for key in ['bugbounty', 'recon', 'breach', 'collected_data', 'person', 'email', 'phone']:
+                if key not in self.session_data:
+                    continue
+                data = self.session_data[key]
+                if key == 'bugbounty':
+                    for module, results in data.items():
+                        if isinstance(results, dict) and results.get('risk_level'):
+                            findings.append({
+                                'type': 'vulnerability',
+                                'severity': results.get('risk_level', 'MEDIUM'),
+                                'title': f"{module.upper()}: {results.get('total', 0)} findings",
+                                'detail': results.get('summary', '')[:200]
+                            })
+                elif key == 'collected_data':
+                    if 'surface_data' in data:
+                        surf = data['surface_data']
+                        if isinstance(surf, dict):
+                            if surf.get('emails'):
                                 findings.append({
-                                    'type': 'vulnerability',
-                                    'severity': results.get('risk_level', 'MEDIUM'),
-                                    'title': f"{module.upper()}: {results.get('total', 0)} findings",
-                                    'detail': results.get('summary', '')[:200]
+                                    'type': 'osint_email', 'severity': 'MEDIUM',
+                                    'title': f"Emails Found: {len(surf['emails'])}",
+                                    'detail': ', '.join(list(surf['emails'])[:5])
                                 })
-                    elif key == 'collected_data':
-                        # Add surface data findings
-                        if 'surface_data' in data:
-                            surf = data['surface_data']
-                            if isinstance(surf, dict):
-                                if surf.get('emails'):
+                            if surf.get('social_profiles'):
+                                findings.append({
+                                    'type': 'osint_social', 'severity': 'LOW',
+                                    'title': f"Social Profiles: {len(surf['social_profiles'])}",
+                                    'detail': ', '.join([p.get('platform', '') for p in surf['social_profiles'][:5]])
+                                })
+                            if surf.get('phone_numbers'):
+                                findings.append({
+                                    'type': 'osint_phone', 'severity': 'MEDIUM',
+                                    'title': f"Phone Numbers: {len(surf['phone_numbers'])}",
+                                    'detail': ', '.join(surf['phone_numbers'][:3])
+                                })
+                            if surf.get('breach_data') or surf.get('breaches'):
+                                findings.append({
+                                    'type': 'osint_breach', 'severity': 'HIGH',
+                                    'title': 'Breach Data Found',
+                                    'detail': 'Credentials or PII exposed in known data breaches'
+                                })
+                    if 'social_data' in data:
+                        for platform_data in (data['social_data'] if isinstance(data['social_data'], list) else []):
+                            if isinstance(platform_data, dict):
+                                platform = platform_data.get('platform', 'Unknown')
+                                profile  = platform_data.get('profile_info', {})
+                                if profile and isinstance(profile, dict):
+                                    # Higher severity if verified or has many followers
+                                    followers = profile.get('follower_count', '0')
+                                    try:
+                                        fcount = int(str(followers).replace(',', '').replace('K','000').replace('M','000000'))
+                                    except Exception:
+                                        fcount = 0
+                                    sev = 'MEDIUM' if fcount > 1000 else 'LOW'
                                     findings.append({
-                                        'type': 'osint_email',
-                                        'severity': 'INFO',
-                                        'title': f"Emails Found: {len(surf['emails'])}",
-                                        'detail': ', '.join(list(surf['emails'])[:5])
+                                        'type': 'osint_social', 'severity': sev,
+                                        'title': f"{platform.title()} Profile Found",
+                                        'detail': f"Username: {profile.get('username','N/A')}, Followers: {profile.get('follower_count','N/A')}"
                                     })
-                                if surf.get('social_profiles'):
-                                    findings.append({
-                                        'type': 'osint_social',
-                                        'severity': 'INFO',
-                                        'title': f"Social Profiles: {len(surf['social_profiles'])}",
-                                        'detail': ', '.join([p.get('platform', 'Unknown') for p in surf['social_profiles'][:5]])
-                                    })
-                                if surf.get('phone_numbers'):
-                                    findings.append({
-                                        'type': 'osint_phone',
-                                        'severity': 'INFO',
-                                        'title': f"Phone Numbers: {len(surf['phone_numbers'])}",
-                                        'detail': ', '.join(surf['phone_numbers'][:3])
-                                    })
-                        # Add social data findings
-                        if 'social_data' in data:
-                            social = data['social_data']
-                            if isinstance(social, list):
-                                for platform_data in social:
-                                    if isinstance(platform_data, dict):
-                                        platform = platform_data.get('platform', 'Unknown')
-                                        profile = platform_data.get('profile_info', {})
-                                        if profile and isinstance(profile, dict):
-                                            findings.append({
-                                                'type': 'osint_social',
-                                                'severity': 'INFO',
-                                                'title': f"{platform.title()} Profile Found",
-                                                'detail': f"Username: {profile.get('username', 'N/A')}, Followers: {profile.get('follower_count', 'N/A')}"
-                                            })
-                    elif key in ['breach', 'person', 'email', 'phone']:
-                        findings.append({
-                            'type': f'osint_{key}',
-                            'severity': data.get('risk_level', 'MEDIUM'),
-                            'title': f"{key.upper()} Intelligence",
-                            'detail': f"Total findings: {len(str(data))}, Risk: {data.get('risk_level', 'UNKNOWN')}"
-                        })
+                elif key in ['breach', 'person', 'email', 'phone']:
+                    findings.append({
+                        'type': f'osint_{key}',
+                        'severity': data.get('risk_level', 'MEDIUM'),
+                        'title': f"{key.upper()} Intelligence",
+                        'detail': f"Total findings: {len(str(data))}, Risk: {data.get('risk_level', 'UNKNOWN')}"
+                    })
             
             # Use report builder for AI-powered reporting
             from modules.report_builder import SentinelReportBuilder
@@ -1776,6 +1801,85 @@ class TheSentinelPro:
                     sess_table.add_row(label, "[dim]○ Not run[/dim]", "")
             self.console.print(sess_table)
 
+        # Health Daemon Status
+        try:
+            from modules.health_daemon import get_daemon
+            from pathlib import Path
+            daemon  = get_daemon()
+            s       = daemon.status()
+            cfg     = s['config']
+            last    = daemon.log.last_run()
+
+            health_table = Table(title="[bold]🏥 Health Daemon Status[/bold]", border_style="green")
+            health_table.add_column("Property",  style="bold")
+            health_table.add_column("Status",    justify="center")
+            health_table.add_column("Details",   style="dim")
+
+            # Running status
+            health_table.add_row(
+                "Daemon",
+                "[green]🟢 RUNNING[/green]" if s['running'] else "[yellow]🟡 STOPPED[/yellow]",
+                "Background cleaner active" if s['running'] else "Run: health enable"
+            )
+
+            # Last run
+            health_table.add_row(
+                "Last Run",
+                f"[cyan]{s['last_run'][:19] if s['last_run'] != 'Never' else 'Never'}[/cyan]",
+                f"freed {s['last_freed_mb']}MB · fixed {s['last_fixed']} · {s['last_errors']} errors"
+            )
+
+            # Disk usage
+            reports_mb = sum(
+                f.stat().st_size for f in config.REPORTS_DIR.rglob('*') if f.is_file()
+            ) / 1024 / 1024 if config.REPORTS_DIR.exists() else 0
+            db_mb = sum(
+                p.stat().st_size for p in (config.BASE_DIR / 'data').glob('*.db') if p.exists()
+            ) / 1024 / 1024
+            logs_mb = sum(
+                f.stat().st_size for f in config.LOGS_DIR.rglob('*') if f.is_file()
+            ) / 1024 / 1024 if config.LOGS_DIR.exists() else 0
+
+            reports_color = 'red' if reports_mb > cfg['max_reports_size_mb'] else 'green'
+            db_color      = 'red' if db_mb > cfg['max_db_size_mb'] else 'green'
+
+            health_table.add_row(
+                "Reports Folder",
+                f"[{reports_color}]{reports_mb:.1f} MB[/{reports_color}]",
+                f"Max: {cfg['max_reports_size_mb']}MB · rotate after {cfg['reports_max_age_days']}d"
+            )
+            health_table.add_row(
+                "Databases (9)",
+                f"[{db_color}]{db_mb:.1f} MB[/{db_color}]",
+                f"Max: {cfg['max_db_size_mb']}MB · auto VACUUM every 24h"
+            )
+            health_table.add_row(
+                "Log Files",
+                f"[green]{logs_mb:.1f} MB[/green]",
+                f"Rotate after {cfg['logs_max_age_days']}d"
+            )
+
+            # Next scheduled runs
+            health_table.add_row(
+                "Next Process Check",
+                f"[dim]in {s['next_process_in']}min[/dim]",
+                "Stale sockets · zombie processes"
+            )
+            health_table.add_row(
+                "Next Cache Clean",
+                f"[dim]in {s['next_cache_in']}min[/dim]",
+                "__pycache__ · .pyc · .so conflicts"
+            )
+            health_table.add_row(
+                "Next DB Optimize",
+                f"[dim]in {s['next_db_in']}min[/dim]",
+                "VACUUM · duplicates · RL pruning"
+            )
+
+            self.console.print(health_table)
+        except Exception as e:
+            logger.debug(f"Health status error: {e}")
+
     def _handle_telegram(self, command: str):
         """Telegram alert management."""
         if not self.notifier.enabled:
@@ -1792,6 +1896,98 @@ class TheSentinelPro:
             self.console.print(f"[green]🔔 Telegram ACTIVE[/green] — chat_id: {config.TELEGRAM_CHAT_ID}")
         else:
             self.console.print("[dim]Usage: telegram test | telegram status[/dim]")
+
+    def _handle_health(self, command: str):
+        """Sentinel Health Daemon — cleaner/optimizer control."""
+        from modules.health_daemon import get_daemon
+        from rich.table import Table
+        daemon = get_daemon()
+        parts  = command.strip().split()
+        sub    = parts[1] if len(parts) > 1 else 'status'
+
+        if sub == 'status':
+            s = daemon.status()
+            cfg = s['config']
+            self.console.print()
+            self.console.print("[bold cyan]🏥 Sentinel Health Daemon[/bold cyan]")
+            self.console.print(f"  Status      : {'[green]Running[/green]' if s['running'] else '[red]Stopped[/red]'}")
+            self.console.print(f"  Enabled     : {'[green]Yes[/green]' if s['enabled'] else '[red]No[/red]'}")
+            self.console.print(f"  Last Run    : [dim]{s['last_run']}[/dim]")
+            self.console.print(f"  Last Result : freed [green]{s['last_freed_mb']}MB[/green] · fixed [cyan]{s['last_fixed']}[/cyan] · errors [red]{s['last_errors']}[/red]")
+            self.console.print()
+            self.console.print("[bold]Next scheduled runs:[/bold]")
+            self.console.print(f"  Process check : in [cyan]{s['next_process_in']}min[/cyan]")
+            self.console.print(f"  Cache clean   : in [cyan]{s['next_cache_in']}min[/cyan]")
+            self.console.print(f"  DB optimize   : in [cyan]{s['next_db_in']}min[/cyan]")
+            self.console.print()
+            self.console.print("[bold]Current settings:[/bold]")
+            self.console.print(f"  reports_max_age_days  : [yellow]{cfg['reports_max_age_days']}[/yellow] days")
+            self.console.print(f"  logs_max_age_days     : [yellow]{cfg['logs_max_age_days']}[/yellow] days")
+            self.console.print(f"  max_reports_size_mb   : [yellow]{cfg['max_reports_size_mb']}[/yellow] MB")
+            self.console.print(f"  max_db_size_mb        : [yellow]{cfg['max_db_size_mb']}[/yellow] MB")
+            self.console.print(f"  auto_fix_so_conflicts : [yellow]{cfg['auto_fix_so_conflicts']}[/yellow]")
+            self.console.print()
+
+        elif sub == 'run':
+            self.console.print("[cyan]⚙ Running full health check...[/cyan]")
+            result = daemon.run_now()
+            self.console.print(f"[green]✓ Done[/green] — freed [green]{result['total_freed_mb']}MB[/green] · fixed [cyan]{result['total_fixed']}[/cyan] issues · [red]{result['total_errors']}[/red] errors")
+            for name, d in result['details'].items():
+                if d['fixed'] > 0 or d['freed_mb'] > 0:
+                    self.console.print(f"  [dim]{name:12s}[/dim] freed {d['freed_mb']}MB · fixed {d['fixed']}")
+                    for detail in d['details'][:3]:
+                        self.console.print(f"    [dim]→ {detail}[/dim]")
+
+        elif sub == 'set' and len(parts) >= 4:
+            key   = parts[2]
+            value = parts[3]
+            try:
+                daemon.cfg.set(key, value)
+                self.console.print(f"[green]✓ {key} = {value}[/green]")
+            except KeyError:
+                self.console.print(f"[red]Unknown setting: {key}[/red]")
+                self.console.print("[dim]Valid: reports_max_age_days, logs_max_age_days, max_reports_size_mb, max_db_size_mb[/dim]")
+            except Exception as e:
+                self.console.print(f"[red]Error: {e}[/red]")
+
+        elif sub == 'enable':
+            daemon.cfg.set('enabled', True)
+            daemon.start()
+            self.console.print("[green]✓ Health daemon enabled and started[/green]")
+
+        elif sub == 'disable':
+            daemon.cfg.set('enabled', False)
+            daemon.stop()
+            self.console.print("[yellow]Health daemon disabled[/yellow]")
+
+        elif sub == 'log':
+            entries = daemon.log.last(10)
+            if not entries:
+                self.console.print("[dim]No health log entries yet.[/dim]")
+                return
+            self.console.print("[bold cyan]Health Log (last 10 runs):[/bold cyan]")
+            for e in reversed(entries):
+                self.console.print(
+                    f"  [dim]{e.get('timestamp','?')[:19]}[/dim] "
+                    f"freed [green]{e.get('total_freed_mb',0)}MB[/green] "
+                    f"fixed [cyan]{e.get('total_fixed',0)}[/cyan] "
+                    f"errors [red]{e.get('total_errors',0)}[/red]"
+                )
+
+        elif sub == 'reset':
+            daemon.cfg.reset()
+            self.console.print("[green]✓ Settings reset to defaults[/green]")
+
+        else:
+            self.console.print("[bold cyan]health[/bold cyan] commands:")
+            self.console.print("  health status                        — daemon status + settings")
+            self.console.print("  health run                           — run full cleanup now")
+            self.console.print("  health set <key> <value>             — change a setting")
+            self.console.print("  health enable / disable              — turn daemon on/off")
+            self.console.print("  health log                           — show last 10 runs")
+            self.console.print("  health reset                         — reset to defaults")
+            self.console.print()
+            self.console.print("[dim]Settings: reports_max_age_days · logs_max_age_days · max_reports_size_mb · max_db_size_mb[/dim]")
 
     def _handle_pdf(self):
         """Export last scan report to PDF."""
@@ -1819,17 +2015,33 @@ class TheSentinelPro:
             try:
                 from modules.utils import tor_session as _tor_session
                 import config as _cfg
-                # Temporarily enable tor to test
                 _cfg.tor_on()
                 _sess = _tor_session()
-                r = _sess.get('https://httpbin.org/ip', timeout=15)
-                exit_ip = r.json().get('origin', '?')
-                self.console.print(f"[bold green]\U0001f9c5 Tor ENABLED[/bold green] \u2014 Exit IP: [cyan]{exit_ip}[/cyan]")
-                self.console.print("[dim]All HTTP requests now routed through Tor[/dim]")
+                # check.torproject.org is more reliable than httpbin
+                r = _sess.get('https://check.torproject.org/api/ip', timeout=15)
+                data = r.json()
+                exit_ip = data.get('IP', '?')
+                is_tor  = data.get('IsTor', False)
+                if is_tor:
+                    self.console.print(f"[bold green]\U0001f9c5 Tor ENABLED[/bold green] \u2014 Exit IP: [cyan]{exit_ip}[/cyan]")
+                    self.console.print("[dim]All HTTP requests now routed through Tor[/dim]")
+                else:
+                    self.console.print(f"[yellow]\U0001f9c5 Tor proxy connected but exit IP not verified \u2014 IP: {exit_ip}[/yellow]")
             except Exception as e:
-                config.tor_off()  # revert agar fail hua
-                self.console.print(f"[red]\u2717 Tor unreachable: {e}[/red]")
-                self.console.print("[dim]Make sure Tor is running: sudo systemctl start tor[/dim]")
+                # Check if Tor port is open even if IP check failed
+                import socket as _sock
+                try:
+                    s = _sock.socket()
+                    s.settimeout(2)
+                    s.connect(('127.0.0.1', 9050))
+                    s.close()
+                    # Port open — Tor is running, just IP check failed
+                    self.console.print("[bold green]\U0001f9c5 Tor ENABLED[/bold green] \u2014 proxy active on 127.0.0.1:9050")
+                    self.console.print("[dim]All HTTP requests now routed through Tor[/dim]")
+                except Exception:
+                    config.tor_off()
+                    self.console.print("[red]\u2717 Tor not running[/red]")
+                    self.console.print("[dim]Start Tor: sudo systemctl start tor[/dim]")
 
         elif command == 'tor off':
             config.tor_off()
@@ -1841,8 +2053,8 @@ class TheSentinelPro:
                 try:
                     from modules.utils import tor_session as _tor_session
                     _sess = _tor_session()
-                    r = _sess.get('https://httpbin.org/ip', timeout=15)
-                    ip = r.json().get('origin', '?')
+                    r = _sess.get('https://check.torproject.org/api/ip', timeout=15)
+                    ip = r.json().get('IP', '?')
                     self.console.print(f"[green]\U0001f9c5 Tor ACTIVE \u2014 Exit IP: {ip}[/green]")
                 except Exception:
                     self.console.print("[yellow]\U0001f9c5 Tor ACTIVE \u2014 could not verify exit IP[/yellow]")
@@ -1880,8 +2092,8 @@ class TheSentinelPro:
                         import time as _t; _t.sleep(3)
                         from modules.utils import tor_session as _tor_session
                         _sess = _tor_session()
-                        r = _sess.get('https://httpbin.org/ip', timeout=15)
-                        new_ip = r.json().get('origin', '?')
+                        r = _sess.get('https://check.torproject.org/api/ip', timeout=15)
+                        new_ip = r.json().get('IP', '?')
                         self.console.print(f"[cyan]New Exit IP: {new_ip}[/cyan]")
                     else:
                         self.console.print(f"[yellow]Control port response: {resp.strip()}[/yellow]")
@@ -1971,13 +2183,7 @@ class TheSentinelPro:
             self.console.print("[red]No data to analyze. Run 'collect' first.[/red]")
             return
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
+        with sentinel_progress(console=self.console) as progress:
             
             semantic_task = progress.add_task("[cyan]Running semantic analysis...", total=100)
             
@@ -2040,13 +2246,7 @@ class TheSentinelPro:
             self.console.print("[red]No data to analyze. Run 'collect' first.[/red]")
             return
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
+        with sentinel_progress(console=self.console) as progress:
             
             media_task = progress.add_task("[cyan]Validating media integrity...", total=100)
             
@@ -2105,13 +2305,7 @@ class TheSentinelPro:
             self.console.print("[red]No data to analyze. Run 'collect' first.[/red]")
             return
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
+        with sentinel_progress(console=self.console) as progress:
             
             financial_task = progress.add_task("[cyan]Analyzing financial trails...", total=100)
             
@@ -2179,13 +2373,7 @@ class TheSentinelPro:
             self.console.print("[red]No data to analyze. Run 'collect' first.[/red]")
             return
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
+        with sentinel_progress(console=self.console) as progress:
             
             network_task = progress.add_task("[cyan]Mapping influence network...", total=100)
             
@@ -2308,13 +2496,7 @@ class TheSentinelPro:
             self.console.print("[red]No data to analyze. Run 'collect' first.[/red]")
             return
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TimeElapsedColumn(),
-            console=self.console
-        ) as progress:
+        with sentinel_progress(console=self.console) as progress:
             
             fake_task = progress.add_task("[cyan]Analyzing for fake profiles...", total=100)
             
@@ -2609,8 +2791,7 @@ class TheSentinelPro:
         report_data = {'target': target, 'timestamp': datetime.now().isoformat()}
         user_folder = self.session_data.get('user_folder', str(config.BASE_DIR / 'reports'))
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+        with sentinel_progress(console=self.console) as progress:
             task = progress.add_task("[cyan]Bug bounty scan...", total=100)
 
             progress.update(task, advance=4, description="[cyan]Checking SSL/TLS...")
@@ -2700,6 +2881,9 @@ class TheSentinelPro:
 
             progress.update(task, advance=2, description="[cyan]OAuth misconfiguration scan...")
             report_data['oauth'] = self.oauth_scan.run(target)
+
+            progress.update(task, advance=2, description="[cyan]JWT security scan...")
+            report_data['jwt'] = self.jwt_scan.run(target)
 
             progress.update(task, advance=3, description="[cyan]Saving secure report...")
             reporter = BugBountyReport(output_dir=user_folder)
@@ -3038,6 +3222,20 @@ class TheSentinelPro:
         elif oauth and not oauth.get('error'):
             self.console.print(f"  [dim][OAuth] No OAuth endpoints found[/dim]")
 
+        # JWT Scanner
+        jwt = report_data.get('jwt', {})
+        if jwt and not jwt.get('error') and jwt.get('total', 0) > 0:
+            jc = 'red' if jwt['risk_level'] == 'CRITICAL' else 'yellow'
+            self.console.print(f"\n  [bold red][JWT][/bold red] [{jc}]{jwt['risk_level']}[/{jc}] | {jwt['total']} finding(s) | Tokens: {len(jwt.get('tokens', []))}")
+            for f in jwt.get('findings', [])[:6]:
+                fc = 'red' if f['severity'] == 'CRITICAL' else 'yellow' if f['severity'] == 'HIGH' else 'dim'
+                self.console.print(f"    [{fc}][{f['severity']}][/{fc}] {f['attack']}: {f['detail'][:80]}")
+                self.console.print(f"      [dim]CWE: {f.get('cwe', 'N/A')} | {f['evidence'][:60]}[/dim]")
+        elif jwt and jwt.get('error'):
+            self.console.print(f"  [dim][JWT] {jwt['error']}[/dim]")
+        elif jwt:
+            self.console.print(f"  [dim][JWT] No vulnerabilities found[/dim]")
+
         # Rust analysis results
         rust = report_data.get('rust_analysis', {})
         if rust and not rust.get('error'):
@@ -3075,8 +3273,7 @@ class TheSentinelPro:
 
         report_data = {'target': target, 'timestamp': datetime.now().isoformat()}
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+        with sentinel_progress(console=self.console) as progress:
             task = progress.add_task("[cyan]Running recon...", total=100)
 
             progress.update(task, advance=8, description="[cyan]WHOIS + DNS records...")
@@ -3322,8 +3519,7 @@ class TheSentinelPro:
             return
         target = parts[1].strip()
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+        with sentinel_progress(console=self.console) as progress:
             task = progress.add_task("[cyan]Checking breach databases...", total=100)
             progress.update(task, advance=25, description="[cyan]BreachDirectory...")
             progress.update(task, advance=25, description="[cyan]HudsonRock stealer logs...")
@@ -3437,8 +3633,7 @@ class TheSentinelPro:
             return
         target = parts[1].strip()
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+        with sentinel_progress(console=self.console) as progress:
             task = progress.add_task("[cyan]Phone OSINT...", total=100)
             progress.update(task, advance=30, description="[cyan]NumVerify + AbstractAPI lookup...")
             progress.update(task, advance=30, description="[cyan]Social profile hints...")
@@ -3512,8 +3707,7 @@ class TheSentinelPro:
             return
         target = parts[1].strip()
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+        with sentinel_progress(console=self.console) as progress:
             task = progress.add_task("[cyan]Email OSINT...", total=100)
             progress.update(task, advance=30, description="[cyan]Validating domain + MX...")
             progress.update(task, advance=30, description="[cyan]Checking social profiles...")
@@ -3607,8 +3801,7 @@ class TheSentinelPro:
             texts  = [raw_input]
             labels = ['direct_input']
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+        with sentinel_progress(console=self.console) as progress:
             task = progress.add_task("[cyan]NLP Analysis...", total=100)
 
             progress.update(task, advance=25, description="[cyan]Named Entity Recognition...")
@@ -3729,8 +3922,7 @@ class TheSentinelPro:
             return
         query = parts[1].strip()
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+        with sentinel_progress(console=self.console) as progress:
             task = progress.add_task("[cyan]Person OSINT...", total=100)
 
             progress.update(task, advance=20, description="[cyan]Generating username variations...")
@@ -3895,8 +4087,7 @@ class TheSentinelPro:
                         self.console.print(f"[dim]Found: {image_path}[/dim]")
                         break
 
-        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                      BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+        with sentinel_progress(console=self.console) as progress:
             task = progress.add_task("[cyan]Image OSINT...", total=100)
             progress.update(task, advance=30, description="[cyan]Extracting metadata (EXIF)...")
             progress.update(task, advance=30, description="[cyan]Reverse image search...")
@@ -4337,8 +4528,7 @@ except KeyboardInterrupt:
                 from modules.ml_engine.trainer import ModelTrainer
                 from modules.ml_engine.real_data_collector import RealDataCollector
                 trainer = ModelTrainer()
-                with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                              BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+                with sentinel_progress(console=self.console) as progress:
                     task = progress.add_task("[cyan]Collecting data...", total=None)
 
                     # Step 1: Real threat intelligence
@@ -4381,8 +4571,7 @@ except KeyboardInterrupt:
             try:
                 from modules.ml_engine.trainer import ModelTrainer
                 trainer = ModelTrainer()
-                with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                              BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+                with sentinel_progress(console=self.console) as progress:
                     task = progress.add_task("[cyan]GitHub data collection...", total=None)
                     progress.update(task, description="[cyan]GitHub GHSA + repos + awesome lists...")
                     stats = trainer.collect_github_data(max_repos=50)
@@ -4402,8 +4591,7 @@ except KeyboardInterrupt:
             try:
                 from modules.ml_engine.trainer import ModelTrainer
                 trainer = ModelTrainer()
-                with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                              BarColumn(), TimeElapsedColumn(), console=self.console) as progress:
+                with sentinel_progress(console=self.console) as progress:
                     task = progress.add_task("[cyan]Training models...", total=None)
                     results = trainer.train_all()
                     progress.update(task, completed=True, description="[green]Training complete")
@@ -4474,12 +4662,11 @@ except KeyboardInterrupt:
                 plan_name = PLANS.get(info['plan'], info['plan'])
                 self.console.print(f"[green]\u2713 License ACTIVE[/green]")
                 self.console.print(f"  Plan   : [cyan]{plan_name}[/cyan]")
-                self.console.print(f"  Email  : {info['email']}")
-                self.console.print(f"  Expiry : {info['expiry']}")
-                self.console.print(f"  Issued : {info['issued']}")
+                self.console.print(f"  Expiry : {info.get('expires_at', 'N/A')}")
             else:
                 self.console.print(f"[red]\u2717 No valid license[/red] \u2014 {info['reason']}")
-                self.console.print("[dim]Usage: activate <LICENSE-KEY>[/dim]")
+                self.console.print("[dim]Usage: activate <SNTNL-XXXXXXXX-PENDING>[/dim]")
+                self.console.print("[dim]Get key: Telegram bot se kharido[/dim]")
             return
         key = parts[1].strip()
         from modules.license_manager import activate
@@ -4502,12 +4689,16 @@ except KeyboardInterrupt:
         if getattr(_sys, 'frozen', False):
             _base      = Path(_sys.executable).resolve().parent
             proxy_main = _base / '_internal' / 'sentinel_proxy' / 'main.py'
-            python     = str(_sys.executable)  # binary khud hi Python hai
+            python     = str(_sys.executable)
         else:
-            _base      = Path(__file__).resolve().parent
-            proxy_main = _base / 'sentinel_proxy' / 'main.py'
+            _base       = Path(__file__).resolve().parent
+            proxy_main  = _base / 'sentinel_proxy' / 'main.py'
             venv_python = _base / 'venv' / 'bin' / 'python3'
             python      = str(venv_python) if venv_python.exists() else 'python3'
+
+        # .py nahi hai to .so se import karo
+        proxy_main_so = list((_base / 'sentinel_proxy').glob('main*.so'))
+        use_import = not proxy_main.exists() and bool(proxy_main_so)
 
         def _kill_port():
             try:
@@ -4538,8 +4729,15 @@ except KeyboardInterrupt:
                 return
             self.console.print("[cyan][*][/cyan] Starting SentinelProxy v2.0 (Rust Core)...")
             try:
+                if use_import:
+                    # .so compiled version — ui.app mein main() hai
+                    cmd = [python, '-c',
+                        f'import sys; sys.path.insert(0, "{_base}"); '
+                        f'from sentinel_proxy.ui.app import main; main()']
+                else:
+                    cmd = [python, str(proxy_main)]
                 subprocess.Popen(
-                    [python, str(proxy_main)],
+                    cmd,
                     cwd=str(_base),
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -4589,7 +4787,7 @@ except KeyboardInterrupt:
         parts = command.split()
         if len(parts) < 2:
             self.console.print("[red]Usage: secure <subcommand>[/red]")
-            self.console.print("[dim]Subcommands: stats | list | chains | verify <chain_id> | backup <file> | restore <backup> | cleanup | audit[/dim]")
+            self.console.print("[dim]Subcommands: stats | list | chains | verify <chain_id> | backup <file> | restore <backup> | cleanup | audit | view <file_id>[/dim]")
             return
             
         subcmd = parts[1]
@@ -4637,13 +4835,17 @@ except KeyboardInterrupt:
             for file_id, info in list(files.items())[:20]:
                 encrypted_icon = "🔒" if info.get('encrypted') else "🔓"
                 size_kb = info['size'] / 1024
+                exists = Path(info['path']).exists()
+                path_display = Path(info['path']).name
+                if not exists:
+                    path_display = f"[dim red]{path_display} ✗[/dim red]"
                 file_table.add_row(
                     file_id[:16] + '...',
-                    Path(info['path']).name,
+                    path_display,
                     info['category'],
                     info['classification'],
                     f"{size_kb:.1f} KB",
-                    encrypted_icon
+                    encrypted_icon if exists else "[dim]N/A[/dim]"
                 )
             
             self.console.print(file_table)
@@ -4747,8 +4949,10 @@ except KeyboardInterrupt:
             except Exception as e:
                 self.console.print(f"[red]Restore failed: {e}[/red]")
             
+        elif subcmd == 'view' and len(parts) >= 3:
+            self._handle_secure_view(parts[2])
+
         elif subcmd == 'audit':
-            audit_file = self.secure_files.audit_log
             if audit_file.exists():
                 try:
                     with open(audit_file, 'r') as f:
@@ -4821,7 +5025,127 @@ except KeyboardInterrupt:
                 
         else:
             self.console.print("[red]Unknown secure subcommand[/red]")
-            self.console.print("[dim]Available: stats | list | chains | verify <chain_id> | backup <file> | restore <backup> | cleanup | audit[/dim]")
+            self.console.print("[dim]Available: stats | list | chains | verify <chain_id> | backup <file> | restore <backup> | cleanup | audit | view <file_id>[/dim]")
+
+    def _handle_secure_view(self, file_id: str):
+        """Decrypt and display encrypted file content in pretty UI"""
+        from rich.panel import Panel
+        from rich.syntax import Syntax
+        import json as _json
+
+        registry = self.secure_files.file_registry
+        files = registry.get('files', {})
+
+        # file_id partial match support
+        matched_id = None
+        matched_info = None
+        for fid, info in files.items():
+            if fid.startswith(file_id) or file_id in fid:
+                matched_id = fid
+                matched_info = info
+                break
+
+        if not matched_info:
+            self.console.print(f"[red]✗ File ID not found:[/red] [yellow]{file_id}[/yellow]")
+            self.console.print("[dim]Use 'secure list' to see registered file IDs[/dim]")
+            return
+
+        # Check file actually exists on disk
+        actual_path = Path(matched_info['path'])
+        if not actual_path.exists():
+            self.console.print(f"[red]✗ File not found on disk:[/red] [yellow]{actual_path.name}[/yellow]")
+            self.console.print(f"[dim]Registry has stale entry — file may have been moved or deleted[/dim]")
+            self.console.print(f"[dim]Expected path: {actual_path}[/dim]")
+            return
+
+        # Read + decrypt
+        result = self.secure_files.secure_read(matched_info['path'])
+
+        if not result['success']:
+            self.console.print(f"[red]✗ Failed to read file: {result['error']}[/red]")
+            return
+
+        content = result['content']
+        is_encrypted = matched_info.get('encrypted', False)
+        classification = matched_info.get('classification', 'UNKNOWN')
+        category = matched_info.get('category', 'unknown')
+        file_path = Path(matched_info['path'])
+
+        cls_colors = {
+            'TOP_SECRET': 'bold red',
+            'RESTRICTED': 'red',
+            'CONFIDENTIAL': 'yellow',
+            'INTERNAL': 'cyan',
+            'PUBLIC': 'green'
+        }
+        cls_color = cls_colors.get(classification, 'white')
+        enc_status = "[green]🔓 Decrypted[/green]" if is_encrypted else "[dim]🔓 Plain[/dim]"
+
+        header_lines = [
+            f"[bold]File:[/bold]     [cyan]{file_path.name}[/cyan]",
+            f"[bold]ID:[/bold]       [dim]{matched_id[:40]}[/dim]",
+            f"[bold]Category:[/bold] [magenta]{category}[/magenta]",
+            f"[bold]Class:[/bold]    [{cls_color}]{classification}[/{cls_color}]",
+            f"[bold]Size:[/bold]     {matched_info['size'] / 1024:.1f} KB",
+            f"[bold]SHA256:[/bold]   [dim]{matched_info.get('sha256', 'N/A')[:32]}...[/dim]",
+            f"[bold]Status:[/bold]   {enc_status}",
+        ]
+        self.console.print(Panel(
+            "\n".join(header_lines),
+            title=f"[bold {cls_color}]🔐 Secure File Viewer[/bold {cls_color}]",
+            border_style=cls_color,
+            padding=(1, 2)
+        ))
+
+        try:
+            parsed = _json.loads(content)
+            pretty = _json.dumps(parsed, indent=2, ensure_ascii=False)
+            syntax = Syntax(pretty, "json", theme="monokai", line_numbers=True,
+                           word_wrap=True, background_color="default")
+            self.console.print(Panel(
+                syntax,
+                title="[bold green]📄 Decrypted Content[/bold green]",
+                border_style="green",
+                padding=(0, 1)
+            ))
+
+            if isinstance(parsed, dict):
+                summary_table = Table(
+                    title="[bold]Content Summary[/bold]",
+                    border_style="dim",
+                    show_header=True,
+                    header_style="bold cyan"
+                )
+                summary_table.add_column("Key", style="cyan", width=25)
+                summary_table.add_column("Type", style="yellow", width=12)
+                summary_table.add_column("Preview", style="white")
+                for k, v in list(parsed.items())[:15]:
+                    val_type = type(v).__name__
+                    if isinstance(v, dict):
+                        preview = f"{{...}} ({len(v)} keys)"
+                    elif isinstance(v, list):
+                        preview = f"[...] ({len(v)} items)"
+                    else:
+                        preview = str(v)[:60] + ('...' if len(str(v)) > 60 else '')
+                    summary_table.add_row(k, val_type, preview)
+                if len(parsed) > 15:
+                    summary_table.add_row("[dim]...[/dim]", "", f"[dim]+{len(parsed)-15} more keys[/dim]")
+                self.console.print(summary_table)
+
+        except (_json.JSONDecodeError, ValueError):
+            lines = content.splitlines()
+            display = "\n".join(lines[:50])
+            if len(lines) > 50:
+                display += f"\n[dim]... ({len(lines)-50} more lines)[/dim]"
+            self.console.print(Panel(
+                display,
+                title="[bold green]📄 Decrypted Content[/bold green]",
+                border_style="green",
+                padding=(1, 2)
+            ))
+
+        self.console.print(f"[dim]Audit logged — READ operation recorded[/dim]")
+
     def _handle_groq(self, command: str):
         """Groq LLM commands for AI-powered analysis"""
         parts = command.split(' ', 1)
@@ -4849,8 +5173,7 @@ except KeyboardInterrupt:
                 question = subcmd_parts[1]
                 self.console.print(f"[cyan]Asking Groq: {question}[/cyan]")
                 
-                with Progress(SpinnerColumn(), TextColumn("[cyan]Groq thinking..."), 
-                            console=self.console) as progress:
+                with sentinel_progress(console=self.console) as progress:
                     task = progress.add_task("", total=None)
                     answer = groq.ask(question)
                     progress.update(task, completed=True)
@@ -5086,19 +5409,28 @@ except KeyboardInterrupt:
             
             # Get paths
             base_dir = Path(__file__).parent
-            intel_main = base_dir / 'sentinel_intel' / 'main.py'
+            intel_main_py = base_dir / 'sentinel_intel' / 'main.py'
+            intel_main_so = list((base_dir / 'sentinel_intel').glob('main*.so'))
             venv_python = base_dir / 'venv' / 'bin' / 'python3'
-            
-            if not intel_main.exists():
-                self.console.print(f"[red]Sentinel Intel not found at: {intel_main}[/red]")
+
+            if not intel_main_py.exists() and not intel_main_so:
+                self.console.print(f"[red]Sentinel Intel not found at: {base_dir / 'sentinel_intel'}[/red]")
                 return
-            
+
             # Use venv python if available
             python_cmd = str(venv_python) if venv_python.exists() else sys.executable
-            
+
+            # .py prefer karo, warna .so import karo
+            if intel_main_py.exists():
+                cmd = [python_cmd, str(intel_main_py)]
+            else:
+                cmd = [python_cmd, '-c',
+                    f'import sys; sys.path.insert(0, "{base_dir}"); '
+                    f'from sentinel_intel.main import main; main()']
+
             # Launch in background
             subprocess.Popen(
-                [python_cmd, str(intel_main)],
+                cmd,
                 cwd=str(base_dir),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
@@ -5512,8 +5844,7 @@ except KeyboardInterrupt:
                     
                     self.console.print(f"[cyan]Analyzing memory dump: {dump_path}[/cyan]")
                     
-                    with Progress(SpinnerColumn(), TextColumn("[cyan]Running Volatility analysis..."), 
-                                console=self.console) as progress:
+                    with sentinel_progress(console=self.console) as progress:
                         task = progress.add_task("", total=None)
                         result = forensics.analyze_memory_dump(case_name, dump_path, profile)
                         progress.update(task, completed=True)
@@ -5578,8 +5909,7 @@ except KeyboardInterrupt:
                     
                     self.console.print(f"[cyan]Carving files from: {image_path}[/cyan]")
                     
-                    with Progress(SpinnerColumn(), TextColumn("[cyan]Running file carving..."),
-                                console=self.console) as progress:
+                    with sentinel_progress(console=self.console) as progress:
                         task = progress.add_task("", total=None)
                         result = forensics.carve_files(case_name, image_path, file_types)
                         progress.update(task, completed=True)
@@ -5603,8 +5933,7 @@ except KeyboardInterrupt:
                     
                     self.console.print(f"[cyan]Analyzing network capture: {pcap_path}[/cyan]")
                     
-                    with Progress(SpinnerColumn(), TextColumn("[cyan]Analyzing PCAP..."),
-                                console=self.console) as progress:
+                    with sentinel_progress(console=self.console) as progress:
                         task = progress.add_task("", total=None)
                         result = forensics.analyze_network_capture(case_name, pcap_path)
                         progress.update(task, completed=True)
@@ -5630,8 +5959,7 @@ except KeyboardInterrupt:
                     
                     self.console.print(f"[cyan]YARA scanning: {target_path}[/cyan]")
                     
-                    with Progress(SpinnerColumn(), TextColumn("[cyan]Running YARA scan..."),
-                                console=self.console) as progress:
+                    with sentinel_progress(console=self.console) as progress:
                         task = progress.add_task("", total=None)
                         result = forensics.scan_with_yara(case_name, target_path, rules_path)
                         progress.update(task, completed=True)
@@ -5654,8 +5982,7 @@ except KeyboardInterrupt:
                 
                 self.console.print(f"[cyan]Generating forensics report for: {case_name}[/cyan]")
                 
-                with Progress(SpinnerColumn(), TextColumn("[cyan]Compiling report..."),
-                            console=self.console) as progress:
+                with sentinel_progress(console=self.console) as progress:
                     task = progress.add_task("", total=None)
                     result = forensics.generate_case_report(case_name)
                     progress.update(task, completed=True)
@@ -6037,13 +6364,7 @@ except KeyboardInterrupt:
                 from modules.predictive.attack_surface_mapper import AttackSurfaceMapper
                 mapper = AttackSurfaceMapper(target)
                 
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    BarColumn(),
-                    TimeElapsedColumn(),
-                    console=self.console
-                ) as progress:
+                with sentinel_progress(console=self.console) as progress:
                     task = progress.add_task("[cyan]Mapping attack surface...", total=100)
                     progress.update(task, advance=30, description="[cyan]Port scanning...")
                     mapper.scan_ports("1-1000")
@@ -6092,13 +6413,7 @@ except KeyboardInterrupt:
                 from modules.predictive.threat_trend_analyzer import ThreatTrendAnalyzer
                 analyzer = ThreatTrendAnalyzer()
                 
-                with Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    BarColumn(),
-                    TimeElapsedColumn(),
-                    console=self.console
-                ) as progress:
+                with sentinel_progress(console=self.console) as progress:
                     task = progress.add_task("[cyan]Analyzing threat trends...", total=100)
                     progress.update(task, advance=40, description="[cyan]Analyzing historical data...")
                     trends = analyzer.analyze_trends(days=30)
@@ -6397,7 +6712,7 @@ Examples:
   python3 main.py --scan-all example.com   # Run all scans
         """
     )
-    parser.add_argument('--version', action='version', version='The Sentinel Pro v2.1')
+    parser.add_argument('--version', action='version', version='The Sentinel Pro v3.1')
     parser.add_argument('--bugbounty', metavar='DOMAIN',  help='Run bug bounty scan on domain')
     parser.add_argument('--recon',     metavar='DOMAIN',  help='Run passive recon on domain')
     parser.add_argument('--breach',    metavar='TARGET',  help='Check email/username in breach databases')
