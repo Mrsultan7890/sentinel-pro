@@ -111,6 +111,55 @@ smuggler/smuggler
 stealth_proxy/stealth_proxy
 *.exe
 
+# ── Python source — obfuscated modules (.so rakho, .py nahi) ─────────────────
+modules/**/*.py
+!modules/__init__.py
+!modules/breach/__init__.py
+!modules/bugbounty/__init__.py
+!modules/recon/__init__.py
+!modules/ml_engine/__init__.py
+sentinel_brain/agents/*.py
+!sentinel_brain/agents/__init__.py
+sentinel_brain/engines/*.py
+!sentinel_brain/engines/__init__.py
+sentinel_brain/kali_controller.py
+sentinel_brain/memory.py
+sentinel_brain/monitor.py
+sentinel_brain/persistent_monitor.py
+sentinel_brain/terminal.py
+sentinel_intel/main.py
+sentinel_proxy/main.py
+sentinel_intel/core/database.py
+sentinel_intel/ui/graph_canvas.py
+sentinel_proxy/ai/analyzer.py
+sentinel_proxy/ai/proxy_ml_engine.py
+sentinel_proxy/core/rust_bridge.py
+sentinel_proxy/core/rust_fuzzer_bridge.py
+sentinel_proxy/fetch_ai_payloads.py
+sentinel_proxy/icon_generator.py
+sentinel_proxy/run_proxy.py
+sentinel_proxy/simple_proxy.py
+sentinel_proxy/ui/app.py
+sentinel_proxy/ui/tabs/ai_payload_tab.py
+sentinel_proxy/ui/tabs/collaborator_tab.py
+sentinel_proxy/ui/tabs/csrf_tab.py
+sentinel_proxy/ui/tabs/graphql_tab.py
+sentinel_proxy/ui/tabs/intercept_rules_tab.py
+sentinel_proxy/ui/tabs/jwt_editor_tab.py
+sentinel_proxy/ui/tabs/organizer_tab.py
+sentinel_proxy/ui/tabs/param_miner_tab.py
+sentinel_proxy/ui/tabs/race_condition_tab.py
+sentinel_proxy/ui/tabs/smuggler_tab.py
+sentinel_proxy/ui/tabs/target_tab.py
+sentinel_proxy/ui/tabs/tls_inspector_tab.py
+sentinel_proxy/ui/tabs/websocket_tab.py
+sentinel_proxy/ui/tabs/autorize_tab.py
+sentinel_proxy/ui/tabs/upstream_proxy_tab.py
+sentinel_proxy/ui/tabs/crawler_tab.py
+
+# ── All compiled .so files — osints is source-only repo ──────────────────
+*.so
+
 # ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
