@@ -110,7 +110,7 @@ sentinel-pro> brain investigate target.com
 |----------|-------------|
 | **Autonomous Brain** | ReAct loop, adaptive planning, retry logic, ML-driven decisions |
 | **19 Agents** | recon, exploit, osint, breach, report, darkweb, network, terminal, scheduler, credential, system_monitor, correlation, filesystem, monitor, notification, browser, attack_chain, threat_intel, behavioral |
-| **Sentinel Intel** | Maltego-style graph intelligence platform · 14 engines (Email, Phone, IP, Domain, Person, Username, Hash, Cryptocurrency, CVE, Breach, Company, Malware, URL, Database) · 40+ transforms · PyQt6 GUI · AI-powered auto-chaining · Risk visualization · Federated learning support · **SUB-ENTITY creation** (Maltego-style nested entities) |
+| **Sentinel Intel** | Maltego-style graph intelligence platform · 14 engines (Email, Phone, IP, Domain, Person, Username, Hash, Cryptocurrency, CVE, Breach, Company, Malware, URL, Database) · 40+ transforms · PyQt6 GUI · AI-powered auto-chaining · Risk visualization · Federated learning support · **SUB-ENTITY creation** (Maltego-style nested entities) · **Shortest Path Finder** · **Graph Diff / Snapshot Compare** |
 | **RL Agent** | Q-Learning, 19 tools, 171 states learned, epsilon-greedy |
 | **SentinelNet v5.0** | CNN+Transformer, F1=0.83, threat/type/action/confidence |
 | **Seq2Seq v2.0** | CNN Encoder + Transformer Decoder, cmd_gen/chain_gen/report_gen |
@@ -125,10 +125,10 @@ sentinel-pro> brain investigate target.com
 | **Dark Web** | Tor integration · .onion crawling · Stealth mode |
 | **Forensics** | Metasploit integration · privilege manager · secure file manager · evidence vault · YARA · memory analysis |
 | **Legal** | Chain of custody · evidence manager · court-grade HTML/PDF reports · digital footprint |
-| **SentinelProxy v2.0** | Rust core (6.5MB binary) · 200K req/sec · HTTP/2 · WebSocket · Intercept · Match&Replace · Parallel Fuzzer · 22 tabs · AI analysis · 34,458 payloads · 10 ML algorithms · Groq integration |
-| **License Manager** | Offline HMAC-SHA256 license system · Machine binding · No server required · Basic/Pro/Elite plans |
+| **SentinelProxy v2.0** | Rust core (6.5MB binary) · 200K req/sec · HTTP/2 · WebSocket · Intercept · Match&Replace · Parallel Fuzzer · **31 tabs** · AI analysis · 34,458 payloads · 10 ML algorithms · Groq integration · **Extension Plugin System** · **Settings Tab** · **Tab Groups** |
+| **License Manager** | Server-side validation · Telegram bot key delivery · Machine binding (hardware hash) · Offline cache fallback · Trial/Starter/Pro/Elite plans |
 | **Wordlist Manager** | Central wordlist resolution · Bundled payloads · SecLists integration · Auto-install instructions · Depth control (fast/normal/deep) |
-| **Report Builder** | Groq executive summary · MITRE ATT&CK mapping (19 tools mapped) · Severity charts · Evidence hash (SHA-256) · Digital signature · Multi-format (JSON/HTML/PDF/TXT) · Chain of custody |
+| **Report Builder** | Groq executive summary · MITRE ATT&CK mapping (19 tools mapped) · Severity charts · Evidence hash (SHA-256) · Digital signature · Multi-format (JSON/HTML/PDF/TXT) · Chain of custody · **AI Action Report** — Groq-powered per-finding remediation guide (what it is · how to reproduce · how to fix · references) |
 
 ---
 
@@ -675,6 +675,8 @@ sentinel-pro> intel
 - Auto-layout (circular)
 - Zoom in/out
 - High-res PNG export (2x)
+- **Shortest Path Finder** — NetworkX-powered path between any two nodes (gold highlight)
+- **Graph Diff / Snapshot Compare** — save snapshots, compare added/removed nodes+edges
 
 **Entity Palette:**
 - 15+ entity types
@@ -803,44 +805,41 @@ sentinel_intel/federated/
 
 ## License Manager
 
-**Offline HMAC-SHA256 license system — no server required**
+**Server-side validation via Sentinel License Server**
 
 ### Features
 
-- **Offline verification** — No internet required after activation
-- **Machine binding** — License tied to hardware ID
-- **HMAC-SHA256** — Cryptographically secure
-- **No server** — All verification happens locally
-- **3 Plans** — Basic (1 month), Pro (3 months), Elite (1 year)
+- **Server-side verification** — License validated against `sentinel-server-a7i9.onrender.com`
+- **Telegram bot delivery** — Half-key (`SNTNL-...-PENDING`) delivered via Telegram bot
+- **Machine binding** — Hardware hash (SHA-256 of machine-id) tied at activation
+- **Offline cache fallback** — Works offline if server unreachable (until expiry)
+- **4 Plans** — Trial (1 day), Starter (1 month), Pro (3 months), Elite (1 year)
 
 ### Usage
 
 ```bash
-# Activate license
-sentinel-pro> activate SENT3-<encoded>-<signature>
+# Get key from Telegram bot, then activate
+sentinel-pro> activate SNTNL-XXXXXX-PENDING
 
 # Check status
 sentinel-pro> status
 ```
 
-### Key Format
+### How It Works
 
 ```
-SENT3-<base64_payload>-<hmac_signature>
-
-Payload (JSON):
-{
-  "p": "elite",              # plan: basic/pro/elite
-  "e": "user@example.com",   # email
-  "x": "2027-01-01",          # expiry (or "lifetime")
-  "i": "2026-01-01"           # issued date
-}
+1. Get SNTNL-...-PENDING half-key from Telegram bot
+2. Run: activate SNTNL-...-PENDING
+3. Tool sends half-key + machine hardware hash to server
+4. Server binds key to machine, returns final_key
+5. final_key saved to ~/.sentinel_pro/license.key
+6. On startup: server validates final_key + machine hash
+7. If server unreachable: cached license used (offline fallback)
 ```
 
 ### Machine Binding
 
-- Linux: `/etc/machine-id` (first 16 chars)
-- Fallback: MAC address MD5 hash
+- Linux: `/etc/machine-id` → SHA-256 hash (first 32 chars)
 - Stored in: `~/.sentinel_pro/license.key`
 - Permissions: `0600` (owner read/write only)
 
@@ -848,7 +847,8 @@ Payload (JSON):
 
 | Plan | Duration | Features |
 |------|----------|----------|
-| **Basic** | 1 Month | Full Access |
+| **Trial** | 1 Day | Limited (no Proxy/Intel) |
+| **Starter** | 1 Month | Full Access |
 | **Pro** | 3 Months | Full Access |
 | **Elite** | 1 Year | Full Access |
 
@@ -932,6 +932,7 @@ sentinel-pro> status
 - **Evidence Hash** — SHA-256 integrity verification
 - **Digital Signature** — Watermarked reports
 - **Multi-format** — JSON, HTML, PDF, TXT
+- **AI Action Report** — Groq-powered per-finding remediation guide (what it is · how to reproduce · how to fix · references)
 
 ### MITRE ATT&CK Coverage
 
@@ -1293,36 +1294,68 @@ Browser
 │  analyzer.py        — Pattern+SentinelNet+Groq
 │  proxy_ml_engine.py — 10 ML algorithms  │
 │  proxy_db.py        — SQLite storage    │
-│  app.py             — Tkinter UI (22 tabs)
+│  app.py             — Tkinter UI (31 tabs, 5 tab groups)
 └─────────────────────────────────────────┘
 ```
 
-### Tabs (22 total)
+### Tabs (31 total) — 5 Groups
+
+**INTERCEPT group:**
 
 | Tab | Purpose |
 |-----|---------|
 | **Proxy** | Live HTTP/HTTPS/HTTP2 interception · color-coded risk · intercept FWD/DROP |
-| **Repeater** | Modify and resend requests · response time · Raw/Hex/Render |
+| **Repeater** | Modify and resend requests · response time · Raw/Hex/Render · **undo/redo history** |
+
+**ATTACK group:**
+
+| Tab | Purpose |
+|-----|---------|
 | **Intruder** | 4 attack modes · Rust parallel fuzzer · 34K+ payloads · grep match |
-| **Scanner** | 9 pattern detectors + SentinelNet + Groq deep analysis |
-| **Decoder** | URL / Base64 / Hex / HTML / MD5 / SHA1 / SHA256 / SHA512 |
-| **Logger** | Full traffic log · search · risk/method filter · flagged only |
-| **Highlight** | Custom color rules · 7 colors · field-based matching |
 | **Auto-Fuzz** | AI param detection · HTML forms + JS vars + Groq · smart payload selection |
-| **Comparer** | Side-by-side diff · added/removed/unchanged · stats |
-| **Scope** | Include/exclude domains · wildcard support · match counter |
-| **Report** | HTML/PDF report · Groq executive summary · risk breakdown |
-| **Match & Replace** | Regex rules · request/response modify at Rust level |
 | **Active Scanner** | CVE matching · auto-test all params · remediation guidance |
+
+**ANALYSIS group:**
+
+| Tab | Purpose |
+|-----|---------|
+| **Scanner** | 9 pattern detectors + SentinelNet + Groq deep analysis |
+| **Logger** | Full traffic log · search · risk/method filter · **HTTP version column** |
+| **Highlight** | Custom color rules · 7 colors · field-based matching |
+| **Comparer** | Side-by-side diff · added/removed/unchanged · stats |
+| **WebSocket** | WS message viewer · replay · filter · export · **AI analysis** |
+| **Autorize** | Automatic access control testing · IDOR/auth bypass · **AI analysis** |
+| **Crawler** | Auto-crawl tab · site map · depth control |
+
+**TOOLS group:**
+
+| Tab | Purpose |
+|-----|---------|
+| **Decoder** | URL / Base64 / Hex / HTML / MD5 / SHA1 / SHA256 / SHA512 |
 | **Session Analyzer** | JWT · OAuth · SAML · Cookie deep analysis |
-| **WebSocket** | WS message viewer · replay · filter · export |
-| **Target** | Site map tree · host/path hierarchy · request detail |
 | **Organizer** | Save + annotate interesting requests · tags · notes |
 | **Collaborator** | OOB blind detection · local HTTP listener · AI hit analysis |
 | **AI Payloads** | Groq context-aware payload generation · WAF bypass variants |
 | **CSRF PoC** | Auto HTML PoC generator · AI exploitability analysis |
 | **Param Miner** | Hidden parameter discovery · AI suggestions · response diff |
 | **Race Condition** | Turbo Intruder style · gate technique · timeline visualization |
+| **JWT Editor** | JWT decode/encode · alg:none · key confusion · **AI analysis** |
+| **GraphQL** | GraphQL introspection · query builder · **AI analysis** |
+| **HTTP Smuggler** | CL.TE / TE.CL / TE.TE detection · **AI analysis** |
+| **TLS Inspector** | Certificate chain · cipher suites · vulnerabilities · **AI analysis** |
+| **Intercept Rules** | Fine-grained intercept filter rules |
+| **Target** | Site map tree · host/path hierarchy · request detail |
+
+**CONFIG group:**
+
+| Tab | Purpose |
+|-----|---------|
+| **Scope** | Include/exclude domains · wildcard support · match counter |
+| **Match & Replace** | Regex rules · request/response modify at Rust level |
+| **Upstream Proxy** | SOCKS5/HTTP/Tor upstream chaining |
+| **Extensions** | **Plugin system** · load custom `.py` extensions · request/response hooks |
+| **Settings** | **Persistent JSON settings** · 8 sections · live apply to all tabs |
+| **Report** | HTML/PDF report · Groq executive summary · risk breakdown |
 
 ### ProxyML Engine — 10 Algorithms (wired to every request)
 
@@ -1866,7 +1899,7 @@ osints/
 │   ├── db/
 │   │   └── proxy_db.py        ← SQLite (all tables in _init_db)
 │   ├── ui/
-│   │   ├── app.py             ← Tkinter UI — 22 tabs
+│   │   ├── app.py             ← Tkinter UI — 31 tabs, 5 tab groups
 │   │   └── tabs/
 │   │       ├── websocket_tab.py
 │   │       ├── target_tab.py
@@ -1914,7 +1947,7 @@ osints/
 - [x] Intercept FWD/DROP — tokio oneshot channels
 - [x] Match & Replace — Rust regex engine
 - [x] Parallel Fuzzer — Rust rayon (50x faster)
-- [x] 22 tabs — WebSocket · Target · Organizer · Session · Active Scanner · Collaborator · AI Payloads · CSRF PoC · Param Miner · Race Condition
+- [x] 31 tabs — 5 groups (INTERCEPT · ATTACK · ANALYSIS · TOOLS · CONFIG) · JWT Editor · GraphQL · HTTP Smuggler · TLS Inspector · Intercept Rules · Upstream Proxy · Extensions · Settings · Autorize · Crawler
 - [x] ProxyMLEngine — 10 algorithms wired to every request
 - [x] Wildcard cert support — *.domain.com
 - [x] Scope-based intercept filter — Rust level
@@ -2004,7 +2037,7 @@ python3 sentinel_proxy/main.py
 4. Launch Tkinter UI (SentinelProxyApp)
    → Wire bridge callbacks
    → Show onboarding splash
-   → Build 22 tabs
+   → Build 31 tabs, 5 tab groups
 5. Proxy ready — set browser to 127.0.0.1:8082
 ```
 
