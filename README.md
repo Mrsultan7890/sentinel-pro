@@ -657,6 +657,153 @@ sentinel_intel/federated/
 ---
 
 
+## Octopus-Vault — OSINT Case Management Suite
+
+**Encrypted local investigation platform — manage cases, subjects, evidence, timelines and investigation boards**
+
+```bash
+cd octopus_vault
+python3 main.py
+
+# Or from main CLI
+sentinel-pro> vault
+```
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│           OCTOPUS-VAULT v2.0                │
+│      OSINT Investigation Suite              │
+│                                             │
+│  PyQt6 GUI        — Modern dark terminal UI │
+│  SQLite + AES     — Encrypted local storage │
+│  12 Tentacles     — Feature modules         │
+│  Investigation Board — Corkboard + threads  │
+│  Link Graph       — Subject relationship map│
+│  Export Engine    — PDF / JSON / CSV        │
+└─────────────────────────────────────────────┘
+```
+
+### 12 Tentacles (Feature Modules)
+
+| Tentacle | Purpose |
+|----------|---------|
+| **~$ Dashboard** | Live stats — total cases, subjects, evidence, recent activity |
+| **T1 Cases** | Create/edit/delete investigation cases · status (Active/Pending/Closed) · search |
+| **T2 Subjects** | Per-case subject profiles — name, aliases, emails, phones, usernames, addresses |
+| **T3 Evidence** | Attach evidence to cases/subjects — file attachments, URLs, screenshots, notes · type tagging |
+| **T4 Timeline** | Chronological event log per case — date, title, description, linked evidence |
+| **T5 Notes** | Rich freeform notes per case — Ctrl+S save, live edit |
+| **T6 Tags** | Color-coded tag system — apply to evidence for fast filtering |
+| **T7 Export** | Export full case as PDF report / JSON / CSV — select any case from dropdown |
+| **T8 Vault** | Password management — initialize vault, change master password |
+| **T9 Link Graph** | Visual subject relationship graph — shared emails/phones/usernames highlighted in red |
+| **TA Duplicates** | Cross-case duplicate detector — finds subjects sharing emails, phones, usernames |
+| **TB Bulk Import** | Import multiple subjects at once from CSV or paste |
+
+### Investigation Board
+
+**Full-screen corkboard — connect evidence with red threads like a real investigation wall**
+
+```
+Ctrl+Alt+S  — Open/Close Investigation Board
+```
+
+**Node Types (8):**
+
+| Node | Description |
+|------|-------------|
+| **Sticky Note** | Yellow post-it notes — quick observations |
+| **Profile Card** | Subject card with avatar silhouette + status badge |
+| **Document** | Paper-style document node with CONFIDENTIAL stamp |
+| **Map** | Location node with grid + red crosshair marker |
+| **Label** | Tape-style text label for grouping areas |
+| **Image** | Photo node — double-click to load image file |
+| **Timeline** | Dated event card — right-click → Sort All to arrange chronologically |
+| **Group** | Resizable container to cluster related nodes — drag to move all children |
+
+**Thread System (Red String):**
+- Click any pin (colored dot on node edge) → drag to another pin → thread created
+- 4 colors: Red · Green (confirmed) · Yellow (suspected) · Grey (weak)
+- 4 strengths: Weak (dashed) · Normal · Strong · Confirmed (thick solid)
+- Right-click thread → edit label, change color/strength, remove
+- Curved bezier paths with hover highlight
+
+**Board Features:**
+- Import Subjects — auto-creates Profile Cards from T2 Subjects
+- Import Evidence — auto-creates Document nodes from T3 Evidence
+- Status Badges — SUSPECT / WITNESS / CLEARED / UNKNOWN / PERSON OF INTEREST
+- Freehand Draw mode — annotate directly on board (4 colors)
+- Mini-map — bottom-left overview with viewport indicator
+- Middle-click / Alt+drag — pan canvas
+- Scroll wheel — zoom in/out (0.2x – 4.0x)
+- All node positions auto-saved to SQLite
+
+### Link Graph (T9)
+
+**Automatic subject relationship visualization**
+
+- Circular layout — subjects as green circles, attributes as colored squares
+- Shared values (same email/phone/username across subjects) shown in **red** — instant connection detection
+- Node colors: Green=Subject · Blue=Email · Purple=Username · Yellow=Phone · Red=Shared
+- Drag nodes to rearrange · click subject node to view full profile
+
+### Duplicate Detector (TA)
+
+- Scans all subjects for shared emails, phones, usernames
+- Scope: current case only OR all cases
+- Results table: field · shared value · subject 1 · subject 2 · case name
+
+### Export Engine (T7)
+
+| Format | Contents |
+|--------|----------|
+| **PDF** | Full case report — subjects table, evidence table, timeline, notes · ReportLab styled |
+| **JSON** | Complete case dump — all tables as structured JSON |
+| **CSV** | Subjects export — spreadsheet compatible |
+
+### Security
+
+- **AES-256 encryption** — vault database encrypted at rest
+- **Master password** — required on every launch (bcrypt hash, timing-safe verify)
+- **Local only** — all data stored in `~/.octopus_vault/vault.db` — no cloud, no telemetry
+- **WAL mode** — SQLite WAL + busy_timeout for concurrent access safety
+- **Foreign keys** — referential integrity enforced
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+N` | New item in current tab |
+| `Ctrl+S` | Save note (Notes tab) |
+| `Ctrl+F` | Focus search bar |
+| `Ctrl+Shift+C` | Quick Capture dialog |
+| `Ctrl+D` | Go to Dashboard |
+| `Ctrl+1..9` | Switch to tab by number |
+| `Ctrl+Alt+S` | Open/Close Investigation Board |
+
+### Quick Capture
+
+**Ctrl+Shift+C** — floating dialog to instantly save a URL, screenshot, or note to the active case without switching tabs.
+
+### Database
+
+```
+~/.octopus_vault/vault.db
+├── cases              — investigation cases
+├── subjects           — persons of interest per case
+├── evidence           — attached files, URLs, notes
+├── timeline_events    — chronological events
+├── notes              — freeform case notes
+├── tags               — color-coded tags
+├── board_nodes        — investigation board node positions + content
+├── board_connections  — thread connections between nodes
+└── board_groups       — group container positions
+```
+
+---
+
 ## Wordlist Manager
 
 **Central wordlist resolution with auto-install instructions**
