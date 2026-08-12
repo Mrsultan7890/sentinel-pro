@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🛡️  The Sentinel Pro v3.0 — Setup"
+echo "🛡️  The Sentinel Pro v3.1 — Setup"
 echo "==================================="
 
 # ── OS check ──────────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ echo "🔨 Building Go binaries..."
 build_go() {
     local dir=$1
     if [[ -d "$dir" && -f "$dir/main.go" ]]; then
-        (cd "$dir" && go build -o "$(basename $dir)" main.go) && echo "  ✓ $dir" || echo "  ✗ $dir (build failed)"
+        (cd "$dir" && go build -o "$(basename $dir)" .) && echo "  ✓ $dir" || echo "  ✗ $dir (build failed)"
     else
         echo "  - $dir (skipped — not found)"
     fi
@@ -108,6 +108,36 @@ build_rust media_analyzer
 build_rust fuzzer
 build_rust sentinel_proxy/rust_core
 build_rust sentinel_proxy/rust_fuzzer
+
+# ── SentinelOctopus-0.5B Model ───────────────────────────────────────────────
+echo ""
+echo "🧠 Checking SentinelOctopus-0.5B model..."
+MODEL_DIR="models/sentineloctopus-0.5b"
+MODEL_BIN="$MODEL_DIR/pytorch_model.bin"
+
+if [[ -f "$MODEL_BIN" ]]; then
+    echo "  ✓ SentinelOctopus-0.5B already present"
+else
+    echo "  ⬇  Downloading SentinelOctopus-0.5B from GitHub Releases..."
+    mkdir -p "$MODEL_DIR"
+    ZIP_URL="https://github.com/Mrsultan7890/sentinel-pro/releases/download/v3.1/sentineloctopus-v1.1.zip"
+    ZIP_TMP="/tmp/sentineloctopus-v1.1.zip"
+    if curl -fL --progress-bar -o "$ZIP_TMP" "$ZIP_URL"; then
+        echo "  📦 Extracting..."
+        unzip -q -o "$ZIP_TMP" -d "$MODEL_DIR"
+        INNER=$(find "$MODEL_DIR" -name "pytorch_model.bin" ! -path "$MODEL_BIN" 2>/dev/null | head -1)
+        if [[ -n "$INNER" ]]; then
+            mv "$(dirname $INNER)/"* "$MODEL_DIR/"
+            rmdir "$(dirname $INNER)" 2>/dev/null || true
+        fi
+        rm -f "$ZIP_TMP"
+        echo "  ✓ SentinelOctopus-0.5B ready"
+    else
+        echo "  ✗ Download failed — check internet or GitHub Release v3.1"
+        echo "  ⚠  Tool will still work — falls back to Groq LLM"
+        rm -f "$ZIP_TMP"
+    fi
+fi
 
 # ── Chromium check ────────────────────────────────────────────────────────────
 echo ""
