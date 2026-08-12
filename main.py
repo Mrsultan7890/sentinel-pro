@@ -1408,6 +1408,7 @@ class TheSentinelPro:
 
     def _show_detailed_status(self):
         """Show comprehensive system status"""
+        from pathlib import Path
         status_table = Table(title="[bold]Detailed System Status[/bold]", border_style="cyan")
         status_table.add_column("Component", style="bold")
         status_table.add_column("Status", justify="center")
@@ -1510,7 +1511,6 @@ class TheSentinelPro:
             status = ModelTrainer.status()
             
             # SentinelOctopus
-            from pathlib import Path as _Path
             import config as _cfg
             _base = _cfg.get_base_dir()
             octopus_path = _base / 'models' / 'sentineloctopus-0.5b' / 'pytorch_model.bin'
