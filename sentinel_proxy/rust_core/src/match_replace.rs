@@ -51,18 +51,26 @@ impl MatchReplaceEngine {
             let rule = entry.value();
             if !rule.enabled { continue; }
             match rule.target.as_str() {
-                "URL" | "Any" => {
+                "URL" => {
                     *url = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, url);
                 }
-                "RequestHeader" | "Any" => {
+                "RequestHeader" => {
                     for (_, v) in headers.iter_mut() {
                         *v = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, v);
                     }
                 }
-                "RequestBody" | "Any" => {
+                "RequestBody" => {
                     let s = String::from_utf8_lossy(body).to_string();
                     let replaced = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, &s);
                     *body = replaced.into_bytes();
+                }
+                "Any" => {
+                    *url = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, url);
+                    for (_, v) in headers.iter_mut() {
+                        *v = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, v);
+                    }
+                    let s = String::from_utf8_lossy(body).to_string();
+                    *body = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, &s).into_bytes();
                 }
                 _ => {}
             }
@@ -78,15 +86,22 @@ impl MatchReplaceEngine {
             let rule = entry.value();
             if !rule.enabled { continue; }
             match rule.target.as_str() {
-                "ResponseHeader" | "Any" => {
+                "ResponseHeader" => {
                     for (_, v) in headers.iter_mut() {
                         *v = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, v);
                     }
                 }
-                "ResponseBody" | "Any" => {
+                "ResponseBody" => {
                     let s = String::from_utf8_lossy(body).to_string();
                     let replaced = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, &s);
                     *body = replaced.into_bytes();
+                }
+                "Any" => {
+                    for (_, v) in headers.iter_mut() {
+                        *v = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, v);
+                    }
+                    let s = String::from_utf8_lossy(body).to_string();
+                    *body = self.do_replace(&rule.match_str, &rule.replace, &rule.rule_type, &s).into_bytes();
                 }
                 _ => {}
             }

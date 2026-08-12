@@ -2,6 +2,7 @@
 // Hybrid cipher suites with PQ crypto
 // Integrates with existing rustls setup
 
+#![allow(dead_code)]
 use crate::cert_store::CertStore;
 use crate::pq_tls::{HybridKemKeypair, HybridSignKeypair};
 use rustls::{ClientConfig, RootCertStore, ServerConfig};

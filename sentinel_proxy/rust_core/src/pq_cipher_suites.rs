@@ -3,6 +3,7 @@
 // Note: This is a conceptual implementation - full rustls integration requires
 // deeper changes to the TLS handshake protocol
 
+#![allow(dead_code)]
 use rustls::crypto::CryptoProvider;
 use rustls::SignatureScheme;
 

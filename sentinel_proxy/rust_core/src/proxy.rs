@@ -25,7 +25,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::net::TcpStream;
-use tracing::debug;
 use uuid::Uuid;
 
 pub async fn handle_connection(

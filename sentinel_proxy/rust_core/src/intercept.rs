@@ -64,6 +64,7 @@ impl InterceptManager {
         true
     }
 
+    #[allow(dead_code)]
     pub fn pending_count(&self) -> usize {
         self.pending.len()
     }
@@ -118,6 +119,7 @@ impl InterceptManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_pending_ids(&self) -> Vec<String> {
         self.pending.iter().map(|e| e.key().clone()).collect()
     }

@@ -53,7 +53,7 @@ pub async fn handle_websocket_upgrade(
     let (mut server_tx,  mut server_rx)  = server_ws.split();
 
     let host_str = host.to_string();
-    let url_str  = url.clone();
+    let _url_str  = url.clone();
     let ipc1     = ipc.clone();
     let ipc2     = ipc.clone();
     let h1       = host_str.clone();

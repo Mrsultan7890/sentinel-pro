@@ -2,10 +2,11 @@
 // Hybrid X25519+Kyber1024 key exchange
 // Hybrid Ed25519+Dilithium5 signatures
 
+#![allow(dead_code, unused_imports)]
 use pqcrypto_kyber::kyber1024;
 use pqcrypto_dilithium::dilithium5;
-use pqcrypto_traits::kem::{PublicKey, SharedSecret, Ciphertext};
-use pqcrypto_traits::sign::{PublicKey as SignPublicKey, SecretKey as SignSecretKey, SignedMessage, DetachedSignature};
+use pqcrypto_traits::kem::{SharedSecret, Ciphertext};
+use pqcrypto_traits::sign::{PublicKey as SignPublicKey, SecretKey as SignSecretKey, DetachedSignature};
 use x25519_dalek::{EphemeralSecret, PublicKey as X25519PublicKey};
 use ed25519_dalek::{Signer, Verifier, Signature, SigningKey, VerifyingKey};
 use sha2::{Sha256, Digest};
@@ -47,7 +48,7 @@ pub struct HybridSignKeypair {
 impl HybridSignKeypair {
     /// Generate new hybrid signature keypair
     pub fn generate() -> Self {
-        let mut csprng = OsRng;
+        let _csprng = OsRng;
         let classical_signing = SigningKey::from_bytes(&rand::random::<[u8; 32]>());
         let classical_verifying = classical_signing.verifying_key();
         let (pq_public, pq_secret) = dilithium5::keypair();

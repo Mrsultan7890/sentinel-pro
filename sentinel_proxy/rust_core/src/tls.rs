@@ -60,6 +60,6 @@ pub fn make_connector() -> TlsConnector {
 }
 
 /// Check if negotiated protocol is HTTP/2
-pub fn is_http2(stream: &tokio_rustls::server::TlsStream<tokio_rustls::client::TlsStream<tokio::net::TcpStream>>) -> bool {
+pub fn _is_http2(_stream: &tokio_rustls::server::TlsStream<tokio_rustls::client::TlsStream<tokio::net::TcpStream>>) -> bool {
     false // placeholder — checked via alpn_protocol() on the stream
 }

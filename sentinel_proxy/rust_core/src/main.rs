@@ -22,7 +22,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tracing::{info, error};
-use anyhow::Result;
 
 #[tokio::main]
 async fn main() {
