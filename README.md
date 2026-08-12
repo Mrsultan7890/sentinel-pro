@@ -131,113 +131,6 @@ sentinel-pro> brain investigate target.com
 
 ---
 
-## Advanced Security Features
-
-### Sentinel Crypto — Post-Quantum Cryptography
-
-**Rust-based quantum-resistant cryptography engine**
-
-```
-sentinel_crypto/ (Rust)
-├── pq_kem.rs        — Post-quantum key encapsulation (Kyber)
-├── pq_sig.rs        — Post-quantum signatures (Dilithium)
-├── sphincs.rs       — SPHINCS+ stateless signatures
-├── hybrid.rs        — Hybrid classical+PQ schemes
-└── agility.rs       — Crypto agility framework
-```
-
-**Features:**
-- **Kyber-1024** — NIST PQC KEM standard
-- **Dilithium-5** — NIST PQC signature standard
-- **SPHINCS+** — Stateless hash-based signatures
-- **Hybrid mode** — RSA/ECC + PQ for transition period
-- **Crypto agility** — Easy algorithm switching
-
-### Sentinel Blockchain — Decentralized IOC Registry
-
-**Solidity smart contracts for threat intelligence sharing**
-
-```
-sentinel_blockchain/
-├── contracts/
-│   └── IOCRegistry.sol    — Immutable IOC storage on-chain
-└── zk_proofs.py           — Zero-knowledge proofs for privacy
-```
-
-**Features:**
-- **Immutable IOC storage** — Tamper-proof threat indicators
-- **Decentralized sharing** — No central authority
-- **Zero-knowledge proofs** — Share IOCs without revealing sources
-- **Smart contract verification** — Automated trust scoring
-
-### Hardware Security Integration
-
-**Enterprise-grade hardware security support**
-
-| Module | Technology | Purpose |
-|--------|------------|----------|
-| **TPM Manager** | Trusted Platform Module 2.0 | Secure key storage, attestation |
-| **SGX Enclave** | Intel SGX | Isolated code execution, memory encryption |
-| **Secure Boot** | UEFI Secure Boot | Boot integrity verification |
-| **DMA Protection** | IOMMU/VT-d | DMA attack prevention |
-| **Remote Attestation** | TPM + SGX | Verify system integrity remotely |
-
-**Files:**
-```
-modules/
-├── tpm_manager.py           — TPM 2.0 integration
-├── sgx_enclave_manager.py   — Intel SGX enclaves
-├── secure_boot.py           — UEFI Secure Boot checks
-├── dma_protection.py        — IOMMU configuration
-├── remote_attestation.py    — Remote integrity verification
-├── pq_tls_manager.py        — Post-quantum TLS
-└── crypto_manager.py        — Unified crypto interface
-```
-
-### Self-Healing & Incident Response
-
-**Autonomous security operations**
-
-```
-sentinel_brain/engines/
-├── self_healing_engine.py   — Auto-remediation
-├── incident_responder.py    — Automated incident response
-├── config_hardener.py       — Security configuration hardening
-├── patch_manager.py         — Vulnerability patching
-├── escape_detector.py       — Sandbox escape detection
-├── cve_monitor.py           — CVE tracking & alerting
-└── risk_assessor.py         — Real-time risk scoring
-```
-
-**Capabilities:**
-- **Auto-remediation** — Automatically fix detected issues
-- **Incident playbooks** — SOAR-style automated response
-- **Config hardening** — CIS benchmark compliance
-- **Zero-day detection** — Behavioral anomaly detection
-- **Sandbox forensics** — Isolated malware analysis
-
-### Distributed Architecture
-
-**P2P threat intelligence sharing**
-
-```
-sentinel_p2p/ (Go)
-└── Decentralized P2P network for IOC sharing
-    ├── Gossip protocol
-    ├── DHT-based discovery
-    └── Encrypted channels
-```
-
-**IPFS Integration:**
-```
-modules/ipfs_manager.py
-└── Distributed evidence storage
-    ├── Content-addressed storage
-    ├── Immutable forensic data
-    └── Decentralized backup
-```
-
----
 
 ## Requirements
 
@@ -503,29 +396,6 @@ sentinel-pro> help / ?                       # Command reference
 sentinel-pro> exit / quit / q               # Exit
 ```
 
-### Hardware Security
-```
-sentinel-pro> tpm status                     # TPM 2.0 status
-sentinel-pro> tpm seal <data>                # Seal data with TPM
-sentinel-pro> tpm unseal <sealed>            # Unseal TPM data
-sentinel-pro> sgx status                     # Intel SGX enclave status
-sentinel-pro> sgx run <code>                 # Execute in SGX enclave
-sentinel-pro> secureboot status              # UEFI Secure Boot status
-sentinel-pro> dma status                     # DMA protection status
-sentinel-pro> attestation remote <host>      # Remote attestation
-```
-
-### Blockchain & Crypto
-```
-sentinel-pro> blockchain deploy              # Deploy IOC registry contract
-sentinel-pro> blockchain add <ioc>           # Add IOC to blockchain
-sentinel-pro> blockchain verify <ioc>        # Verify IOC on-chain
-sentinel-pro> crypto keygen                  # Generate PQ keypair
-sentinel-pro> crypto encrypt <file>          # PQ encrypt file
-sentinel-pro> crypto decrypt <file>          # PQ decrypt file
-sentinel-pro> crypto sign <file>             # PQ sign file
-```
-
 ### Self-Healing & Incident Response
 ```
 sentinel-pro> heal status                    # Self-healing engine status
@@ -533,20 +403,8 @@ sentinel-pro> heal scan                      # Scan for issues
 sentinel-pro> heal auto                      # Enable auto-remediation
 sentinel-pro> incident list                  # List incidents
 sentinel-pro> incident respond <id>          # Execute response playbook
-sentinel-pro> sandbox run <file>             # Execute in sandbox
-sentinel-pro> sandbox status                 # Sandbox status
 sentinel-pro> cve monitor <target>           # Monitor CVE for target
 sentinel-pro> risk assess <target>           # Real-time risk assessment
-```
-
-### P2P & IPFS
-```
-sentinel-pro> p2p start                      # Start P2P node
-sentinel-pro> p2p peers                      # List connected peers
-sentinel-pro> p2p share <ioc>                # Share IOC via P2P
-sentinel-pro> ipfs add <file>                # Add to IPFS
-sentinel-pro> ipfs get <hash>                # Retrieve from IPFS
-sentinel-pro> ipfs pin <hash>                # Pin evidence to IPFS
 ```
 
 ---
@@ -1158,12 +1016,10 @@ sentinel_brain/engines/ (13 engines)
 ├── behavioral_models.py    ← ML models for behavior
 ├── config_hardener.py      ← Auto security hardening
 ├── cve_monitor.py          ← CVE tracking & alerting
-├── escape_detector.py      ← Sandbox escape detection
 ├── feedback_loop.py        ← Continuous learning
 ├── incident_responder.py   ← Auto incident response
 ├── patch_manager.py        ← Vulnerability patching
 ├── risk_assessor.py        ← Risk scoring engine
-├── sandbox_manager.py      ← Isolated execution
 ├── self_healing_engine.py  ← Auto-remediation
 └── __init__.py
 ```
@@ -1408,7 +1264,6 @@ data/sentinel_proxy.db
 | `predictor/` | `predictor` | Prediction service |
 | `smuggler/` | `smuggler` | HTTP request smuggling (CL.TE / TE.CL) |
 | `stealth_proxy/` | `stealth_proxy` | Stealth proxy routing |
-| `sentinel_p2p/` | `sentinel_p2p` | P2P threat intelligence network — gossip protocol, DHT discovery |
 
 ## Rust Services
 
@@ -1419,7 +1274,6 @@ data/sentinel_proxy.db
 | `media_analyzer/` | `media_analyzer` | Media file analysis |
 | `sentinel_proxy/rust_core/` | `sentinel_proxy_core` | Full proxy engine (6.5MB binary) |
 | `sentinel_proxy/rust_fuzzer/` | `sentinel_fuzzer` | Parallel HTTP fuzzer |
-| `sentinel_crypto/` | `sentinel_crypto` | Post-quantum cryptography (Kyber, Dilithium, SPHINCS+) |
 
 ---
 
@@ -1452,9 +1306,6 @@ data/cve_monitor.db
 
 data/incidents.db
 └── incident response logs + playbooks
-
-data/sandbox_forensics.db
-└── sandbox execution logs + malware analysis
 
 data/threat_trends.db
 └── threat intelligence trends + predictions
@@ -1621,12 +1472,6 @@ sentinel-pro> cred validate                # Validate all keys
 | `NUMVERIFY_API_KEY` | NumVerify | Phone OSINT, Intel | [numverify.com](https://numverify.com) |
 | `ABSTRACTAPI_PHONE_KEY` | AbstractAPI | Phone OSINT, Intel | [abstractapi.com](https://www.abstractapi.com/phone-validation-api) |
 
-### Blockchain & Crypto APIs
-
-| Key | Service | Used In | Get It From |
-|-----|---------|---------|-------------|
-| `ETHERSCAN_API_KEY` | Etherscan | Intel (Cryptocurrency) | [etherscan.io](https://etherscan.io) |
-| `WHALE_ALERT_API_KEY` | Whale Alert | Intel (Cryptocurrency) | [whale-alert.io](https://whale-alert.io) |
 
 ### Business Intelligence APIs
 
