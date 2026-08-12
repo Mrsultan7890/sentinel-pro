@@ -22,7 +22,7 @@
 ### Step 1: Install
 
 ```bash
-git clone https://github.com/Mrsultan7890/osints.git
+git clone https://github.com/Mrsultan7890/sentinel-pro.git
 cd osints
 bash setup.sh
 ```
@@ -62,7 +62,7 @@ sentinel-pro> bugbounty example.com
 #### 1. Clone Repository
 
 ```bash
-git clone https://github.com/Mrsultan7890/osints.git
+git clone https://github.com/Mrsultan7890/sentinel-pro.git
 cd osints
 ```
 
@@ -819,7 +819,7 @@ cd fuzzer && cargo build --release && cd ..
 
 ### Q1: Is Sentinel Pro free?
 
-**A:** The tool is available for purchase. See pricing on Gumroad.
+**A:** Yes! Sentinel Pro is free and open source under the MIT license.
 
 ---
 
@@ -852,7 +852,7 @@ Tool works without keys but with limited functionality.
 
 | Feature | Burp Suite Pro | Sentinel Pro |
 |---------|----------------|--------------|
-| Price | $449/year | One-time payment |
+| Price | $449/year | Free (Open Source) |
 | Proxy | ✓ | ✓ (Rust core, faster) |
 | Scanner | ✓ | ✓ (AI-powered) |
 | OSINT | ✗ | ✓ (40+ platforms) |
@@ -908,7 +908,7 @@ bash setup.sh
 
 ### Q9: Can I contribute?
 
-**A:** This is a commercial product. For feature requests or bug reports, contact the author.
+**A:** Yes! Contributions are welcome. Open a pull request or issue on GitHub.
 
 ---
 
@@ -938,14 +938,14 @@ bash setup.sh
 
 - **README.md** — Technical reference
 - **Video Tutorial** — 10-minute walkthrough
-- **GitHub** — [github.com/Mrsultan7890/osints](https://github.com/Mrsultan7890/osints)
+- **GitHub** — [github.com/Mrsultan7890/sentinel-pro](https://github.com/Mrsultan7890/sentinel-pro)
 - **Instagram** — [@who_is_the_black_hat](https://www.instagram.com/who_is_the_black_hat)
 
 ---
 
 ## License
 
-This software is licensed. See LICENSE file for details.
+This software is open source under the MIT License.
 
 **Copyright © 2026 @who_is_the_black_hat. All rights reserved.**
 

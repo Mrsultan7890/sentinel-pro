@@ -126,7 +126,6 @@ sentinel-pro> brain investigate target.com
 | **Forensics** | Metasploit integration · privilege manager · secure file manager · evidence vault · YARA · memory analysis |
 | **Legal** | Chain of custody · evidence manager · court-grade HTML/PDF reports · digital footprint |
 | **SentinelProxy v2.0** | Rust core (6.5MB binary) · 200K req/sec · HTTP/2 · WebSocket · Intercept · Match&Replace · Parallel Fuzzer · **31 tabs** · AI analysis · 34,458 payloads · 10 ML algorithms · Groq integration · **Extension Plugin System** · **Settings Tab** · **Tab Groups** |
-| **License Manager** | Server-side validation · Telegram bot key delivery · Machine binding (hardware hash) · Offline cache fallback · Trial/Starter/Pro/Elite plans |
 | **Wordlist Manager** | Central wordlist resolution · Bundled payloads · SecLists integration · Auto-install instructions · Depth control (fast/normal/deep) |
 | **Report Builder** | Groq executive summary · MITRE ATT&CK mapping (19 tools mapped) · Severity charts · Evidence hash (SHA-256) · Digital signature · Multi-format (JSON/HTML/PDF/TXT) · Chain of custody · **AI Action Report** — Groq-powered per-finding remediation guide (what it is · how to reproduce · how to fix · references) |
 
@@ -254,7 +253,7 @@ modules/ipfs_manager.py
 ## Installation
 
 ```bash
-git clone https://github.com/Mrsultan7890/osints.git
+git clone https://github.com/Mrsultan7890/sentinel-pro.git
 cd osints
 bash setup.sh
 sentinel
@@ -495,10 +494,6 @@ sentinel-pro> profile current                # Show current profile
 sentinel-pro> intel                          # Launch Sentinel Intel GUI
 ```
 
-### License Management
-```
-sentinel-pro> activate <KEY>                 # Activate license key
-```
 
 ### System
 ```
@@ -803,56 +798,6 @@ sentinel_intel/federated/
 
 ---
 
-## License Manager
-
-**Server-side validation via Sentinel License Server**
-
-### Features
-
-- **Server-side verification** — License validated against `sentinel-server-a7i9.onrender.com`
-- **Telegram bot delivery** — Half-key (`SNTNL-...-PENDING`) delivered via Telegram bot
-- **Machine binding** — Hardware hash (SHA-256 of machine-id) tied at activation
-- **Offline cache fallback** — Works offline if server unreachable (until expiry)
-- **4 Plans** — Trial (1 day), Starter (1 month), Pro (3 months), Elite (1 year)
-
-### Usage
-
-```bash
-# Get key from Telegram bot, then activate
-sentinel-pro> activate SNTNL-XXXXXX-PENDING
-
-# Check status
-sentinel-pro> status
-```
-
-### How It Works
-
-```
-1. Get SNTNL-...-PENDING half-key from Telegram bot
-2. Run: activate SNTNL-...-PENDING
-3. Tool sends half-key + machine hardware hash to server
-4. Server binds key to machine, returns final_key
-5. final_key saved to ~/.sentinel_pro/license.key
-6. On startup: server validates final_key + machine hash
-7. If server unreachable: cached license used (offline fallback)
-```
-
-### Machine Binding
-
-- Linux: `/etc/machine-id` → SHA-256 hash (first 32 chars)
-- Stored in: `~/.sentinel_pro/license.key`
-- Permissions: `0600` (owner read/write only)
-
-### Plans
-
-| Plan | Duration | Features |
-|------|----------|----------|
-| **Trial** | 1 Day | Limited (no Proxy/Intel) |
-| **Starter** | 1 Month | Full Access |
-| **Pro** | 3 Months | Full Access |
-| **Elite** | 1 Year | Full Access |
-
----
 
 ## Wordlist Manager
 
@@ -1989,7 +1934,7 @@ Legal compliance standards implemented:
 
 ## Author
 
-Made by [@who_is_the_black_hat](https://www.instagram.com/who_is_the_black_hat) · [GitHub](https://github.com/Mrsultan7890/osints)
+Made by [@who_is_the_black_hat](https://www.instagram.com/who_is_the_black_hat) · [GitHub](https://github.com/Mrsultan7890/sentinel-pro)
 
 ---
 
