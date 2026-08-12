@@ -154,8 +154,35 @@ fi
 # ── Directory structure ───────────────────────────────────────────────────────
 echo ""
 echo "📁 Creating directories..."
-mkdir -p reports screenshots investigations evidence logs models models/ml_engine config
+mkdir -p reports screenshots investigations evidence logs models models/ml_engine config data
 chmod +x main.py setup.sh 2>/dev/null || true
+
+echo ""
+echo "🗄️  Initializing databases..."
+python3 - <<'PYEOF'
+import sqlite3, os
+base = os.path.join(os.path.dirname(os.path.abspath('setup.sh')), 'data')
+
+conn = sqlite3.connect(f'{base}/sentinel.db')
+conn.execute('CREATE TABLE IF NOT EXISTS scans (id INTEGER PRIMARY KEY, target TEXT, scan_type TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
+conn.execute('CREATE TABLE IF NOT EXISTS findings (id INTEGER PRIMARY KEY, scan_id INTEGER, vuln_type TEXT, severity TEXT, detail TEXT)')
+conn.commit(); conn.close()
+
+conn = sqlite3.connect(f'{base}/sentinel_memory.db')
+conn.execute('CREATE TABLE IF NOT EXISTS memory (id INTEGER PRIMARY KEY, session TEXT, key TEXT, value TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
+conn.execute('CREATE TABLE IF NOT EXISTS decisions (id INTEGER PRIMARY KEY, target TEXT, action TEXT, result TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
+conn.commit(); conn.close()
+
+conn = sqlite3.connect(f'{base}/sentinel_proxy.db')
+conn.execute('CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY, method TEXT, url TEXT, headers TEXT, body TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
+conn.execute('CREATE TABLE IF NOT EXISTS responses (id INTEGER PRIMARY KEY, request_id INTEGER, status INTEGER, headers TEXT, body TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
+conn.execute('CREATE TABLE IF NOT EXISTS findings (id INTEGER PRIMARY KEY, url TEXT, vuln_type TEXT, severity TEXT, detail TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
+conn.commit(); conn.close()
+
+print('   ✓ sentinel.db')
+print('   ✓ sentinel_memory.db')
+print('   ✓ sentinel_proxy.db')
+PYEOF
 
 # ── Global sentinel command ──────────────────────────────────────────────────────
 echo ""
