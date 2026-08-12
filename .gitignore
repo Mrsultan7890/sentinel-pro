@@ -184,3 +184,11 @@ data/*.db
 data/config_backups/
 data/incident_backups/
 data/quarantine/
+
+# ── Compiled Python extensions ────────────────────────────────────────────────
+modules/**/*.so
+sentinel_brain/**/*.so
+sentinel_proxy/**/*.so
+sentinel_intel/**/*.so
+octopus_vault/**/*.so
+dist_compile/
