@@ -166,3 +166,23 @@ Thumbs.db
 sentinel.db
 =*
 modules/license_manager.py
+
+# ── Dev/planning files ────────────────────────────────────────────────────────
+osints_plan.md
+OVERVIEW.md
+P2P_IPFS_GUIDE.md
+prox_plan.md
+STARTUP_PLAN.md
+sentinelset.md
+circular_imports_report.json
+import_audit_report.json
+fix_scanners.py
+fix_monitor_service.sh
+output_formats.json
+config_profiles.json
+
+# ── Runtime DB files ──────────────────────────────────────────────────────────
+data/*.db
+data/config_backups/
+data/incident_backups/
+data/quarantine/
