@@ -12,16 +12,14 @@
 > **Professional OSINT · Bug Bounty · Threat Intelligence · Autonomous AI Platform**
 > Multi-language: **Python** · **Go** · **Rust** · **Solidity**
 > Built-in **Autonomous AI Brain** with ReAct Loop · Q-Learning RL · Custom Neural Networks
-> **257 Source Files** · **85K+ Lines of Code** · **181MB ML Models** · **34,458 Attack Payloads**
+> **257 Source Files** · **85K+ Lines of Code** · **SentinelOctopus-0.5B** · **34,458 Attack Payloads**
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)](https://rust-lang.org)
 [![Go](https://img.shields.io/badge/go-1.21%2B-cyan)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Kali%20Linux-red)](https://kali.org)
-[![SentinelNet](https://img.shields.io/badge/SentinelNet-v5.0%20F1%3D0.83%208.6MB-orange)](models/)
-[![Seq2Seq](https://img.shields.io/badge/Seq2Seq-v2.0%20CNN%2BTransformer%2034MB-blue)](models/)
-[![SentinelLM](https://img.shields.io/badge/SentinelLM-v1.0%20137MB-yellow)](models/)
+[![SentinelOctopus](https://img.shields.io/badge/SentinelOctopus-0.5B%20Qwen2.5--Coder-orange)](models/sentineloctopus-0.5b/)
 [![RL](https://img.shields.io/badge/RL-Q--Learning%20171%20states-purple)](sentinel_brain/)
 [![Groq](https://img.shields.io/badge/Groq-llama--3.3--70b-green)](modules/ml_engine/)
 [![SentinelProxy](https://img.shields.io/badge/SentinelProxy-v2.0%20Rust%206.5MB-red)](sentinel_proxy/)
@@ -36,9 +34,7 @@ This is **not** a script collection. This is a fully autonomous AI security plat
 
 - The AI **thinks** — ReAct loop: Reason → Act → Observe → Reason again
 - The AI **learns** — Q-Learning RL trains on your real targets (171 states learned)
-- The AI **classifies** — SentinelNet v5.0 (CNN+Transformer, F1=0.83, 8.6MB model)
-- The AI **generates** — Seq2Seq v2.0 generates commands, chains, reports (34MB model)
-- The AI **understands** — SentinelLM v1.0 custom language model (137MB)
+- The AI **thinks & acts** — SentinelOctopus-0.5B (Qwen2.5-Coder fine-tuned on security data)
 - The AI **reasons** — Groq llama-3.3-70b as primary reasoning layer
 - The AI **remembers** — Long-term SQLite memory across sessions (5 databases)
 - The AI **monitors** — 24/7 background monitoring with Telegram alerts
@@ -60,9 +56,8 @@ sentinel-pro> brain investigate target.com
 │         ReAct Autonomous Loop               │
 │                                             │
 │  Groq llama-3.3-70b  ← Primary reasoning   │
-│  Seq2Seq v2.0        ← Command generation  │
-│  SentinelNet v5.0    ← Threat classification│
-│  Heuristic           ← Final fallback       │
+│  SentinelOctopus-0.5B ← Threat + commands  │
+│  Heuristic            ← Final fallback      │
 │                                             │
 │  Reason → Act → Observe → Reason again      │
 └─────────────────────────────────────────────┘
@@ -79,8 +74,7 @@ sentinel-pro> brain investigate target.com
 ┌─────────────────────────────────────────────┐
 │           ADVANCED ML ENGINE                │
 │                                             │
-│  SentinelNet v5.0  — CNN+Transformer        │
-│  Seq2Seq v2.0      — Command generation     │
+│  SentinelOctopus-0.5B — Qwen2.5-Coder FT   │
 │  GNN               — Entity relationship    │
 │  Isolation Forest  — Anomaly detection      │
 │  DBSCAN            — Username/IP clustering │
@@ -112,9 +106,7 @@ sentinel-pro> brain investigate target.com
 | **19 Agents** | recon, exploit, osint, breach, report, darkweb, network, terminal, scheduler, credential, system_monitor, correlation, filesystem, monitor, notification, browser, attack_chain, threat_intel, behavioral |
 | **Sentinel Intel** | Maltego-style graph intelligence platform · 14 engines (Email, Phone, IP, Domain, Person, Username, Hash, Cryptocurrency, CVE, Breach, Company, Malware, URL, Database) · 40+ transforms · PyQt6 GUI · AI-powered auto-chaining · Risk visualization · Federated learning support · **SUB-ENTITY creation** (Maltego-style nested entities) · **Shortest Path Finder** · **Graph Diff / Snapshot Compare** |
 | **RL Agent** | Q-Learning, 19 tools, 171 states learned, epsilon-greedy |
-| **SentinelNet v5.0** | CNN+Transformer, F1=0.83, threat/type/action/confidence |
-| **Seq2Seq v2.0** | CNN Encoder + Transformer Decoder, cmd_gen/chain_gen/report_gen |
-| **SentinelLM** | Custom language model for security text generation |
+| **SentinelOctopus-0.5B** | Qwen2.5-Coder-0.5B fine-tuned on security data · replaces SentinelNet + Seq2Seq + SentinelLM · threat classification · command generation · report generation |
 | **Groq LLM** | llama-3.3-70b-versatile, primary reasoning + fallback llama-3.1-8b |
 | **Advanced ML** | GNN, Isolation Forest, DBSCAN, LightGBM, Genetic Algorithm, EntityMatcher, UsernameClusterer, IdentityScorer, NLPAnalyzer, TimelineAnalyzer, WritingFingerprinter |
 | **OSINT** | 40+ social platforms, person/email/phone/image profiling · digital footprint · relation mapper |
@@ -227,7 +219,7 @@ sentinel-pro> rl status                      # Q-table stats
 
 ### Autonomous Agents
 ```
-sentinel-pro> agent <task>                   # ReAct agent — SentinelNet decides
+sentinel-pro> agent <task>                   # ReAct agent — SentinelOctopus-0.5B decides
 sentinel-pro> agent <task> --auto            # Fully autonomous (no confirmation)
 sentinel-pro> auto <target>                  # Autonomous mode — model decides all
 sentinel-pro> auto <target> --auto           # Fully autonomous
@@ -553,10 +545,10 @@ sentinel-pro> intel
 
 ### ML Integration
 
-**SentinelNet v5.0:**
+**SentinelOctopus-0.5B:**
 - Real-time threat classification
 - Risk scoring per entity
-- Anomaly detection
+- Command + report generation
 
 **Groq LLM:**
 - Auto-chain suggestions
@@ -961,86 +953,6 @@ Unauthorized copying or redistribution is prohibited.
 
 ---
 
-## SentinelNet v5.0 — Custom Neural Network
-
-**Completely custom — built from scratch. No GPT, no OpenAI, no external models.**
-
-**v3.1 Enhancements:**
-- Improved curriculum learning (3-round training)
-- Enhanced threat taxonomy (10 categories)
-- Real-time feedback integration
-- Drift detection & auto-retraining
-- 50,000+ training samples
-
-```
-Architecture: Embedding → CNN (k=3,5,7) → LayerNorm → Multi-Head Classifier
-Outputs:
-  ├── threat_label   : LOW / MEDIUM / HIGH / CRITICAL
-  ├── threat_type    : recon / web_vuln / breach / malware / phishing /
-  │                    apt / insider / misconfig / social_eng / unknown
-  ├── action_hint    : monitor / patch_now / block_ip / escalate /
-  │                    investigate / notify_team / collect_evidence / no_action
-  └── confidence     : 0.0 - 1.0
-
-Training:
-  ├── 50,000+ samples
-  ├── NVD CVE database
-  ├── GitHub security advisories (GHSA)
-  ├── MITRE ATT&CK
-  ├── MalwareBazaar + CISA KEV + ExploitDB + URLhaus + AlienVault OTX
-  ├── Real scan feedback (continuous learning — every 50 new samples)
-  └── 3-round curriculum learning (basic → medium → high)
-
-Performance:
-  ├── F1 Score     : 0.8335
-  ├── Accuracy     : 83.3%
-  ├── Precision    : 84.1%
-  ├── Recall       : 82.5%
-  ├── Model size   : 8.6 MB
-  ├── Inference    : <10ms per request
-  └── Saved at     : models/ml_engine/sentinel_threat_net.pt
-```
-
----
-
-## Seq2Seq v2.0 — Command Generation Model
-
-```
-Architecture: CNN Encoder (k=3,5,7) → Transformer Decoder (4 heads, 3 layers)
-Tasks:
-  ├── cmd_gen    : natural language → exact Kali command
-  ├── chain_gen  : target description → tool chain sequence
-  └── report_gen : finding description → report text
-
-Specs:
-  ├── Vocab size   : 8,000 BPE tokens
-  ├── Embed dim    : 256
-  ├── FF dim       : 512
-  ├── Attention    : 4 heads, 3 layers
-  ├── Model size   : 34 MB
-  ├── Inference    : <50ms per generation
-  └── Saved at     : models/ml_engine/sentinel_seq2seq.pt
-```
-
----
-
-## SentinelLM — Custom Language Model
-
-```
-Custom security-domain language model for text generation.
-  ├── Architecture : Transformer decoder (12 layers, 8 heads)
-  ├── Parameters   : ~350M
-  ├── Model size   : 137 MB
-  ├── Vocab size   : 32,000 tokens
-  ├── Context len  : 2048 tokens
-  ├── Training     : 10M+ security documents
-  ├── Model file   : models/ml_engine/sentinellm_v1.pt
-  ├── Vocab file   : models/ml_engine/sentinellm_vocab.json
-  └── Domain       : security text, vulnerability descriptions, OSINT reports, exploit code
-```
-
----
-
 ## Groq LLM Integration
 
 ```
@@ -1057,7 +969,7 @@ Used for:
   ├── Race Condition — race condition analysis
   ├── Param Miner — interesting parameter analysis
   ├── Collaborator — OOB hit analysis
-  └── Fallback chain: Groq → Seq2Seq → SentinelNet → heuristic
+  └── Fallback chain: Groq → SentinelOctopus-0.5B → heuristic
 ```
 
 ---
@@ -1103,35 +1015,42 @@ Current Stats:
 
 ---
 
-## Model Artifacts
+## SentinelOctopus-0.5B — Core AI Model
 
 ```
-models/ml_engine/ (Total: ~181 MB)
-├── sentinel_threat_net.pt          ← SentinelNet v5.0 weights     (8.6 MB)
-├── sentinel_vocab.json             ← SentinelNet tokenizer vocab   (0.25 MB)
-├── sentinel_seq2seq.pt             ← Seq2Seq v2.0 weights          (34 MB)
-├── sentinel_seq2seq_vocab.json     ← Seq2Seq tokenizer vocab       (0.5 MB)
-├── sentinellm_v1.pt                ← SentinelLM weights            (137 MB)
-├── sentinellm_vocab.json           ← SentinelLM vocab              (1.2 MB)
-├── sentinel_proxy_net.pt           ← SentinelProxy-specific model  (1.5 MB)
-├── sentinel_proxy_vocab.json       ← Proxy model vocab             (0.3 MB)
-├── rl_qtable.json                  ← Q-Learning Q-table            (0.02 MB)
-├── threat_classifier.joblib        ← TF-IDF + LogReg classifier    (0.01 MB)
-├── fake_detector.joblib            ← Random Forest fake detector   (13.1 MB)
-├── behavioral_models.pkl           ← Behavioral analysis models    (8.5 MB)
-├── ga_fitness.json                 ← Genetic algorithm fitness     (0.01 MB)
-└── training_data/                  ← JSONL training datasets       (~500 MB)
-    ├── nvd_cve_data.jsonl
-    ├── github_ghsa_data.jsonl
-    ├── mitre_attack_data.jsonl
-    ├── malwarebazaar_data.jsonl
-    ├── cisa_kev_data.jsonl
-    ├── exploitdb_data.jsonl
-    ├── urlhaus_data.jsonl
-    └── otx_data.jsonl
+Base model  : Qwen2.5-Coder-0.5B-Instruct
+Fine-tuning : Security knowledge (HackTricks + PATT) + Identity fix v1.1
+Version     : 1.1
+Author      : @who_is_the_black_hat
+
+Replaces:
+  ├── SentinelNet v5.0   — threat classification
+  ├── Seq2Seq v2.0       — command generation
+  └── SentinelLM v1.0    — security text generation
+
+Tasks:
+  ├── Threat classification  — LOW / MEDIUM / HIGH / CRITICAL
+  ├── Command generation     — natural language → Kali command
+  ├── Chain generation       — target → tool sequence
+  └── Report generation      — finding → report text
+
+Files:
+  models/sentineloctopus-0.5b/
+  ├── pytorch_model.bin       ← Model weights
+  ├── tokenizer.json          ← Tokenizer
+  ├── tokenizer_config.json   ← Tokenizer config
+  ├── config.json             ← Model architecture
+  ├── generation_config.json  ← Generation settings
+  ├── chat_template.jinja     ← Chat template
+  └── sentinel_model_card.json ← Model metadata
+
+Used in:
+  ├── agent_core.py      — ReAct loop decisions
+  ├── autonomous.py      — Autonomous scan orchestration
+  ├── attack_chain.py    — Attack chain planning
+  └── proxy analyzer     — HTTP request threat scoring
 ```
 
----
 
 ## 19 Autonomous Agents
 
@@ -1187,7 +1106,7 @@ cd sentinel_proxy && python3 main.py
 │  HTTP/2           — ALPN negotiation                │
 │  WebSocket        — full WS intercept (wired)       │
 │  rayon            — parallel fuzzer (50x faster)    │
-│  SentinelNet v5.0 — real-time threat scoring        │
+│  SentinelOctopus-0.5B — real-time threat scoring    │
 │  ProxyMLEngine    — 10 ML algorithms per request    │
 │  Groq LLM         — deep vulnerability analysis     │
 │  34,458 payloads  — from PayloadsAllTheThings        │
@@ -1239,7 +1158,7 @@ Browser
 │                                         │
 │  rust_bridge.py     — IPC receiver      │
 │  rust_fuzzer_bridge.py — Fuzzer bridge  │
-│  analyzer.py        — Pattern+SentinelNet+Groq
+│  analyzer.py        — Pattern+SentinelOctopus+Groq
 │  proxy_ml_engine.py — 10 ML algorithms  │
 │  proxy_db.py        — SQLite storage    │
 │  app.py             — Tkinter UI (31 tabs, 5 tab groups)
@@ -1267,7 +1186,7 @@ Browser
 
 | Tab | Purpose |
 |-----|---------|
-| **Scanner** | 9 pattern detectors + SentinelNet + Groq deep analysis |
+| **Scanner** | 9 pattern detectors + SentinelOctopus-0.5B + Groq deep analysis |
 | **Logger** | Full traffic log · search · risk/method filter · **HTTP version column** |
 | **Highlight** | Custom color rules · 7 colors · field-based matching |
 | **Comparer** | Side-by-side diff · added/removed/unchanged · stats |
@@ -1308,7 +1227,7 @@ Browser
 ### ProxyML Engine — 10 Algorithms (wired to every request)
 
 ```
-1. SentinelNet v5.0    — HTTP request threat classification
+1. SentinelOctopus-0.5B — HTTP request threat classification
 2. IsolationForest     — HTTP anomaly detection
 3. DBSCAN              — Session-based attack clustering
 4. LightGBM            — HTTP log pattern analysis
@@ -1689,7 +1608,7 @@ nano .env
 ### Key Python Dependencies
 
 ```
-torch>=2.0.0          — SentinelNet + Seq2Seq + SentinelLM
+torch>=2.0.0          — SentinelOctopus-0.5B + behavioral models
 scikit-learn>=1.3.0   — ML classifiers + clustering
 lightgbm              — Log analysis
 networkx>=3.1.0       — GNN entity graphs
@@ -1773,7 +1692,7 @@ osints/
 │   │   └── report.py
 │   │
 │   ├── ml_engine/             ← ML pipeline
-│   │   ├── sentinel_net.py        ← SentinelNet v5.0
+│   │   ├── sentinel_octopus.py    ← SentinelOctopus-0.5B
 │   │   ├── trainer.py             ← Training + continuous learning
 │   │   ├── decision_engine.py     ← Autonomous decision making
 │   │   ├── autonomous_loop.py     ← 24h background retrain loop
@@ -1784,7 +1703,7 @@ osints/
 │   │   ├── username_clusterer.py  ← DBSCAN clustering
 │   │   ├── writing_fingerprinter.py ← Authorship attribution
 │   │   ├── timeline_analyzer.py   ← Activity pattern analysis
-│   │   ├── sentinel_lm.py         ← SentinelLM
+
 │   │   ├── real_data_collector.py ← MalwareBazaar/CISA/OTX collector
 │   │   └── bulk_collector.py / bulk_processor.py
 │   │
@@ -1858,7 +1777,8 @@ osints/
 ├── smuggler/                  ← Go HTTP smuggler
 ├── stealth_proxy/             ← Go stealth proxy
 │
-├── models/ml_engine/          ← Trained model artifacts
+├── models/                    ← Trained model artifacts
+│   ├── sentineloctopus-0.5b/  ← SentinelOctopus-0.5B (Qwen2.5-Coder FT)
 ├── data/                      ← SQLite databases
 ├── reports/                   ← Generated scan reports
 ├── investigations/            ← Per-target investigation data
@@ -1873,9 +1793,7 @@ osints/
 ## Roadmap
 
 ### Completed ✅
-- [x] SentinelNet v5.0 — CNN+Transformer classifier (F1=0.83)
-- [x] Seq2Seq v2.0 — CNN Encoder + Transformer Decoder
-- [x] SentinelLM — Custom security language model
+- [x] SentinelOctopus-0.5B — Qwen2.5-Coder fine-tuned on security data (replaces SentinelNet + Seq2Seq + SentinelLM)
 - [x] Groq integration — llama-3.3-70b as primary brain
 - [x] 3-round curriculum training — 119K+ samples
 - [x] SentinelProxy v2.0 — Rust core (tokio+hyper+rustls)
@@ -1899,8 +1817,7 @@ osints/
 - [x] Real data collector — MalwareBazaar/CISA/ExploitDB/URLhaus/OTX
 
 ### Planned 🔜
-- [ ] SentinelNet v6.0 — larger vocab, more threat types
-- [ ] Seq2Seq v3.0 — fine-tuning on real pentest data
+- [ ] SentinelOctopus-1B — larger model, more security domains
 - [ ] Full autonomous loop — Brain controls SentinelProxy
 - [ ] SentinelProxy v2.1 — Blind SQLi/XSS out-of-band detection
 - [ ] Plugin system — custom Python plugins per tab
