@@ -178,8 +178,6 @@ circular_imports_report.json
 import_audit_report.json
 fix_scanners.py
 fix_monitor_service.sh
-output_formats.json
-config_profiles.json
 
 # ── Runtime DB files ──────────────────────────────────────────────────────────
 data/*.db
