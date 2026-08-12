@@ -479,6 +479,11 @@ class MainWindow(QMainWindow):
         tools_menu.addAction("📝 Add Notes", self._add_notes)
         tools_menu.addAction("🏷️ Add Tags", self._add_tags)
         tools_menu.addAction("⭐ Star Node", self._star_node)
+        tools_menu.addSeparator()
+        tools_menu.addAction("🔗 Shortest Path", self._shortest_path)
+        tools_menu.addSeparator()
+        tools_menu.addAction("📸 Save Snapshot", self._save_snapshot)
+        tools_menu.addAction("🔍 Compare Snapshot", self._compare_snapshot)
         
         # Help Menu
         help_menu = menubar.addMenu("&Help")
@@ -1532,7 +1537,123 @@ body { background: #0a0e27; color: #fff; font-family: Arial; padding: 20px; }
         
         db.update_node(selected, starred=True)
         self.statusbar.showMessage("⭐ Node starred", 2000)
-    
+
+    def _shortest_path(self):
+        from PyQt6.QtWidgets import QDialogButtonBox
+        nodes = db.get_nodes()
+        if len(nodes) < 2:
+            show_warning(self, 'Shortest Path', 'At least 2 nodes needed in graph.')
+            return
+
+        labels   = [f"{n['entity_type'].upper()}: {n['label']}" for n in nodes]
+        node_ids = [n['id'] for n in nodes]
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle('🔗 Shortest Path Finder')
+        dlg.setMinimumWidth(600)
+        layout = QVBoxLayout(dlg)
+        layout.setSpacing(10)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        layout.addWidget(QLabel('From Node:'))
+        from_combo = QComboBox(); from_combo.addItems(labels)
+        layout.addWidget(from_combo)
+
+        layout.addWidget(QLabel('To Node:'))
+        to_combo = QComboBox(); to_combo.addItems(labels)
+        to_combo.setCurrentIndex(min(1, len(labels)-1))
+        layout.addWidget(to_combo)
+
+        result_text = QTextEdit(); result_text.setReadOnly(True)
+        result_text.setMinimumHeight(200)
+        layout.addWidget(result_text)
+
+        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Close)
+        layout.addWidget(btn_box)
+        btn_box.rejected.connect(dlg.reject)
+
+        def _find():
+            fi = from_combo.currentIndex()
+            ti = to_combo.currentIndex()
+            if fi == ti:
+                result_text.setText('Source and destination cannot be the same.')
+                return
+            path = db.shortest_path(node_ids[fi], node_ids[ti])
+            if not path:
+                result_text.setText('❌ No path found between these nodes.')
+                return
+            lines = [f'✅ Path found — {len(path)} nodes:\n']
+            for i, step in enumerate(path):
+                n = step['node']
+                lines.append(f'  {i+1}. [{n["entity_type"].upper()}] {n["label"]}')
+                if i < len(path)-1 and step.get('edges'):
+                    rel = (step['edges'][0] or {}).get('relationship', 'related_to')
+                    lines.append(f'       ↓ {rel}')
+            result_text.setText('\n'.join(lines))
+            self.canvas.highlight_path([s['node']['id'] for s in path])
+
+        btn_box.accepted.connect(_find)
+        dlg.exec()
+
+    def _save_snapshot(self):
+        name, ok = QInputDialog.getText(self, 'Save Snapshot', 'Snapshot name:')
+        if not ok or not name.strip():
+            return
+        snap_id = db.save_snapshot(name.strip())
+        self.statusbar.showMessage(f'📸 Snapshot saved: {name} [{snap_id}]', 4000)
+
+    def _compare_snapshot(self):
+        from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QDialogButtonBox
+        snaps = db.list_snapshots()
+        if not snaps:
+            show_warning(self, 'Compare Snapshot', 'No snapshots saved yet. Use Tools → Save Snapshot first.')
+            return
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle('🔍 Graph Diff — Compare Snapshot')
+        dlg.setMinimumWidth(650)
+        layout = QVBoxLayout(dlg)
+        layout.setSpacing(10)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        layout.addWidget(QLabel('Select snapshot to compare with current graph:'))
+        lst = QListWidget()
+        for s in snaps:
+            lst.addItem(QListWidgetItem(f"{s['name']}  [{s['id']}]  {s['created_at'][:16]}"))
+        lst.setCurrentRow(0)
+        layout.addWidget(lst)
+
+        result = QTextEdit(); result.setReadOnly(True); result.setMinimumHeight(280)
+        layout.addWidget(result)
+
+        btn_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Close)
+        layout.addWidget(btn_box)
+        btn_box.rejected.connect(dlg.reject)
+
+        def _diff():
+            idx = lst.currentRow()
+            if idx < 0:
+                return
+            diff = db.diff_snapshots(snaps[idx]['id'])
+            lines = [f"Comparing with: {snaps[idx]['name']} ({snaps[idx]['created_at'][:16]})\n"]
+            lines.append(f"✅ Added nodes   : {len(diff['added_nodes'])}")
+            for n in diff['added_nodes']:
+                lines.append(f"   + [{n['entity_type'].upper()}] {n['label']}")
+            lines.append(f"\n❌ Removed nodes : {len(diff['removed_nodes'])}")
+            for n in diff['removed_nodes']:
+                lines.append(f"   - [{n['entity_type'].upper()}] {n['label']}")
+            lines.append(f"\n🔗 Added edges   : {len(diff['added_edges'])}")
+            for e in diff['added_edges']:
+                lines.append(f"   + {e.get('relationship','?')}")
+            lines.append(f"\n🔗 Removed edges : {len(diff['removed_edges'])}")
+            for e in diff['removed_edges']:
+                lines.append(f"   - {e.get('relationship','?')}")
+            result.setText('\n'.join(lines))
+            self.canvas.highlight_diff(diff['added_nodes'], diff['removed_nodes'])
+
+        btn_box.accepted.connect(_diff)
+        dlg.exec()
+
     # Help operations
     def _show_help(self):
         help_text = """

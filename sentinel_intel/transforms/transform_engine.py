@@ -6,7 +6,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 import time
+import logging
 from typing import List, Dict
+
+logger = logging.getLogger(__name__)
 from sentinel_intel.core.database import db
 from sentinel_intel.core.email_engine import EmailEngine
 from sentinel_intel.core.phone_engine import PhoneEngine
@@ -54,6 +57,7 @@ class TransformEngine:
             'email_to_phones': {'engine': 'email', 'extract': 'phones'},
             'email_to_names': {'engine': 'email', 'extract': 'names'},
             'email_to_social_media': {'engine': 'email', 'extract': 'social_media'},
+            'email_to_payment_profiles': {'engine': 'email', 'extract': 'payment_profiles'},
             
             # Phone transforms
             'phone_to_carrier': {'engine': 'phone', 'extract': 'carrier'},
@@ -62,6 +66,7 @@ class TransformEngine:
             'phone_to_names': {'engine': 'phone', 'extract': 'names'},
             'phone_to_emails': {'engine': 'phone', 'extract': 'emails'},
             'phone_to_profiles': {'engine': 'phone', 'extract': 'profiles'},
+            'phone_to_payment_profiles': {'engine': 'phone', 'extract': 'payment_profiles'},
             
             # IP transforms
             'ip_to_geolocation': {'engine': 'ip', 'extract': 'geolocation'},
@@ -90,6 +95,7 @@ class TransformEngine:
             # Username transforms
             'username_to_platforms': {'engine': 'username', 'extract': 'found_platforms'},
             'username_to_profile_links': {'engine': 'username', 'extract': 'profile_links'},
+            'username_to_payment_profiles': {'engine': 'username', 'extract': 'payment_profiles'},
             
             # Hash transforms
             'hash_to_malware_families': {'engine': 'hash', 'extract': 'malware_families'},
@@ -161,7 +167,23 @@ class TransformEngine:
         results = []
         
         # Check if transform is defined
-        if transform_type in self.transforms:
+        if transform_type in self.transforms and transform_type.endswith('_payment_profiles'):
+            # Payment profiles — direct call to payment_osint
+            try:
+                from modules.recon.payment_osint import run_all, _detect_id_type
+                id_type = _detect_id_type(label)
+                pay_data = run_all(label, id_type)
+                for r in pay_data.get('results', []):
+                    if r.get('found'):
+                        props = {k: v for k, v in r.items() if v is not None}
+                        name = r.get('name') or r.get('app', 'Unknown')
+                        new_node = db.add_node('payment_profile',
+                                              f"{r['app']}: {name}", props, confidence=0.85)
+                        db.add_edge(node_id, new_node, 'has_payment_profile', confidence=0.85)
+                        results.append({'node_id': new_node, 'type': 'payment_profile'})
+            except Exception as e:
+                logger.debug(f'Payment transform error: {e}')
+        elif transform_type in self.transforms:
             transform_def = self.transforms[transform_type]
             engine_name = transform_def['engine']
             extract_field = transform_def['extract']
@@ -421,7 +443,8 @@ class TransformEngine:
             'file_info': 'file',
             'transactions': 'transaction',
             'related_addresses': 'cryptocurrency',
-            'balance': 'cryptocurrency'
+            'balance': 'cryptocurrency',
+            'payment_profiles': 'payment_profile'
         }
         return type_map.get(field, 'unknown')
     
@@ -455,7 +478,10 @@ class TransformEngine:
             'username_to_platforms': 'found_on',
             'hash_to_malware_families': 'identified_as',
             'crypto_to_transactions': 'transaction',
-            'crypto_to_related_addresses': 'connected_to'
+            'crypto_to_related_addresses': 'connected_to',
+            'phone_to_payment_profiles': 'has_payment_profile',
+            'email_to_payment_profiles': 'has_payment_profile',
+            'username_to_payment_profiles': 'has_payment_profile',
         }
         return rel_map.get(transform_type, 'related_to')
     

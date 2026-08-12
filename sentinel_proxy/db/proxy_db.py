@@ -159,6 +159,7 @@ class ProxyDB:
         for col, sql in [
             ('resp_headers',  "ALTER TABLE requests ADD COLUMN resp_headers TEXT DEFAULT '{}'"),
             ('response_time', 'ALTER TABLE requests ADD COLUMN response_time REAL DEFAULT 0'),
+            ('http_version',  "ALTER TABLE requests ADD COLUMN http_version TEXT DEFAULT 'HTTP/1.1'"),
         ]:
             if col not in existing:
                 try:
@@ -182,13 +183,14 @@ class ProxyDB:
     def save_request(self, flow: dict) -> int:
         body      = (flow.get('body') or '')[:10000]
         resp_body = (flow.get('resp_body') or '')[:50000]
+        http_ver  = flow.get('http_version') or flow.get('http_ver', 'HTTP/1.1')
         with self._lock:
             cur = self._db.execute("""
                 INSERT INTO requests
                 (flow_id, timestamp, method, url, host, path,
                  headers, body, params, status_code, resp_headers,
-                 resp_body, resp_length, content_type, response_time)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                 resp_body, resp_length, content_type, response_time, http_version)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, (
                 flow.get('id', ''),
                 flow.get('timestamp', ''),
@@ -205,18 +207,19 @@ class ProxyDB:
                 flow.get('resp_length', 0),
                 flow.get('content_type', ''),
                 flow.get('response_time', 0),
+                http_ver,
             ))
             self._db.commit()
             return cur.lastrowid
 
     def update_response(self, flow_id: str, status_code: int, resp_headers: dict,
                         resp_body: str, resp_length: int, content_type: str,
-                        response_time: float):
+                        response_time: float, http_version: str = 'HTTP/1.1'):
         with self._lock:
             self._db.execute("""
                 UPDATE requests
                 SET status_code=?, resp_headers=?, resp_body=?,
-                    resp_length=?, content_type=?, response_time=?
+                    resp_length=?, content_type=?, response_time=?, http_version=?
                 WHERE flow_id=?
             """, (
                 status_code,
@@ -225,6 +228,7 @@ class ProxyDB:
                 resp_length,
                 content_type,
                 response_time,
+                http_version,
                 flow_id,
             ))
             self._db.commit()

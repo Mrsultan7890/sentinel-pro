@@ -1,9 +1,9 @@
 """
-SentinelNet Agent Core — ReAct Loop
+SentinelOctopus Agent Core — ReAct Loop
 =====================================
 Reason → Act → Observe → Reason → ...
 
-SentinelNet (v4.0) decides which tool to call next.
+SentinelOctopus-0.5B decides which tool to call next.
 ToolRegistry executes the tool on the real system.
 Agent loops until task complete or max_steps reached.
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # ── Prompt Templates ──────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are SentinelNet Agent — an autonomous cybersecurity AI running on Kali Linux.
+SYSTEM_PROMPT = """You are SentinelOctopus — an autonomous cybersecurity AI running on Kali Linux.
 
 Your job: complete the user's task by reasoning step-by-step and calling tools.
 
@@ -59,7 +59,7 @@ class SentinelAgent:
         task → think → pick tool → execute → observe → think → ...
         → FINAL ANSWER
 
-    SentinelNet v4.0 provides threat context at each step.
+    SentinelOctopus-0.5B provides threat context at each step.
     ToolRegistry executes tools on the real system.
     """
 
@@ -77,10 +77,10 @@ class SentinelAgent:
 
     def _load_model(self):
         try:
-            from modules.ml_engine.sentinel_net import NeuralTrainer
-            nt = NeuralTrainer()
-            if nt.load():
-                return nt
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            oc = SentinelOctopus()
+            if oc.load():
+                return oc
         except Exception:
             pass
         return None
@@ -95,7 +95,7 @@ class SentinelAgent:
         self._print(f"\n{'='*60}")
         self._print(f"  SENTINEL AGENT")
         self._print(f"  Task   : {task}")
-        self._print(f"  Model  : {'SentinelNet v4.0' if self._model else 'heuristic'}")
+        self._print(f"  Model  : {'SentinelOctopus-0.5B' if self._model else 'heuristic'}")
         self._print(f"  Auto   : {self.auto}")
         self._print(f"{'='*60}\n")
 
@@ -184,13 +184,13 @@ class SentinelAgent:
 
     def _think(self, context: str, task: str) -> tuple:
         """
-        Decide next action using SentinelNet + heuristic rules.
+        Decide next action using SentinelOctopus + heuristic rules.
         Returns: (thought, action, args, is_final, final_answer)
         """
         # Build observation summary for model
         obs_text = self._history_to_text()
 
-        # SentinelNet predict on current context
+        # SentinelOctopus predict on current context
         model_pred = {}
         if self._model:
             try:
@@ -283,7 +283,7 @@ class SentinelAgent:
                 if notify_key not in done_actions:
                     return ('notify',
                             {'message': f'🚨 CRITICAL vulnerability found on {target}\n'
-                                        f'SentinelNet Agent — @who_is_the_black_hat'},
+                                        f'SentinelOctopus Agent — @who_is_the_black_hat'},
                             f"CRITICAL vulns confirmed — send Telegram alert")
                 # Save evidence
                 ev_key = f"save_evidence:{json.dumps({'label': 'bugbounty_critical'}, sort_keys=True)}"

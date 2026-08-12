@@ -15,22 +15,15 @@ data/file_registry.json
 *api_key*
 *token*
 
-# ── License files (personal) ───────────────────────────────────────────────────
-.sentinel_pro/
-~/.sentinel_pro/
-.sentinel_history
-
-# ── Seller tools (private) ──────────────────────────────────────────────────
-generate_key.py
-add_copyright.py
-
 # ── IDE / AI assistant internal files ────────────────────────────────────────
 .amazonq/
 .idea/
 .vscode/
 .cursor/
 
-# ── Databases (user data) ─────────────────────────────────────────────────────
+# ── User runtime data ─────────────────────────────────────────────────────────
+.sentinel_pro/
+.sentinel_history
 data/sentinel.db
 data/sentinel.db-shm
 data/sentinel.db-wal
@@ -44,18 +37,18 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 
-# ── User scan data ────────────────────────────────────────────────────────────
+# ── User scan output ──────────────────────────────────────────────────────────
 reports/
 investigations/
 screenshots/
 evidence/
-targets/
 temp/
 logs/
 *.log
 backups/
 
 # Keep example target files
+targets/
 !targets/bugbounty.txt
 !targets/monitoring.txt
 !targets/osint.txt
@@ -71,22 +64,20 @@ models/ml_engine/training_data/
 models/ml_engine/old_models/
 models/ml_engine/old_models_backup/
 models/ml_engine/checkpoints/
-
-# Keep these model files (small, needed)
-!models/ml_engine/rl_qtable.json
+models/ml_engine/rl_qtable.json
+models/ml_engine/rl_qtable.backup.json
+models/sentineloctopus-0.5b/
 
 # ── Proxy models ──────────────────────────────────────────────────────────────
 sentinel_proxy/models/
 sentinel_proxy/models/*.pt
 sentinel_proxy/models/*.joblib
 
-# ── Sentinel Intel data ───────────────────────────────────────────────────────
+# ── Sentinel Intel runtime data ───────────────────────────────────────────────
 sentinel_intel/data/*.db
 sentinel_intel/data/*.db-shm
 sentinel_intel/data/*.db-wal
 sentinel_intel/data/*.json
-
-# Keep sentinel_intel structure
 !sentinel_intel/data/.gitkeep
 
 # ── Rust build artifacts ──────────────────────────────────────────────────────
@@ -95,12 +86,9 @@ fuzzer/target/
 media_analyzer/target/
 sentinel_proxy/rust_core/target/
 sentinel_proxy/rust_fuzzer/target/
-
-# Cargo.lock — ignore for libraries, keep for binaries
 analyzer/Cargo.lock
 fuzzer/Cargo.lock
 media_analyzer/Cargo.lock
-# sentinel_proxy Cargo.lock kept — needed for reproducible proxy builds
 
 # ── Go build artifacts ────────────────────────────────────────────────────────
 scraper/scraper
@@ -111,57 +99,7 @@ smuggler/smuggler
 stealth_proxy/stealth_proxy
 *.exe
 
-# ── Python source — obfuscated modules (.so rakho, .py nahi) ─────────────────
-modules/**/*.py
-!modules/__init__.py
-!modules/breach/__init__.py
-!modules/bugbounty/__init__.py
-!modules/recon/__init__.py
-!modules/ml_engine/__init__.py
-sentinel_brain/agents/*.py
-!sentinel_brain/agents/__init__.py
-sentinel_brain/engines/*.py
-!sentinel_brain/engines/__init__.py
-sentinel_brain/kali_controller.py
-sentinel_brain/memory.py
-sentinel_brain/monitor.py
-sentinel_brain/persistent_monitor.py
-sentinel_brain/terminal.py
-sentinel_intel/main.py
-sentinel_proxy/main.py
-sentinel_intel/core/database.py
-sentinel_intel/ui/graph_canvas.py
-sentinel_proxy/ai/analyzer.py
-sentinel_proxy/ai/proxy_ml_engine.py
-sentinel_proxy/core/rust_bridge.py
-sentinel_proxy/core/rust_fuzzer_bridge.py
-sentinel_proxy/fetch_ai_payloads.py
-sentinel_proxy/icon_generator.py
-sentinel_proxy/run_proxy.py
-sentinel_proxy/simple_proxy.py
-sentinel_proxy/ui/app.py
-sentinel_proxy/ui/tabs/ai_payload_tab.py
-sentinel_proxy/ui/tabs/collaborator_tab.py
-sentinel_proxy/ui/tabs/csrf_tab.py
-sentinel_proxy/ui/tabs/graphql_tab.py
-sentinel_proxy/ui/tabs/intercept_rules_tab.py
-sentinel_proxy/ui/tabs/jwt_editor_tab.py
-sentinel_proxy/ui/tabs/organizer_tab.py
-sentinel_proxy/ui/tabs/param_miner_tab.py
-sentinel_proxy/ui/tabs/race_condition_tab.py
-sentinel_proxy/ui/tabs/smuggler_tab.py
-sentinel_proxy/ui/tabs/target_tab.py
-sentinel_proxy/ui/tabs/tls_inspector_tab.py
-sentinel_proxy/ui/tabs/websocket_tab.py
-sentinel_proxy/ui/tabs/autorize_tab.py
-sentinel_proxy/ui/tabs/upstream_proxy_tab.py
-sentinel_proxy/ui/tabs/crawler_tab.py
-sentinel_proxy/ui/tabs/extensions_tab.py
-sentinel_proxy/extensions/base.py
-sentinel_proxy/extensions/loader.py
-sentinel_proxy/extensions/example_auto_headers.py
-
-# ── All compiled .so files — osints is source-only repo ──────────────────
+# ── Compiled .so files ────────────────────────────────────────────────────────
 *.so
 
 # ── Python ────────────────────────────────────────────────────────────────────
@@ -178,16 +116,29 @@ dist/
 build/
 .pytest_cache/
 
-# ── Jupyter ───────────────────────────────────────────────────────────────────
+# ── Jupyter / training scripts ────────────────────────────────────────────────
 .ipynb_checkpoints/
-
-# ── Colab / training scripts (local only) ────────────────────────────────────
 colab_data/
 colab_train.py
 data_pipeline.py
 data_pipeline_v2.py
 data_pipeline_v3.py
 rl_train_bg.py
+SentinelOctopus_Training.ipynb
+SentinelOctopus_IdentityFix.ipynb
+
+# ── Internal planning notes ───────────────────────────────────────────────────
+OVERVIEW.md
+STARTUP_PLAN.md
+osints_plan.md
+prox_plan.md
+*.plan.md
+
+# ── Proxy runtime data only (payloads are part of the tool) ──────────────────
+sentinel_proxy/data/
+
+# ── Dist compile output ───────────────────────────────────────────────────────
+dist_compile/
 
 # ── Tor / proxy sockets ───────────────────────────────────────────────────────
 /tmp/sentinel_proxy_v2.sock
@@ -207,3 +158,5 @@ Thumbs.db
 .crl_cache
 *.cache
 .cache/
+sentinel.db
+=*

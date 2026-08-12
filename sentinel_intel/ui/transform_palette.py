@@ -32,7 +32,8 @@ class TransformPalette(QWidget):
             ('To Usernames', 'email_to_usernames'),
             ('To Phones', 'email_to_phones'),
             ('📝 To Names', 'email_to_names'),
-            ('To Social Media', 'email_to_social_media')
+            ('To Social Media', 'email_to_social_media'),
+            ('💳 To Payment Profiles', 'email_to_payment_profiles')
         ])
         self.tabs.addTab(email_tab, "Email")
         
@@ -44,7 +45,8 @@ class TransformPalette(QWidget):
             ('💬 To Messaging Apps', 'phone_to_messaging_apps'),
             ('📝 To Names', 'phone_to_names'),
             ('To Emails', 'phone_to_emails'),
-            ('To Profiles', 'phone_to_profiles')
+            ('To Profiles', 'phone_to_profiles'),
+            ('💳 To Payment Profiles', 'phone_to_payment_profiles')
         ])
         self.tabs.addTab(phone_tab, "Phone")
         
@@ -88,7 +90,8 @@ class TransformPalette(QWidget):
         username_tab = self._create_transform_tab([
             ('Full Investigation', 'username_investigate'),
             ('To Platforms', 'username_to_platforms'),
-            ('To Profile Links', 'username_to_profile_links')
+            ('To Profile Links', 'username_to_profile_links'),
+            ('💳 To Payment Profiles', 'username_to_payment_profiles')
         ])
         self.tabs.addTab(username_tab, "Username")
         

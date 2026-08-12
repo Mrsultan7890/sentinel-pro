@@ -20,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 
 from modules.report_signature import sign_json, get_html_footer, get_txt_footer
+from modules.action_report import generate_action_report, render_action_report_html
 
 logger = logging.getLogger(__name__)
 
@@ -375,6 +376,16 @@ class BugBountyReport:
         exec_high_html     = ''.join(f'<li style="color:#e67e22">🟠 Fix within 7 days: {_e(i)}</li>' for i in high_items)
         exec_none_html     = '<li style="color:#2ecc71">✅ No critical/high findings — review medium findings below.</li>' if not critical_items and not high_items else ''
 
+        # AI Action Report
+        _all_findings = []
+        for src, key in [(cors,'findings'),(oredir,'findings'),(smug,'findings'),(nuc,'findings'),(ck,'findings'),(fz,'findings'),(ab,'findings'),(api,'findings'),(lfi,'findings'),(xxe,'findings'),(ssti,'findings'),(cj,'findings'),(pp,'findings'),(oauth,'findings')]:
+            _all_findings.extend(src.get(key, [])[:5])
+        try:
+            _action_items = generate_action_report(_all_findings) if _all_findings else []
+            _action_section = render_action_report_html(_action_items) if _action_items else ''
+        except Exception:
+            _action_section = ''
+
         waf      = eps.get('waf', {})
         waf_str  = _e(waf.get('name', 'Not detected')) if waf.get('detected') else 'Not detected'
         tech     = eps.get('technologies', {})
@@ -512,5 +523,6 @@ class BugBountyReport:
 <h2>CVEs ({cves.get('total_cves',0)}) — Critical: {cves.get('critical_count',0)} High: {cves.get('high_count',0)}</h2>
 <div class="card"><table><tr><th>CVE ID</th><th>Severity</th><th>Technology</th><th>Description</th></tr>{cve_rows or '<tr><td colspan=4 style="color:#2ecc71">No CVEs found</td></tr>'}</table></div>
 
+{_action_section}
 {get_html_footer()}
 </body></html>"""

@@ -123,10 +123,10 @@ class AutonomousAgent:
 
     def _load_model(self):
         try:
-            from modules.ml_engine.sentinel_net import NeuralTrainer
-            nt = NeuralTrainer()
-            if nt.load():
-                return nt
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            oc = SentinelOctopus()
+            if oc.load():
+                return oc
         except Exception:
             pass
         return None

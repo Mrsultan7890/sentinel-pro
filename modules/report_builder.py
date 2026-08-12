@@ -372,6 +372,22 @@ class SentinelReportBuilder:
                 b64 = base64.b64encode(f.read()).decode()
             chart_img = f'<img src="data:image/png;base64,{b64}" style="max-width:100%;border-radius:8px">'
 
+        # Financial Exposure section
+        _pay_found = [r for r in report.get('payment_profiles', {}).get('results', []) if r.get('found')]
+        if _pay_found:
+            _pay_rows = ''.join(
+                f'<tr><td style="color:#00b894">{r["app"]}</td><td>{r["country"]}</td>'
+                f'<td style="color:#79c0ff">{r["name"]}</td>'
+                f'<td style="color:#e74c3c">{r["risk_level"]}</td>'
+                f'<td><a href="{r.get("source_url","")}">{(r.get("source_url","") or "")[:50]}</a></td></tr>'
+                for r in _pay_found
+            )
+            payment_html = (f'<div class="card"><h3>\U0001f4b3 Financial Exposure ({len(_pay_found)} profile(s))</h3>'
+                            f'<table><thead><tr><th>App</th><th>Country</th><th>Real Name</th><th>Risk</th><th>URL</th></tr></thead>'
+                            f'<tbody>{_pay_rows}</tbody></table></div>')
+        else:
+            payment_html = ''
+
         risk_color = SEV_COLORS.get(report['risk_level'], '#888')
 
         html = f"""<!DOCTYPE html>
@@ -452,6 +468,8 @@ class SentinelReportBuilder:
   <h3>🔍 Findings ({len(report['findings'])})</h3>
   {findings_html if findings_html else '<p style="color:#8b949e">No findings.</p>'}
 </div>
+
+{payment_html}
 
 {'<div class="card"><h3>🎯 MITRE ATT&CK Mapping</h3><table><thead><tr><th>Technique ID</th><th>Technique</th><th>Finding</th><th>Severity</th></tr></thead><tbody>' + mitre_html + '</tbody></table></div>' if mitre_html else ''}
 

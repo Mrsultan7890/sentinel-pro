@@ -6,6 +6,7 @@ Uses sentinel.db + ML algorithms for intelligent graph analysis
 import sqlite3
 import json
 import uuid
+import threading
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
@@ -26,12 +27,15 @@ class GraphDatabase:
     def __init__(self):
         self.db_path = config.BASE_DIR / 'data' / 'sentinel.db'
         self.conn = None
+        self._local = threading.local()
         self._init_db()
         self._load_ml_models()
     
     def _init_db(self):
         """Initialize graph tables in sentinel.db"""
         self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA busy_timeout=5000")
         self.conn.execute("PRAGMA foreign_keys = ON")
         
         # Nodes table
@@ -114,6 +118,15 @@ class GraphDatabase:
                 confidence REAL,
                 model_used TEXT,
                 timestamp TEXT NOT NULL
+            )
+        """)
+
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS snapshots (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                data TEXT NOT NULL
             )
         """)
         
@@ -409,7 +422,80 @@ class GraphDatabase:
         """Clear all nodes and edges"""
         self.conn.execute("DELETE FROM intel_nodes")
         self.conn.commit()
-    
+
+    # ========== SNAPSHOT ==========
+
+    def save_snapshot(self, name: str) -> str:
+        """Current graph ka snapshot save karo."""
+        snap_id = str(uuid.uuid4())[:8]
+        nodes = self.get_nodes()
+        edges = self.get_edges()
+        data  = json.dumps({'nodes': nodes, 'edges': edges})
+        self.conn.execute(
+            "INSERT INTO snapshots (id, name, created_at, data) VALUES (?,?,?,?)",
+            (snap_id, name, datetime.now().isoformat(), data)
+        )
+        self.conn.commit()
+        return snap_id
+
+    def list_snapshots(self) -> List[Dict]:
+        """All snapshots list karo."""
+        cur = self.conn.execute(
+            "SELECT id, name, created_at FROM snapshots ORDER BY created_at DESC"
+        )
+        return [{'id': r[0], 'name': r[1], 'created_at': r[2]} for r in cur.fetchall()]
+
+    def load_snapshot(self, snap_id: str) -> Dict:
+        """Snapshot data load karo."""
+        cur = self.conn.execute("SELECT data FROM snapshots WHERE id=?", (snap_id,))
+        row = cur.fetchone()
+        return json.loads(row[0]) if row else {}
+
+    def delete_snapshot(self, snap_id: str):
+        self.conn.execute("DELETE FROM snapshots WHERE id=?", (snap_id,))
+        self.conn.commit()
+
+    def diff_snapshots(self, snap_id: str) -> Dict:
+        """Current graph vs snapshot diff karo."""
+        snap = self.load_snapshot(snap_id)
+        if not snap:
+            return {}
+        snap_node_ids = {n['id'] for n in snap.get('nodes', [])}
+        snap_edge_ids = {e['id'] for e in snap.get('edges', [])}
+        curr_nodes    = self.get_nodes()
+        curr_edges    = self.get_edges()
+        curr_node_ids = {n['id'] for n in curr_nodes}
+        curr_edge_ids = {e['id'] for e in curr_edges}
+        snap_node_map = {n['id']: n for n in snap.get('nodes', [])}
+        curr_node_map = {n['id']: n for n in curr_nodes}
+        return {
+            'added_nodes':   [curr_node_map[i] for i in curr_node_ids - snap_node_ids],
+            'removed_nodes': [snap_node_map[i] for i in snap_node_ids - curr_node_ids],
+            'added_edges':   [e for e in curr_edges if e['id'] not in snap_edge_ids],
+            'removed_edges': [e for e in snap.get('edges', []) if e['id'] not in curr_edge_ids],
+        }
+
+    # ========== SHORTEST PATH ==========
+
+    def shortest_path(self, from_id: str, to_id: str) -> List[Dict]:
+        """Do nodes ke beech shortest path dhundho."""
+        try:
+            import networkx as nx
+            G = nx.DiGraph()
+            nodes = {n['id']: n for n in self.get_nodes()}
+            for edge in self.get_edges():
+                G.add_edge(edge['from_node'], edge['to_node'],
+                           relationship=edge.get('relationship', ''),
+                           id=edge['id'])
+            path_ids = nx.shortest_path(G.to_undirected(), from_id, to_id)
+            return [{'node': nodes[nid], 'edges': [
+                G.get_edge_data(path_ids[i], path_ids[i+1]) or
+                G.get_edge_data(path_ids[i+1], path_ids[i])
+                for i in range(len(path_ids)-1)
+            ]} for nid in path_ids if nid in nodes]
+        except Exception:
+            return []
+
     def get_stats(self) -> Dict:
         """Get graph statistics"""
         cursor = self.conn.execute("SELECT COUNT(*) FROM intel_nodes")

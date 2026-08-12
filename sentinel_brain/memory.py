@@ -152,13 +152,18 @@ class Memory:
     def recall_findings(self, target: str) -> list:
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT agent, severity, title, detail, fix FROM findings "
+                "SELECT title, severity, detail, fix, agent FROM findings "
                 "WHERE target = ? ORDER BY "
                 "CASE severity WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 "
                 "WHEN 'MEDIUM' THEN 2 ELSE 3 END",
                 (target,)
             ).fetchall()
-        return [dict(r) for r in rows]
+        results = []
+        for r in rows:
+            d = dict(r)
+            d['type'] = d.get('agent', '')
+            results.append(d)
+        return results
 
     def recall_pattern(self, situation: str) -> str:
         """Similar situation mein kya kaam aaya tha"""

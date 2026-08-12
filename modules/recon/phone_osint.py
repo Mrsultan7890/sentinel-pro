@@ -100,6 +100,7 @@ class PhoneOSINT:
         self._abstract_lookup(result)
         self._social_hints(result)
         self._reputation_check(result)
+        self._payment_lookup(result)
         self._calc_risk(result)
         return result
 
@@ -291,6 +292,25 @@ class PhoneOSINT:
             pass
 
         result['reputation'] = rep
+
+    # ── Payment Lookup ─────────────────────────────────────────────────────────
+
+    def _payment_lookup(self, result: dict):
+        try:
+            from modules.recon.payment_osint import run_all
+            pay = run_all(result['normalized'], 'phone')
+            result['payment_profiles'] = pay
+            if pay['found_count'] > 0:
+                result['risk_flags'].append({
+                    'severity': 'HIGH',
+                    'flag': f"Found on {pay['found_count']} payment app(s)",
+                    'detail': ', '.join(
+                        f"{r['app']} ({r['country']}): {r['name']}"
+                        for r in pay['results'] if r.get('found')
+                    ),
+                })
+        except Exception as e:
+            logger.debug(f'Payment lookup error: {e}')
 
     # ── Risk Calculation ──────────────────────────────────────────────────────
 

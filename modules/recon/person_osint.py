@@ -345,6 +345,9 @@ class PersonOSINT:
         elif query_type == 'phone':
             self._search_phone_apis(result, query)
 
+        # Payment app profiles
+        self._search_payment_profiles(result, query, query_type)
+
     def _search_name_apis(self, result: dict, name: str):
         """Search name across free public APIs"""
 
@@ -446,6 +449,29 @@ class PersonOSINT:
                     }
             except Exception:
                 pass
+
+    def _search_payment_profiles(self, result: dict, query: str, query_type: str):
+        if query_type not in ('phone', 'email', 'username'):
+            return
+        try:
+            from modules.recon.payment_osint import run_all
+            pay = run_all(query, query_type)
+            result['payment_profiles'] = pay
+            for r in pay['results']:
+                if r.get('found'):
+                    key = f"payment_{r['app'].lower().replace(' ', '_')}"
+                    result['entities'][key] = {
+                        'type': 'payment_profile',
+                        'app': r['app'],
+                        'country': r['country'],
+                        'name': r['name'],
+                        'profile_pic': r.get('profile_pic'),
+                        'source_url': r.get('source_url'),
+                    }
+                    if r.get('name') and r['name'] not in result.get('names_found', []):
+                        result.setdefault('names_found', []).append(r['name'])
+        except Exception as e:
+            logger.debug(f'Payment profile search error: {e}')
 
     # ── People Search Engines ──────────────────────────────────────────────────
 

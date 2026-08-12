@@ -183,6 +183,38 @@ class WebSocketTab:
         self._rep_host.insert(0, msg.get('host', ''))
         self._txt_replay.delete('1.0', 'end')
         self._txt_replay.insert('1.0', msg.get('content', ''))
+        # AI analysis in background
+        self._ai_analyze_msg(msg)
+
+    def _ai_analyze_msg(self, msg: dict):
+        analyzer = self.app.analyzer
+        if not hasattr(analyzer, '_groq') or not analyzer._groq:
+            return
+        content = msg.get('content', '')
+        if not content or len(content) < 10:
+            return
+
+        def _run():
+            prompt = (
+                f"WebSocket message analysis:\n"
+                f"Direction: {msg.get('direction','')}\n"
+                f"Host: {msg.get('host','')}\n"
+                f"Content: {content[:500]}\n\n"
+                f"1. Is this message security-sensitive? (auth tokens, PII, commands)\n"
+                f"2. Any injection or manipulation opportunities?\n"
+                f"3. One-line risk rating. Be very concise."
+            )
+            try:
+                result = analyzer._groq.ask(prompt, max_tokens=200)
+                self.app.root.after(0, lambda r=result: [
+                    self._txt_content.insert('end',
+                        f'\n{"-"*40}\n✦ AI: {r}\n')
+                ])
+            except Exception:
+                pass
+
+        import threading
+        threading.Thread(target=_run, daemon=True).start()
 
     def _replay_send(self):
         host    = self._rep_host.get().strip()

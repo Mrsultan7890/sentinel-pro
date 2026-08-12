@@ -73,6 +73,7 @@ class EmailOSINT:
         self._check_disposable(result)
         self._social_hints(result)
         self._breach_check(result)
+        self._payment_lookup(result)
         self._calc_risk(result)
         return result
 
@@ -201,6 +202,23 @@ class EmailOSINT:
             logger.debug(f'LeakCheck JSON parse error: {e}')
         except Exception as e:
             logger.error(f'LeakCheck error: {e}')
+
+    def _payment_lookup(self, result: dict):
+        try:
+            from modules.recon.payment_osint import run_all
+            pay = run_all(result['email'], 'email')
+            result['payment_profiles'] = pay
+            if pay['found_count'] > 0:
+                result['risk_flags'].append({
+                    'severity': 'HIGH',
+                    'flag': f"Found on {pay['found_count']} payment app(s)",
+                    'detail': ', '.join(
+                        f"{r['app']} ({r['country']}): {r['name']}"
+                        for r in pay['results'] if r.get('found')
+                    ),
+                })
+        except Exception as e:
+            logger.debug(f'Payment lookup error: {e}')
 
     def _calc_risk(self, result: dict):
         severities = [f['severity'] for f in result['risk_flags']]

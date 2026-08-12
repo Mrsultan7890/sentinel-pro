@@ -80,7 +80,8 @@ class NodeItem(QGraphicsEllipseItem):
             'timestamp': '#00BCD4',  # Cyan
             'indicator': '#FF9800',  # Orange
             'tag': '#9E9E9E',        # Gray
-            'report': '#607D8B'      # Blue Gray
+            'report': '#607D8B',      # Blue Gray
+            'payment_profile': '#00b894',  # Green
         }
         
         base_color = colors.get(entity_type, '#00D9FF')
@@ -147,7 +148,7 @@ class NodeItem(QGraphicsEllipseItem):
             'balance': 'BL', 'currency': 'CR', 'abuse_report': 'AR',
             'amount': 'AM', 'timestamp': 'TS', 'indicator': 'ID',
             'tag': 'TG', 'report': 'RP', 'cloud_provider': 'CL',
-            'malware_type': 'MT'
+            'malware_type': 'MT', 'payment_profile': '💳'
         }
         
         icon = icon_map.get(entity_type, '🔹')
@@ -292,7 +293,6 @@ class GraphCanvas(QGraphicsView):
         # Create node with risk-based styling
         node = NodeItem(node_id, entity_type, label, x, y, risk_score)
         self.scene.addItem(node)
-        self.scene.addItem(node.label)
         self.nodes[node_id] = node
     
     def add_edge(self, from_id, to_id, relationship, confidence=1.0):
@@ -305,13 +305,24 @@ class GraphCanvas(QGraphicsView):
         
         edge = EdgeItem(self.nodes[from_id], self.nodes[to_id], relationship, confidence)
         self.scene.addItem(edge)
-        self.scene.addItem(edge.label)
         self.edges[edge_id] = edge
     
     def clear(self):
-        self.scene.clear()
+        for edge in list(self.edges.values()):
+            try:
+                if edge.scene():
+                    self.scene.removeItem(edge)
+            except Exception:
+                pass
+        for node in list(self.nodes.values()):
+            try:
+                if node.scene():
+                    self.scene.removeItem(node)
+            except Exception:
+                pass
         self.nodes.clear()
         self.edges.clear()
+        self.scene.clear()
     
     def auto_layout(self):
         """Circular layout algorithm"""
@@ -369,6 +380,27 @@ class GraphCanvas(QGraphicsView):
             if isinstance(item, NodeItem):
                 return item.node_id
         return None
+
+    def highlight_path(self, node_ids: list):
+        """Shortest path nodes highlight karo."""
+        path_set = set(node_ids)
+        for nid, node in self.nodes.items():
+            if nid in path_set:
+                node.setPen(QPen(QColor('#FFD700'), 4))
+            else:
+                node.setPen(QPen(QColor('#FFFFFF'), 2))
+
+    def highlight_diff(self, added: list, removed: list):
+        """Diff nodes highlight karo — green=added, red=removed."""
+        added_ids   = {n['id'] for n in added}
+        removed_ids = {n['id'] for n in removed}
+        for nid, node in self.nodes.items():
+            if nid in added_ids:
+                node.setPen(QPen(QColor('#00FF88'), 4))
+            elif nid in removed_ids:
+                node.setPen(QPen(QColor('#FF4444'), 4))
+            else:
+                node.setPen(QPen(QColor('#FFFFFF'), 2))
     
     def select_node(self, node_id: str):
         """Programmatically select a node by ID"""

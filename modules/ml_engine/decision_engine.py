@@ -55,11 +55,11 @@ class DecisionEngine:
 
     def _load_model(self):
         try:
-            from modules.ml_engine.sentinel_net import NeuralTrainer
-            nt = NeuralTrainer()
-            if nt.load():
-                self._neural = nt
-                logger.info("DecisionEngine: SentinelThreatNet loaded")
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            oc = SentinelOctopus()
+            if oc.load():
+                self._neural = oc
+                logger.info("DecisionEngine: SentinelOctopus loaded")
         except Exception as e:
             logger.debug(f"DecisionEngine model load failed: {e}")
 

@@ -64,10 +64,10 @@ class AttackChain:
 
     def _load_model(self):
         try:
-            from modules.ml_engine.sentinel_net import NeuralTrainer
-            nt = NeuralTrainer()
-            if nt.load():
-                self._model = nt
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            oc = SentinelOctopus()
+            if oc.load():
+                self._model = oc
         except Exception:
             pass
 

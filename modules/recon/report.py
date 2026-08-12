@@ -156,6 +156,26 @@ class ReconReport:
 
     def _build_html(self, domain: str, data: dict) -> str:
         ts  = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        def _payment_trail_html(d: dict) -> str:
+            pay = d.get('payment_profiles', {})
+            found = [r for r in pay.get('results', []) if r.get('found')]
+            if not found:
+                return ''
+            rows = ''.join(
+                f'<tr><td style="color:#00b894;font-weight:bold">{_e(r["app"])}</td>'
+                f'<td>{_e(r["country"])}</td>'
+                f'<td style="color:#79c0ff">{_e(r["name"])}</td>'
+                f'<td>{"<img src=\'" + _e(r["profile_pic"]) + "\' style=\'height:32px;border-radius:50%\'>" if r.get("profile_pic") else "N/A"}</td>'
+                f'<td><a href="{_e(r.get("source_url",""))}" style="color:#58a6ff">{_e(r.get("source_url","")[:50])}</a></td>'
+                f'<td style="color:{"#e74c3c" if r["risk_level"]=="HIGH" else "#f1c40f"}">{_e(r["risk_level"])}</td></tr>'
+                for r in found
+            )
+            return f'''<h2>💳 Financial Trail ({len(found)} payment app profile(s) found)</h2>
+<div class="card">
+  <table><tr><th>App</th><th>Country</th><th>Real Name</th><th>Photo</th><th>URL</th><th>Risk</th></tr>{rows}</table>
+</div>'''
+
         subs = data.get('subdomains', {})
         whois_d = data.get('whois', {}).get('whois', {})
         dns   = data.get('whois', {}).get('dns', {})
@@ -353,6 +373,8 @@ class ReconReport:
   <h3 style="color:#79c0ff;margin-top:12px">Job Postings Found</h3>
   <table><tr><th>Source</th><th>Title</th><th>Location</th><th>URL</th></tr>{job_rows or '<tr><td colspan=4 style="color:#8b949e">No job postings found</td></tr>'}</table>
 </div>
+
+{_payment_trail_html(data)}
 
 {get_html_footer()}
 </body></html>"""

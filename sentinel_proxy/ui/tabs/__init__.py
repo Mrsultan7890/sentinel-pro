@@ -20,3 +20,9 @@ from sentinel_proxy.ui.tabs.race_condition_tab import RaceConditionTab
 from sentinel_proxy.ui.tabs.autorize_tab import AutorizeTab
 from sentinel_proxy.ui.tabs.upstream_proxy_tab import UpstreamProxyTab
 from sentinel_proxy.ui.tabs.crawler_tab import CrawlerTab
+from sentinel_proxy.ui.tabs.jwt_editor_tab import JWTEditorTab
+from sentinel_proxy.ui.tabs.tls_inspector_tab import TLSInspectorTab
+from sentinel_proxy.ui.tabs.intercept_rules_tab import InterceptRulesTab
+from sentinel_proxy.ui.tabs.smuggler_tab import SmugglerTab
+from sentinel_proxy.ui.tabs.graphql_tab import GraphQLTab
+from sentinel_proxy.ui.tabs.settings_tab import SettingsTab

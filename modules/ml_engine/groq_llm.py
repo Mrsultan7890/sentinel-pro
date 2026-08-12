@@ -1,5 +1,5 @@
 """
-Groq LLM Integration — SentinelLM Thinking Layer
+Groq LLM Integration — Primary Reasoning Layer
 ==================================================
 Groq API se Llama-3.3-70B use karo — free tier available.
 Brain ke liye reasoning, planning, aur natural language understanding.
@@ -28,7 +28,7 @@ TOOLS = [
     'aircrack-ng', 'airmon-ng', 'reaver', 'ettercap', 'hping3',
 ]
 
-SYSTEM_PROMPT = """You are SentinelLM, an autonomous security AI running on Kali Linux.
+SYSTEM_PROMPT = """You are SentinelOctopus, an autonomous security AI running on Kali Linux.
 You help with:
 1. Security tool command generation (nmap, nikto, sqlmap, nuclei, gobuster, etc.)
 2. Attack chain planning (which tool to use next)
@@ -127,16 +127,16 @@ class GroqLLM:
                     continue
                 logger.error(f'Groq call error ({model}): {e}')
                 return ''
-        # All models failed — SentinelNet fallback
+        # All models failed — SentinelOctopus fallback
         try:
-            from modules.ml_engine.sentinel_net import NeuralTrainer
-            nt = NeuralTrainer()
-            if nt.load():
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            oc = SentinelOctopus()
+            if oc.load():
                 text = messages[-1].get('content', '')[:200]
-                pred = nt.predict(text)
+                pred = oc.predict(text)
                 return f"{pred.get('label','')} {pred.get('threat_type','')} {pred.get('action_hint','')}"
         except Exception as e:
-            logger.debug(f'SentinelNet fallback failed: {e}')
+            logger.debug(f'SentinelOctopus fallback failed: {e}')
         return ''
 
     def ask(self, prompt: str, max_tokens: int = 300) -> str:

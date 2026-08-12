@@ -158,6 +158,8 @@ class SentinelProxyApp:
         self._intercept_pending  = False   # True when a flow is held
         self._current_intercept_id = ''      # flow_id of held request
         self._rep_history        = []      # Repeater send history
+        self._rep_stack          = []      # Per-session undo/redo stack
+        self._rep_idx            = -1      # Current position in stack
 
         self._setup_styles()
         self._show_onboarding()
@@ -372,7 +374,15 @@ class SentinelProxyApp:
             self.root.deiconify()
             self._set_window_icon(self.root)
             self._setup_styles()
-            self._build_ui()
+            try:
+                self._build_ui()
+            except Exception as _e:
+                import traceback
+                traceback.print_exc()
+                import tkinter.messagebox as _mb
+                _mb.showerror('SentinelProxy Error',
+                    f'UI build failed:\n{_e}\n\nCheck terminal for full traceback.')
+                return
             self._load_history()
 
         enter_btn = tk.Button(bot,
@@ -605,39 +615,125 @@ class SentinelProxyApp:
         self.entry_port.insert(0, '8082')
         self.entry_port.pack(side='right', padx=(0, 4))
 
+        # ── Tab Group Bar (Burp-style) ──────────────────────────────────────
+        tab_bar = tk.Frame(self.root, bg=BG2)
+        tab_bar.pack(fill='x')
+
+        self._group_labels  = {}
+        self._active_group  = 'INTERCEPT'
+        # name → list of tab indices belonging to that group
+        # populated after all tabs are added (see _init_groups)
+        self._group_tabs = {
+            'INTERCEPT': list(range(0,  2)),
+            'ATTACK':    list(range(2,  5)),
+            'ANALYSIS':  list(range(5,  12)),
+            'TOOLS':     list(range(12, 26)),
+            'CONFIG':    list(range(26, 32)),
+        }
+
+        def _switch_group(name):
+            self._active_group = name
+            # update label colours
+            for n, lbl in self._group_labels.items():
+                lbl.config(fg=ACCENT if n == name else TEXT3,
+                           bg=BG3  if n == name else BG2)
+            # hide all tabs, then show only this group's tabs
+            all_tabs = self.nb.tabs()
+            for i, tab_id in enumerate(all_tabs):
+                if i in self._group_tabs[name]:
+                    self.nb.add(tab_id)          # make visible
+                else:
+                    self.nb.hide(tab_id)         # hide
+            # select first visible tab of the group
+            first = self._group_tabs[name][0]
+            if first < len(all_tabs):
+                self.nb.select(first)
+
+        self._switch_group_fn = _switch_group
+
+        def _group_label(parent, name):
+            lbl = tk.Label(parent, text=f'  {name}  ', bg=BG2, fg=TEXT3,
+                font=('Fira Code', 8, 'bold'), cursor='hand2', pady=4)
+            lbl.pack(side='left')
+            lbl.bind('<Button-1>', lambda e, n=name: _switch_group(n))
+            self._group_labels[name] = lbl
+
+        def _group_sep(parent):
+            tk.Frame(parent, bg=BORDER2, width=1).pack(
+                side='left', fill='y', pady=3)
+
+        _group_label(tab_bar, 'INTERCEPT')
+        _group_sep(tab_bar)
+        _group_label(tab_bar, 'ATTACK')
+        _group_sep(tab_bar)
+        _group_label(tab_bar, 'ANALYSIS')
+        _group_sep(tab_bar)
+        _group_label(tab_bar, 'TOOLS')
+        _group_sep(tab_bar)
+        _group_label(tab_bar, 'CONFIG')
+
         # Notebook
         self.nb = ttk.Notebook(self.root)
         self.nb.pack(fill='both', expand=True)
 
-        self._build_proxy_tab()
-        self._build_repeater_tab()
-        self._build_intruder_tab()
-        self._build_scanner_tab()
-        self._build_decoder_tab()
-        self._build_logger_tab()
-        self._build_highlight_tab()
-        self._build_autofuzz_tab()
-        self._build_comparer_tab()
-        self._build_scope_tab()
-        self._build_report_tab()
-        self._build_match_replace_tab()
-        self._build_active_scanner_tab()
-        self._build_session_analyzer_tab()
-
-        # New tabs
         from sentinel_proxy.ui.tabs import (
             WebSocketTab, TargetTab, OrganizerTab,
             CollaboratorTab, AIPayloadTab, CSRFTab,
-            ParamMinerTab, RaceConditionTab
+            ParamMinerTab, RaceConditionTab,
+            AutorizeTab, UpstreamProxyTab, CrawlerTab,
+            JWTEditorTab, TLSInspectorTab, InterceptRulesTab,
+            SmugglerTab, GraphQLTab
         )
-        self._ws_tab           = WebSocketTab(self.nb, self)
-        self._target_tab       = TargetTab(self.nb, self)
-        self._organizer_tab    = OrganizerTab(self.nb, self)
-        self._collaborator_tab = CollaboratorTab(self.nb, self)
-        self._ai_payload_tab   = AIPayloadTab(self.nb, self)
-        self._csrf_tab         = CSRFTab(self.nb, self)
-        self._param_miner_tab  = ParamMinerTab(self.nb, self)
-        self._race_tab         = RaceConditionTab(self.nb, self)
+        from sentinel_proxy.extensions.loader import ExtensionManager
+        from sentinel_proxy.ui.tabs.extensions_tab import ExtensionsTab
+        from sentinel_proxy.ui.tabs.settings_tab import SettingsTab
+        self._ext_manager = ExtensionManager()
+        self._ext_manager.load_all()
+
+        # ── INTERCEPT ────────────────────────────────────────────────────────
+        self._build_proxy_tab()
+        self._build_repeater_tab()
+
+        # ── ATTACK ───────────────────────────────────────────────────────────
+        self._build_intruder_tab()
+        self._build_autofuzz_tab()
+        self._build_active_scanner_tab()
+
+        # ── ANALYSIS ─────────────────────────────────────────────────────────
+        self._build_scanner_tab()
+        self._build_logger_tab()
+        self._build_highlight_tab()
+        self._build_comparer_tab()
+        self._ws_tab      = WebSocketTab(self.nb, self)
+        self._autorize_tab = AutorizeTab(self.nb, self)
+        self._crawler_tab  = CrawlerTab(self.nb, self)
+
+        # ── TOOLS ────────────────────────────────────────────────────────────
+        self._build_decoder_tab()          # 12
+        self._build_session_analyzer_tab() # 13
+        self._organizer_tab    = OrganizerTab(self.nb, self)      # 14
+        self._collaborator_tab = CollaboratorTab(self.nb, self)   # 15
+        self._ai_payload_tab   = AIPayloadTab(self.nb, self)      # 16
+        self._csrf_tab         = CSRFTab(self.nb, self)           # 17
+        self._param_miner_tab  = ParamMinerTab(self.nb, self)     # 18
+        self._race_tab         = RaceConditionTab(self.nb, self)  # 19
+        self._jwt_tab          = JWTEditorTab(self.nb, self)      # 20
+        self._graphql_tab      = GraphQLTab(self.nb, self)        # 21
+        self._smuggler_tab     = SmugglerTab(self.nb, self)       # 22
+        self._tls_tab          = TLSInspectorTab(self.nb, self)   # 23
+        self._irules_tab       = InterceptRulesTab(self.nb, self) # 24
+        self._target_tab       = TargetTab(self.nb, self)         # 25 → moved to end of TOOLS
+
+        # ── CONFIG ───────────────────────────────────────────────────────────
+        self._build_scope_tab()
+        self._build_match_replace_tab()
+        self._upstream_tab     = UpstreamProxyTab(self.nb, self)
+        self._extensions_tab   = ExtensionsTab(self.nb, self._ext_manager)
+        self._settings_tab     = SettingsTab(self.nb, self)
+        self._build_report_tab()
+
+        # ── Activate default group after all tabs built ───────────────────────
+        self.root.after(50, lambda: self._switch_group_fn('INTERCEPT'))
 
         # Start background timers now that UI is fully built
         self.root.after(3000, self._auto_refresh_logger)
@@ -815,6 +911,15 @@ class SentinelProxyApp:
             command=self._repeater_save).pack(side='right', padx=4, pady=6)
         ttk.Button(ub, text='SEND  ▶', style='Cyan.TButton',
             command=self._repeater_send).pack(side='right', padx=4, pady=6)
+        self.rep_btn_fwd = ttk.Button(ub, text='→', style='Ghost.TButton',
+            command=self._repeater_forward)
+        self.rep_btn_fwd.pack(side='left', padx=2, pady=6)
+        self.rep_btn_back = ttk.Button(ub, text='←', style='Ghost.TButton',
+            command=self._repeater_back)
+        self.rep_btn_back.pack(side='left', padx=2, pady=6)
+        self.rep_nav_lbl = tk.Label(ub, text='0/0',
+            bg=BG3, fg=TEXT2, font=FONT_MONO_XS)
+        self.rep_nav_lbl.pack(side='left', padx=4)
 
         # Split pane
         pw = ttk.PanedWindow(frame, orient='horizontal')
@@ -1120,17 +1225,17 @@ class SentinelProxyApp:
         top = tk.Frame(pw, bg=BG)
         pw.add(top, weight=2)
 
-        cols = ('id','ts','method','host','path','status','risk','length','vulns')
+        cols = ('id','ts','method','host','path','status','ver','risk','length','vulns')
         self.log_tree = ttk.Treeview(top, columns=cols, show='headings')
         for col, w, h in [
             ('id',40,'#'), ('ts',80,'Time'), ('method',65,'Method'),
             ('host',180,'Host'), ('path',260,'Path'),
-            ('status',55,'Status'), ('risk',75,'Risk'),
-            ('length',65,'Length'), ('vulns',140,'Vulns'),
+            ('status',55,'Status'), ('ver',65,'Version'),
+            ('risk',75,'Risk'), ('length',65,'Length'), ('vulns',140,'Vulns'),
         ]:
             self.log_tree.heading(col, text=h)
             self.log_tree.column(col, width=w,
-                anchor='center' if col in ('id','ts','method','status','risk','length') else 'w')
+                anchor='center' if col in ('id','ts','method','status','ver','risk','length') else 'w')
 
         for sev, color in SEV_COLOR.items():
             self.log_tree.tag_configure(sev, foreground=color)
@@ -1972,6 +2077,9 @@ class SentinelProxyApp:
         """Called from daemon thread — return immediately, do all work in background."""
         def _work():
             try:
+                # Extension hooks
+                if hasattr(self, '_ext_manager'):
+                    flow.update(self._ext_manager.run_request_hooks(flow))
                 host = flow.get('host', '')
                 try:
                     in_scope = self.db.check_scope(host)
@@ -2021,6 +2129,9 @@ class SentinelProxyApp:
         """Called from daemon thread — return immediately, do all work in background."""
         def _work():
             try:
+                # Extension hooks
+                if hasattr(self, '_ext_manager'):
+                    flow.update(self._ext_manager.run_response_hooks(flow))
                 flow_id = flow.get('id', '')
                 if not flow_id:
                     return
@@ -2405,10 +2516,18 @@ class SentinelProxyApp:
                     rt += f"{k}: {v}\n"
                 rt += f"\n{r.text[:15000]}"
                 label = f"{r.status_code} {r.reason}  ·  {len(r.content)} bytes  ·  {elapsed:.0f}ms"
-                # Save to repeater history
+                # Save to repeater history (DB) + in-memory stack
                 self.db.save_repeater_history(
                     method, url, headers, body, rt,
                     r.status_code, len(r.content), round(elapsed, 1))
+                entry = {'method': method, 'url': url, 'request': raw,
+                         'response': rt, 'label': label}
+                # Truncate forward history if we branched
+                if self._rep_idx < len(self._rep_stack) - 1:
+                    self._rep_stack = self._rep_stack[:self._rep_idx + 1]
+                self._rep_stack.append(entry)
+                self._rep_idx = len(self._rep_stack) - 1
+                self.root.after(0, self._rep_nav_update)
                 self.root.after(0, lambda: [
                     self.rep_resp_txt.delete('1.0', 'end'),
                     self.rep_resp_txt.insert('1.0', rt),
@@ -2434,6 +2553,39 @@ class SentinelProxyApp:
         self.rep_resp_txt.delete('1.0', 'end')
         self.rep_url.delete(0, 'end')
         self.rep_status_lbl.config(text='')
+        self._rep_stack.clear()
+        self._rep_idx = -1
+        self._rep_nav_update()
+
+    def _rep_nav_update(self):
+        total = len(self._rep_stack)
+        pos   = self._rep_idx + 1 if total else 0
+        self.rep_nav_lbl.config(text=f'{pos}/{total}')
+        self.rep_btn_back.config(state='normal' if self._rep_idx > 0 else 'disabled')
+        self.rep_btn_fwd.config(state='normal' if self._rep_idx < total - 1 else 'disabled')
+
+    def _rep_load_entry(self, entry):
+        self.rep_method.set(entry['method'])
+        self.rep_url.delete(0, 'end')
+        self.rep_url.insert(0, entry['url'])
+        self.rep_req_txt.delete('1.0', 'end')
+        self.rep_req_txt.insert('1.0', entry['request'])
+        self.rep_resp_txt.delete('1.0', 'end')
+        self.rep_resp_txt.insert('1.0', entry['response'])
+        self.rep_status_lbl.config(text=entry['label'], fg=GREEN)
+
+    def _repeater_back(self):
+        if self._rep_idx > 0:
+            self._rep_idx -= 1
+            self._rep_load_entry(self._rep_stack[self._rep_idx])
+            self._rep_nav_update()
+
+    def _repeater_forward(self):
+        if self._rep_idx < len(self._rep_stack) - 1:
+            self._rep_idx += 1
+            self._rep_load_entry(self._rep_stack[self._rep_idx])
+            self._rep_nav_update()
+
 
     def _repeater_save(self):
         url = self.rep_url.get().strip()
@@ -3137,7 +3289,9 @@ class SentinelProxyApp:
             self.log_tree.insert('', 'end', iid=str(r['id']),
                 values=(r['id'], ts, r.get('method',''),
                         r.get('host','')[:35], r.get('path','')[:55],
-                        r.get('status_code',''), risk,
+                        r.get('status_code',''),
+                        r.get('http_version', 'HTTP/1.1'),
+                        risk,
                         r.get('resp_length',''),
                         ', '.join(vulns) if vulns else ''),
                 tags=tuple(tags))
@@ -3161,6 +3315,7 @@ class SentinelProxyApp:
         out  += f"Method   : {req.get('method','')}\n"
         out  += f"URL      : {req.get('url','')}\n"
         out  += f"Status   : {req.get('status_code','')}\n"
+        out  += f"Version  : {req.get('http_version','HTTP/1.1')}\n"
         out  += f"Risk     : {req.get('ai_risk','')}\n"
         out  += f"Length   : {req.get('resp_length','')}\n"
         out  += f"Flagged  : {'Yes' if req.get('flagged') else 'No'}\n"

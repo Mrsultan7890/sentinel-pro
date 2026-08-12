@@ -208,6 +208,11 @@ class TheSentinelPro:
         self.self_healing = SelfHealingEngine()
         self.behavioral_engine = BehavioralEngine()
 
+        # Live panel — persistent right-side status
+        from modules.sentinel_animations import SentinelLivePanel
+        self._panel = SentinelLivePanel(console=self.console)
+        self._panel.start()
+
         # Autonomous ML learning loop — background daemon
         self._autonomous_loop = AutonomousLearningLoop()
         self._autonomous_loop.start()
@@ -306,48 +311,6 @@ class TheSentinelPro:
         p("[dim]  ─────────────────────────────────────────────────────────────────[/dim]")
         p()
         self._startup_animation()
-
-    def _check_license_startup(self):
-        """Startup pe license check karo."""
-        from modules.license_manager import check_license, PLANS
-        info = check_license()
-
-        if info['valid']:
-            plan_name = PLANS.get(info['plan'], info['plan'])
-            expiry_str = info.get('expires_at', 'N/A')
-            cached = ' [dim](cached)[/dim]' if info.get('cached') else ''
-            self.console.print(
-                f"  [green]\u2713 Licensed[/green] \u2014 [cyan]{plan_name}[/cyan] \u00b7 [dim]expires {expiry_str}[/dim]{cached}\n"
-            )
-            self._license_plan = info['plan']
-        else:
-            self.console.print("  [yellow]\u26a0  No active license[/yellow]")
-            self.console.print("  [dim]Get your license key: [bold cyan]t.me/Solutioncobot[/bold cyan][/dim]")
-            self.console.print("  [dim]Then run: [bold]activate <SNTNL-XXXXXXXX-PENDING>[/bold][/dim]\n")
-            self.console.print("[red]Tool locked. Get a license from the bot to continue.[/red]\n")
-            self._license_plan = None
-            self._locked_mode()
-
-    def _locked_mode(self):
-        """Bina license ke sirf activate command allow karo."""
-        while True:
-            try:
-                raw = self.console.input("\n[bold red]locked>[/bold red] ").strip()
-                cmd = raw.split(' ', 1)
-                if cmd[0].lower() in ('exit', 'quit', 'q'):
-                    raise SystemExit(0)
-                elif raw.lower().startswith('activate'):
-                    self._handle_activate(raw)
-                    # Agar activate successful hua toh locked mode se bahar
-                    from modules.license_manager import check_license
-                    if check_license()['valid']:
-                        self.console.print("[green]Restarting tool...[/green]")
-                        import os, sys
-                        os.execv(sys.executable, [sys.executable] + sys.argv)
-                else:
-                    self.console.print("[red]Tool locked.[/red] Get license: [bold cyan]t.me/Solutioncobot[/bold cyan] → then run: [bold]activate <KEY>[/bold]")
-            except (KeyboardInterrupt, EOFError):
-                raise SystemExit(0)
 
     def _startup_animation(self):
         """Industry-grade boot sequence with real system checks."""
@@ -452,7 +415,7 @@ class TheSentinelPro:
     def run(self):
         """Enhanced main execution loop with rich interface"""
         self.display_banner()
-        self._check_license_startup()
+        self._panel.set_license("Open Source")
         
         while True:
             try:
@@ -522,6 +485,8 @@ class TheSentinelPro:
                     self._handle_recon(command)
                 elif command.startswith('breach'):
                     self._handle_breach(command)
+                elif command.startswith('payment'):
+                    self._handle_payment(command)
                 elif command.startswith('phone'):
                     self._handle_phone(command)
                 elif command.startswith('person'):
@@ -588,14 +553,14 @@ class TheSentinelPro:
                     self._handle_privilege(command)
                 elif command == 'proxy' or command.startswith('proxy') or command.startswith('sentinelproxy'):
                     self._handle_proxy(command)
-                elif command.startswith('activate'):
-                    self._handle_activate(command)
                 elif command.startswith('profile'):
                     self._handle_profile(command)
                 elif command.startswith('heal') or command.startswith('selfheal'):
                     self._handle_self_healing(command)
                 elif command.startswith('intel') or command.startswith('sentinel-intel'):
                     self._handle_sentinel_intel(command)
+                elif command.startswith('vault') or command.startswith('octopus-vault'):
+                    self._handle_vault(command)
                 elif command.startswith('predict'):
                     self._handle_predict(command)
                 elif command.startswith('behavioral'):
@@ -699,7 +664,7 @@ class TheSentinelPro:
 [green]monitor stop[/green]               - Stop monitoring
 [green]monitor interval <seconds>[/green] - Set scan interval
 [green]monitor status[/green]             - Monitor status
-[green]agent <task>[/green]         - 🤖 ReAct Agent: SentinelNet decides + executes tools autonomously
+[green]agent <task>[/green]         - 🤖 ReAct Agent: SentinelOctopus decides + executes tools autonomously
 [green]agent <task> --auto[/green]  - 🤖 Fully autonomous agent (no confirmation)
 [green]auto <target>[/green]        - ⚡ Autonomous mode: model decides everything
 [green]auto <target> --auto[/green] - ⚡ Fully autonomous (no confirmation)
@@ -710,6 +675,7 @@ class TheSentinelPro:
 [green]breach <email>[/green]       - Check email/username in data breach databases
 [green]email <email>[/green]        - Full email OSINT (breach + social profiles + domain validation)
 [green]phone <number>[/green]       - Phone number OSINT (carrier + country + line type + social hints)
+[green]payment <identifier>[/green]  - Payment app OSINT (Venmo/CashApp/Paytm/JazzCash/bKash/GCash/MoMo/Pix + 15 more)
 [green]person <name/email/phone>[/green] - Person OSINT (naam/email/phone se social profiles + relations map)
 [green]image <path>[/green]         - Image OSINT (reverse search + face detection + metadata)
 [green]nlp <text or @file>[/green]  - NLP deep analysis (professions, interests, personality, writing style, timeline)
@@ -730,7 +696,6 @@ class TheSentinelPro:
 [green]status[/green]               - Detailed system status
 
 [bold cyan]SYSTEM COMMANDS[/bold cyan]
-[green]activate <KEY>[/green]      - Activate license key (offline HMAC-SHA256)
 [green]proxy start[/green]         - 🔒 Start SentinelProxy v2.0 (Rust Core)
 [green]proxy stop[/green]          - Stop SentinelProxy
 [green]proxy restart[/green]       - Kill stale + fresh start (use when site not loading)
@@ -791,6 +756,7 @@ class TheSentinelPro:
 [green]profile <name>[/green]      - Switch to scanning profile (fast/balanced/monitoring)
 [green]profile current[/green]     - Show current profile settings
 [green]intel[/green]               - Launch Sentinel Intel (PyQt6 graph-based OSINT investigation platform)
+[green]vault[/green]               - Launch Octopus-Vault (OSINT case management · encrypted · investigation board)
 [green]heal status[/green]         - 🏥 Self-healing engine status (CVE monitor + patch manager + config hardener + incident responder)
 [green]heal start[/green]          - Start continuous monitoring (CVE + config + incidents)
 [green]heal stop[/green]           - Stop monitoring
@@ -816,54 +782,14 @@ class TheSentinelPro:
 [green]heal incident respond[/green] - Auto-respond to incidents
 [green]heal incident active[/green] - List active incidents
 [green]predict <target>[/green]     - 🔮 Predictive threat engine: attack surface mapping + threat trends
-[green]crypto status[/green]        - 🔐 Quantum-ready crypto engine status (Kyber + Dilithium + SPHINCS+)
-[green]crypto test <algo>[/green]   - Test PQ algorithm (kyber/dilithium/sphincs)
-[green]crypto benchmark[/green]     - Benchmark all PQ algorithms
-[green]sandbox status[/green]       - 🛡️ Autonomous sandbox engine status
-[green]sandbox test[/green]         - Test sandbox isolation layers
-[green]sandbox run <cmd>[/green]    - Run command in sandbox
-[green]sandbox forensics[/green]    - Show sandbox forensics log
 [green]behavioral dashboard[/green] - 📊 BIE behavioral metrics dashboard
-[green]intel[/green]                - 🕸️ Launch Sentinel Intel v2.0 (Graph-based OSINT investigation platform)
 
 [bold cyan]SENTINEL INTEL (Graph Intelligence)[/bold cyan]
-[green]intel[/green]                - Launch Sentinel Intel PyQt6 GUI (13 engines, 60+ entity types, 40+ transforms)
-                            - Maltego-style hierarchical entity relationships (2-3 levels deep)
-                            - Real-time search/filter, Risk heatmap, Timeline, Tree view, Table view
-                            - ML: Clustering (DBSCAN), Link prediction (GNN), Identity resolution
-                            - AI: EntityMatcher, IdentityScorer, WritingFingerprinter, FakeDetector
-                            - Export: PNG, Interactive HTML (PyVis 3D), JSON, PDF reports
+[green]intel[/green]                - 🕸️ Launch Sentinel Intel v2.0 (Graph-based OSINT investigation platform)
                             - 14 Intelligence Engines: Email, Phone, IP, Domain, Person, Username,
                               Hash, Crypto, URL, Company, CVE, Breach, Malware, Database
-                            - Nested sub-entities: Parent → Child → Grandchild auto-created
-                            - Risk-based visualization: Color/border/glow by threat level
-
-[bold cyan]HARDWARE SECURITY (HSE)[/bold cyan]
-[green]tpm status[/green]          - TPM 2.0 status
-[green]tpm seal <data>[/green]     - Seal data with TPM
-[green]tpm unseal <sealed>[/green] - Unseal TPM data
-[green]sgx status[/green]          - Intel SGX enclave status
-[green]sgx run <code>[/green]      - Execute in SGX enclave
-[green]secureboot status[/green]   - UEFI Secure Boot status
-[green]dma status[/green]          - DMA protection status
-[green]attestation remote <host>[/green] - Remote attestation
-
-[bold cyan]BLOCKCHAIN & POST-QUANTUM CRYPTO[/bold cyan]
-[green]blockchain deploy[/green]   - Deploy IOC registry contract
-[green]blockchain add <ioc>[/green] - Add IOC to blockchain
-[green]blockchain verify <ioc>[/green] - Verify IOC on-chain
-[green]crypto keygen[/green]       - Generate PQ keypair (Kyber/Dilithium)
-[green]crypto encrypt <file>[/green] - PQ encrypt file
-[green]crypto decrypt <file>[/green] - PQ decrypt file
-[green]crypto sign <file>[/green]  - PQ sign file
-
-[bold cyan]P2P & DISTRIBUTED INTEL[/bold cyan]
-[green]p2p start[/green]           - Start P2P node (Go)
-[green]p2p peers[/green]           - List connected peers
-[green]p2p share <ioc>[/green]     - Share IOC via P2P
-[green]ipfs add <file>[/green]     - Add to IPFS
-[green]ipfs get <hash>[/green]     - Retrieve from IPFS
-[green]ipfs pin <hash>[/green]     - Pin evidence to IPFS
+                            - 40+ transforms · ML clustering · Link prediction · Risk visualization
+                            - Export: PNG, JSON, PDF reports
 
 [bold cyan]MISC[/bold cyan]
 [green]clear[/green]               - Clear screen
@@ -1583,17 +1509,13 @@ class TheSentinelPro:
             from modules.ml_engine.trainer import ModelTrainer
             status = ModelTrainer.status()
             
-            # SentinelNet
-            if Path('models/ml_engine/sentinel_threat_net.pt').exists():
-                ml_table.add_row("SentinelNet v5.0", "[green]✓ LOADED[/green]", "F1=0.83 | 8.56 MB")
+            # SentinelOctopus
+            octopus_path = Path('models/sentineloctopus-0.5b/pytorch_model.bin')
+            if octopus_path.exists():
+                size_mb = round(octopus_path.stat().st_size / 1024 / 1024, 1)
+                ml_table.add_row("SentinelOctopus-0.5B", "[green]✓ LOADED[/green]", f"v1.1 | {size_mb} MB | classify+cmd_gen+chain_gen")
             else:
-                ml_table.add_row("SentinelNet v5.0", "[yellow]✗ NOT TRAINED[/yellow]", "Run: train collect")
-            
-            # Seq2Seq
-            if Path('models/ml_engine/sentinel_seq2seq.pt').exists():
-                ml_table.add_row("Seq2Seq v2.0", "[green]✓ LOADED[/green]", "Command gen | 29.24 MB")
-            else:
-                ml_table.add_row("Seq2Seq v2.0", "[yellow]✗ NOT TRAINED[/yellow]", "Run: train collect")
+                ml_table.add_row("SentinelOctopus-0.5B", "[yellow]✗ NOT FOUND[/yellow]", "models/sentineloctopus-0.5b/ missing")
             
             # RL Agent
             if Path('models/ml_engine/rl_qtable.json').exists():
@@ -1678,36 +1600,6 @@ class TheSentinelPro:
             monitor_table.add_row("Monitor", "[red]✗ ERROR[/red]", str(e)[:50])
         
         self.console.print(monitor_table)
-
-        # License Status
-        license_table = Table(title="[bold]License Status[/bold]", border_style="yellow")
-        license_table.add_column("Property", style="bold")
-        license_table.add_column("Value", justify="center")
-        license_table.add_column("Details", style="dim")
-
-        try:
-            from modules.license_manager import check_license, PLANS
-            info = check_license()
-            
-            if info['valid']:
-                plan_name = PLANS.get(info['plan'], info['plan'])
-                license_table.add_row("Status", "[green]✓ ACTIVE[/green]", "Licensed")
-                license_table.add_row("Plan", f"[cyan]{plan_name}[/cyan]", info['plan'].upper())
-                license_table.add_row("Email", info.get('email', 'N/A'), "Registered user")
-                
-                if info['expiry'] == 'lifetime':
-                    license_table.add_row("Expiry", "[green]♾️ LIFETIME[/green]", "Never expires")
-                else:
-                    license_table.add_row("Expiry", info['expiry'], "Expiration date")
-                
-                license_table.add_row("Machine ID", info.get('machine_id', 'N/A')[:16] + '...', "Hardware bound")
-            else:
-                license_table.add_row("Status", "[red]✗ INACTIVE[/red]", info.get('reason', 'No license'))
-                license_table.add_row("Action", "[yellow]activate <KEY>[/yellow]", "Activate license")
-        except Exception as e:
-            license_table.add_row("License", "[red]✗ ERROR[/red]", str(e)[:50])
-        
-        self.console.print(license_table)
 
         # API keys status
         api_table = Table(title="[bold]API Keys Status[/bold]", border_style="yellow")
@@ -2577,7 +2469,7 @@ class TheSentinelPro:
         task = task.replace('--auto', '').strip()
 
         self.console.print(f"[bold red]\n🤖 SENTINEL AGENT — {task}[/bold red]")
-        self.console.print(f"[dim]Auto: {auto} | Model: {'SentinelNet v4.0' if True else 'heuristic'}[/dim]\n")
+        self.console.print(f"[dim]Auto: {auto} | Model: SentinelOctopus-0.5B[/dim]\n")
 
         try:
             from modules.agent_core import SentinelAgent
@@ -3682,8 +3574,60 @@ class TheSentinelPro:
         self.console.print(f"  Summary: {paths['summary']}")
         self.console.print(f"  HTML   : {paths['html']}")
 
+    def _handle_payment(self, command: str):
+        """Payment app OSINT — phone/email/username/UPI/$tag"""
+        parts = command.split(None, 2)
+        APP_SHORTCUTS = {
+            'venmo': 'check_venmo', 'cashapp': 'check_cashapp', 'paypalme': 'check_paypalme',
+            'monzo': 'check_monzo', 'revolut': 'check_revolut', 'sadapay': 'check_sadapay',
+            'nayapay': 'check_nayapay', 'jazzcash': 'check_jazzcash', 'easypaisa': 'check_easypaisa',
+            'paytm': 'check_paytm', 'upi': 'check_upi', 'bkash': 'check_bkash',
+            'gcash': 'check_gcash', 'maya': 'check_maya', 'momo': 'check_momo',
+            'picpay': 'check_picpay', 'pix': 'check_pix', 'payid': 'check_payid',
+            'mpesa': 'check_mpesa', 'wave': 'check_wave',
+        }
+        from modules.recon import payment_osint as _pay
+
+        if len(parts) == 3 and parts[1].lower() in APP_SHORTCUTS:
+            app, identifier = parts[1].lower(), parts[2].strip()
+            fn = getattr(_pay, APP_SHORTCUTS[app])
+            with sentinel_progress(console=self.console) as progress:
+                task = progress.add_task(f"[cyan]Payment OSINT ({app})...", total=100)
+                result = fn(identifier)
+                progress.update(task, completed=100)
+            results = [result]
+        elif len(parts) >= 2:
+            identifier = parts[1].strip()
+            with sentinel_progress(console=self.console) as progress:
+                task = progress.add_task("[cyan]Payment OSINT (all apps)...", total=100)
+                data = _pay.run_all(identifier)
+                progress.update(task, completed=100)
+            results = data['results']
+        else:
+            self.console.print("[red]Usage: payment <phone/email/username>  OR  payment <app> <identifier>[/red]")
+            self.console.print("[yellow]Apps: venmo cashapp paypalme monzo revolut sadapay nayapay jazzcash easypaisa paytm upi bkash gcash maya momo picpay pix payid mpesa wave[/yellow]")
+            return
+
+        found = [r for r in results if r.get('found')]
+        self.console.print(f"\n[bold cyan]💳 Payment App OSINT[/bold cyan]")
+        self.console.print(f"  Checked : {len(results)} app(s)")
+        self.console.print(f"  Found   : [{'green' if found else 'yellow'}]{len(found)}[/{'green' if found else 'yellow'}] profile(s)\n")
+
+        if found:
+            for r in found:
+                color = 'red' if r['risk_level'] == 'HIGH' else 'yellow'
+                self.console.print(f"  [green]✓[/green] [bold]{r['app']}[/bold] ({r['country']})")
+                self.console.print(f"      Name       : [cyan]{r['name']}[/cyan]")
+                if r.get('profile_pic'):
+                    self.console.print(f"      Profile Pic: {r['profile_pic']}")
+                if r.get('public_transactions'):
+                    self.console.print(f"      [red]⚠ Public transactions visible[/red]")
+                self.console.print(f"      Risk       : [{color}]{r['risk_level']}[/{color}]")
+                self.console.print(f"      URL        : {r['source_url']}\n")
+        else:
+            self.console.print("  [yellow]No payment profiles found[/yellow]")
+
     def _handle_osint(self, command: str):
-        """osint <username/email/phone/domain> — auto-detect type"""
         parts  = command.split(None, 1)
         target = parts[1].strip() if len(parts) > 1 else ''
         if not target:
@@ -4652,30 +4596,6 @@ except KeyboardInterrupt:
 
         self.console.print("[dim]Usage: train status | train collect | train run | train save | train eval[/dim]")
 
-    def _handle_activate(self, command: str):
-        """License key activate karo."""
-        parts = command.split(' ', 1)
-        if len(parts) < 2 or not parts[1].strip():
-            from modules.license_manager import check_license, PLANS
-            info = check_license()
-            if info['valid']:
-                plan_name = PLANS.get(info['plan'], info['plan'])
-                self.console.print(f"[green]\u2713 License ACTIVE[/green]")
-                self.console.print(f"  Plan   : [cyan]{plan_name}[/cyan]")
-                self.console.print(f"  Expiry : {info.get('expires_at', 'N/A')}")
-            else:
-                self.console.print(f"[red]\u2717 No valid license[/red] \u2014 {info['reason']}")
-                self.console.print("[dim]Usage: activate <SNTNL-XXXXXXXX-PENDING>[/dim]")
-                self.console.print("[dim]Get key: Telegram bot se kharido[/dim]")
-            return
-        key = parts[1].strip()
-        from modules.license_manager import activate
-        result = activate(key)
-        if result['success']:
-            self.console.print(f"[bold green]\u2713 {result['message']}[/bold green]")
-        else:
-            self.console.print(f"[red]\u2717 Activation failed: {result['message']}[/red]")
-
     def _handle_proxy(self, command: str = 'proxy'):
         """SentinelProxy commands — start / stop / restart / status"""
         import subprocess
@@ -4730,10 +4650,28 @@ except KeyboardInterrupt:
             self.console.print("[cyan][*][/cyan] Starting SentinelProxy v2.0 (Rust Core)...")
             try:
                 if use_import:
-                    # .so compiled version — ui.app mein main() hai
-                    cmd = [python, '-c',
-                        f'import sys; sys.path.insert(0, "{_base}"); '
-                        f'from sentinel_proxy.ui.app import main; main()']
+                    # .so compiled version — launch proxy as completely fresh process
+                    # using osints source directly to avoid Nuitka .so conflict
+                    osints_base = Path('/home/kali/osints')
+                    osints_proxy = osints_base / 'sentinel_proxy' / 'main.py'
+                    if osints_proxy.exists():
+                        cmd = [python, str(osints_proxy)]
+                    else:
+                        cmd = [python, '-c',
+                            f'import sys, time; sys.path.insert(0, "{_base}"); '
+                            f'import sentinel_proxy.main as _m; '
+                            f'rust = _m.start_rust_core(); '
+                            f'from sentinel_proxy.core.rust_bridge import RustCoreBridge; '
+                            f'bridge = RustCoreBridge(_m.SOCK_PATH); bridge.start(); time.sleep(0.5); '
+                            f'from sentinel_proxy.ui.app import SentinelProxyApp; '
+                            f'app = SentinelProxyApp(rust_bridge=bridge); '
+                            f'bridge.on_request = app._on_proxy_request; '
+                            f'bridge.on_response = app._on_proxy_response; '
+                            f'bridge.on_websocket = app._on_proxy_websocket; '
+                            f'bridge.on_intercepted = app._on_intercept_held; '
+                            f'app.root.after(800, lambda: None); '
+                            f'app.root.mainloop(); '
+                            f'_m.cleanup()']
                 else:
                     cmd = [python, str(proxy_main)]
                 subprocess.Popen(
@@ -5275,7 +5213,8 @@ except KeyboardInterrupt:
             'scheduler', 'schedule', 'credential', 'cred', 'sysmon', 'system',
             'correlate', 'correlation', 'filesystem', 'secure', 'security', 'groq',
             'llm', 'metasploit', 'msf', 'forensics', 'forensic', 'privilege', 'sudo',
-            'proxy', 'sentinelproxy', 'activate', 'profile', 'intel', 'sentinel-intel',
+            'proxy', 'sentinelproxy', 'profile', 'intel', 'sentinel-intel',
+            'vault', 'octopus-vault',
             'exit', 'quit'
         ]
         
@@ -5411,17 +5350,20 @@ except KeyboardInterrupt:
             base_dir = Path(__file__).parent
             intel_main_py = base_dir / 'sentinel_intel' / 'main.py'
             intel_main_so = list((base_dir / 'sentinel_intel').glob('main*.so'))
-            venv_python = base_dir / 'venv' / 'bin' / 'python3'
+            osints_intel_py = Path('/home/kali/osints/sentinel_intel/main.py')
+            venv_python = Path('/home/kali/osints/venv/bin/python3')
 
-            if not intel_main_py.exists() and not intel_main_so:
-                self.console.print(f"[red]Sentinel Intel not found at: {base_dir / 'sentinel_intel'}[/red]")
+            if not intel_main_py.exists() and not intel_main_so and not osints_intel_py.exists():
+                self.console.print(f"[red]Sentinel Intel not found[/red]")
                 return
 
             # Use venv python if available
             python_cmd = str(venv_python) if venv_python.exists() else sys.executable
 
-            # .py prefer karo, warna .so import karo
-            if intel_main_py.exists():
+            # .so conflict fix: osints .py directly use karo (Nuitka .so conflict avoid)
+            if osints_intel_py.exists():
+                cmd = [python_cmd, str(osints_intel_py)]
+            elif intel_main_py.exists():
                 cmd = [python_cmd, str(intel_main_py)]
             else:
                 cmd = [python_cmd, '-c',
@@ -6695,6 +6637,36 @@ except KeyboardInterrupt:
                 self.console.print("[red]Usage: ipfs add <file> | get <hash> | pin <hash>[/red]")
         except Exception as e:
             self.console.print(f"[red]IPFS Error: {e}[/red]")
+
+    def _handle_vault(self, command: str):
+        """Launch Octopus-Vault — OSINT Case Management"""
+        self.console.print("[cyan]Launching Octopus-Vault...[/cyan]")
+        self.console.print("[dim]OSINT Case Management — Encrypted local vault[/dim]")
+        try:
+            import subprocess
+            import sys
+            from pathlib import Path
+
+            base_dir    = Path(__file__).parent
+            vault_py    = base_dir / 'octopus_vault' / 'main.py'
+            venv_python = Path('/home/kali/osints/venv/bin/python3')
+
+            if not vault_py.exists():
+                self.console.print(f"[red]Octopus-Vault not found at: {vault_py}[/red]")
+                return
+
+            python_cmd = str(venv_python) if venv_python.exists() else sys.executable
+
+            subprocess.Popen(
+                [python_cmd, str(vault_py)],
+                cwd=str(base_dir / 'octopus_vault'),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            self.console.print("[green]✓ Octopus-Vault launched[/green]")
+            self.console.print("[dim]Commands: T1 Cases · T2 Subjects · T3 Evidence · T4 Timeline · T9 Link Graph · Ctrl+Alt+S Board[/dim]")
+        except Exception as e:
+            self.console.print(f"[red]Vault Error: {e}[/red]")
 
 
 if __name__ == "__main__":

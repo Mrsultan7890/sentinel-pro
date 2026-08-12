@@ -63,11 +63,11 @@ def _load_neural_model():
         if _neural_trainer_cache is not None:
             return _neural_trainer_cache
         try:
-            from modules.ml_engine.sentinel_net import NeuralTrainer
-            nt = NeuralTrainer()
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            nt = SentinelOctopus()
             if nt.load():
                 _neural_trainer_cache = nt
-                logger.info("SentinelThreatNet (BiLSTM) loaded as primary intelligence model")
+                logger.info("SentinelOctopus loaded as primary intelligence model")
                 return _neural_trainer_cache
         except Exception as e:
             logger.debug(f"SentinelThreatNet load failed: {e}")

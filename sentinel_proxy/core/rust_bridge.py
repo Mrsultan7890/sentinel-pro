@@ -102,6 +102,20 @@ class RustCoreBridge:
                 valid_hosts.append(h.strip())
         self._send_cmd({'action': 'set_intercept_scope', 'hosts': valid_hosts})
 
+    def set_upstream_proxy(self, enabled: bool, proxy_type: str = 'socks5',
+                           host: str = '', port: int = 0,
+                           username: str = '', password: str = ''):
+        """Configure upstream proxy (SOCKS5/HTTP/Tor) in Rust core."""
+        self._send_cmd({
+            'action':     'set_upstream_proxy',
+            'enabled':    bool(enabled),
+            'proxy_type': proxy_type,
+            'host':       host,
+            'port':       int(port),
+            'username':   username,
+            'password':   password,
+        })
+
     def forward_flow(self, flow_id: str):
         if not flow_id or not isinstance(flow_id, str):
             logger.error('Invalid flow_id')
@@ -279,6 +293,7 @@ class RustCoreBridge:
             'params':    self._parse_params(e.get('url', ''), e.get('body', '')),
             'is_https':  e.get('is_https', False),
             'http_ver':  e.get('http_ver', 'HTTP/1.1'),
+            'http_version': 'HTTP/2' if 'h2' in e.get('http_ver', '').lower() or '2' in e.get('http_ver', '') else 'HTTP/1.1',
             'stage':     'request',
         }
 
@@ -292,6 +307,7 @@ class RustCoreBridge:
             'resp_length':   e.get('body_length', 0),
             'content_type':  e.get('content_type', ''),
             'response_time': e.get('response_time', 0),
+            'http_version':  e.get('http_version', 'HTTP/1.1'),
             'stage':         'response',
         }
 

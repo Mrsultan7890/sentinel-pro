@@ -1524,57 +1524,34 @@ class ModelTrainer:
                 'status': 'insufficient_data'
             }
 
-        logger.info(f"Training SentinelThreatNet on {len(texts)} samples...")
+        logger.info(f"Training SentinelOctopus on {len(texts)} samples...")
 
-        from modules.ml_engine.sentinel_net import NeuralTrainer
-        import torch
+        # SentinelOctopus already trained — fine-tune via predict feedback loop
+        try:
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            oc = SentinelOctopus()
+            if oc.load():
+                self._neural_trainer = oc
+                logger.info("SentinelOctopus loaded for prediction")
+                return {
+                    'status':       'loaded',
+                    'samples':      len(texts),
+                    'model':        'SentinelOctopus-0.5B',
+                    'note':         'Pre-trained model — use collected data for context',
+                    'author':       'who_is_the_black_hat',
+                }
+        except Exception as e:
+            logger.error(f"SentinelOctopus load failed: {e}")
 
-        # CPU/GPU ke hisaab se hyperparams adjust karo
-        gpu_available = torch.cuda.is_available()
-        epochs     = min(20, max(8, len(texts) // 10))   # CPU pe kam epochs
-        batch_size = min(32, len(texts) // 4) if gpu_available else min(64, len(texts) // 4)
-        patience   = 3  # CPU pe jaldi early stop
-
-        trainer = NeuralTrainer(
-            embed_dim  = 64  if not gpu_available else 128,   # CPU pe smaller model
-            hidden_dim = 128 if not gpu_available else 256,
-            num_layers = 1   if not gpu_available else 2,     # 1 layer = 4x faster
-            dropout    = 0.3,
-            max_len    = 128 if not gpu_available else 256,   # shorter sequences
-            batch_size = batch_size,
-            lr         = 2e-3,
-            epochs     = epochs,
-            patience   = patience,
-        )
-
-        history = trainer.train(texts, labels)
-        saved   = trainer.save()
-
-        logger.info(f"SentinelThreatNet training complete:")
-        logger.info(f"  Best F1  : {history['best_val_f1']:.4f}")
-        logger.info(f"  Best Acc : {history['best_val_acc']:.2%}")
-        logger.info(f"  Epochs   : {history['epochs_run']}")
-        logger.info(f"  Size     : {saved['size_mb']} MB")
-
-        # Store trainer for predict
-        self._neural_trainer = trainer
-
-        return {
-            'status':       'trained',
-            'samples':      len(texts),
-            'best_f1':      history['best_val_f1'],
-            'best_acc':     history['best_val_acc'],
-            'epochs_run':   history['epochs_run'],
-            'model_size_mb': saved['size_mb'],
-            'model_path':   saved['model'],
-            'author':       'who_is_the_black_hat',
-        }
+        return {'status': 'error', 'error': 'SentinelOctopus model not found'}
 
     def predict_neural(self, text: str) -> dict:
-        """SentinelThreatNet se predict karo"""
-        from modules.ml_engine.sentinel_net import NeuralTrainer
-        if not hasattr(self, '_neural_trainer'):
-            self._neural_trainer = NeuralTrainer()
+        """SentinelOctopus se predict karo"""
+        from modules.ml_engine.sentinel_octopus import SentinelOctopus
+        if not hasattr(self, '_neural_trainer') or not isinstance(self._neural_trainer, SentinelOctopus):
+            oc = SentinelOctopus()
+            oc.load()
+            self._neural_trainer = oc
         return self._neural_trainer.predict(text)
 
     def evaluate(self) -> dict:

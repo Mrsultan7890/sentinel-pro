@@ -1,0 +1,86 @@
+{
+  "WordPress": {
+    "paths": ["/wp-login.php", "/wp-admin/", "/wp-content/", "/wp-includes/", "/xmlrpc.php", "/wp-json/"],
+    "headers": {"x-powered-by": ""},
+    "body_patterns": ["wp-content", "wp-includes", "WordPress", "/wp-json/wp/v2/"],
+    "meta_patterns": ["generator.*WordPress"],
+    "tech_payloads": ["/wp-content/plugins/", "/?author=1", "/wp-json/wp/v2/users"]
+  },
+  "Drupal": {
+    "paths": ["/user/login", "/admin/", "/sites/default/", "/?q=user/login", "/core/misc/drupal.js"],
+    "headers": {"x-generator": "Drupal"},
+    "body_patterns": ["Drupal.settings", "drupal.org", "sites/default/files"],
+    "meta_patterns": ["generator.*Drupal"],
+    "tech_payloads": ["/CHANGELOG.txt", "/core/CHANGELOG.txt", "/?q=admin/config"]
+  },
+  "Joomla": {
+    "paths": ["/administrator/", "/components/", "/modules/", "/templates/", "/media/jui/"],
+    "headers": {},
+    "body_patterns": ["Joomla!", "/media/jui/js/", "option=com_"],
+    "meta_patterns": ["generator.*Joomla"],
+    "tech_payloads": ["/administrator/index.php", "/README.txt", "/configuration.php-dist"]
+  },
+  "Magento": {
+    "paths": ["/admin/", "/downloader/", "/skin/frontend/", "/js/mage/", "/app/etc/"],
+    "headers": {"x-magento-cache-debug": ""},
+    "body_patterns": ["Mage.Cookies", "skin/frontend", "Magento"],
+    "meta_patterns": [],
+    "tech_payloads": ["/app/etc/local.xml", "/downloader/", "/admin/dashboard/"]
+  },
+  "Laravel": {
+    "paths": ["/public/", "/.env", "/storage/logs/"],
+    "headers": {"x-powered-by": "PHP"},
+    "body_patterns": ["laravel_session", "XSRF-TOKEN", "Illuminate\\"],
+    "meta_patterns": [],
+    "tech_payloads": ["/.env", "/storage/logs/laravel.log", "/telescope", "/horizon"]
+  },
+  "Django": {
+    "paths": ["/admin/", "/static/admin/", "/accounts/login/"],
+    "headers": {"x-frame-options": "SAMEORIGIN"},
+    "body_patterns": ["csrfmiddlewaretoken", "django", "__admin_media_prefix__"],
+    "meta_patterns": [],
+    "tech_payloads": ["/admin/login/", "/static/admin/css/base.css", "/__debug__/"]
+  },
+  "Rails": {
+    "paths": ["/rails/info/", "/assets/application-"],
+    "headers": {"x-powered-by": "Phusion Passenger"},
+    "body_patterns": ["authenticity_token", "rails-ujs", "data-remote=\"true\""],
+    "meta_patterns": [],
+    "tech_payloads": ["/rails/info/properties", "/rails/mailers", "/.git/config"]
+  },
+  "Spring": {
+    "paths": ["/actuator/", "/actuator/health", "/actuator/env", "/swagger-ui.html"],
+    "headers": {"x-application-context": ""},
+    "body_patterns": ["Whitelabel Error Page", "Spring Boot", "org.springframework"],
+    "meta_patterns": [],
+    "tech_payloads": ["/actuator/env", "/actuator/mappings", "/v2/api-docs", "/swagger-ui.html"]
+  },
+  "Express": {
+    "paths": [],
+    "headers": {"x-powered-by": "Express"},
+    "body_patterns": ["Cannot GET", "Cannot POST"],
+    "meta_patterns": [],
+    "tech_payloads": ["/api/", "/graphql", "/.well-known/"]
+  },
+  "ASP.NET": {
+    "paths": ["/elmah.axd", "/trace.axd", "/WebResource.axd"],
+    "headers": {"x-aspnet-version": "", "x-powered-by": "ASP.NET"},
+    "body_patterns": ["__VIEWSTATE", "__EVENTVALIDATION", "ASP.NET"],
+    "meta_patterns": [],
+    "tech_payloads": ["/elmah.axd", "/trace.axd", "/web.config"]
+  },
+  "Struts": {
+    "paths": ["/*.action", "/*.do", "/*.struts"],
+    "headers": {},
+    "body_patterns": ["struts", "org.apache.struts"],
+    "meta_patterns": [],
+    "tech_payloads": ["/index.action", "/login.action", "/struts/webconsole.html"]
+  },
+  "Tomcat": {
+    "paths": ["/manager/html", "/host-manager/html", "/examples/"],
+    "headers": {"server": "Apache-Coyote"},
+    "body_patterns": ["Apache Tomcat", "Coyote", "tomcat"],
+    "meta_patterns": [],
+    "tech_payloads": ["/manager/html", "/manager/status", "/examples/servlets/"]
+  }
+}

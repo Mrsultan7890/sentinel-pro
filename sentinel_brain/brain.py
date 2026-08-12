@@ -133,14 +133,12 @@ class SentinelBrain:
 
         self._rl      = self._load_rl()
         self._model   = self._load_model()
-        self._seq2seq = self._load_seq2seq()
         self._groq    = self._load_groq()
 
         self._print(f"\n{'='*60}")
         self._print(f"  SENTINEL BRAIN v{self.VERSION} — ReAct Autonomous")
-        self._print(f"  Classifier : {'SentinelNet v4.0' if self._model else 'heuristic'}")
-        self._print(f"  Seq2Seq    : {'SentinelSeq2Seq v2.0' if self._seq2seq else 'not loaded'}")
-        self._print(f"  Groq LLM   : {'Llama-3.3-70B ✓' if self._groq and self._groq.is_ready else 'not configured'}")
+        self._print(f"  SentinelOctopus : {'v1.0 loaded ✓' if self._model else 'heuristic fallback'}")
+        self._print(f"  Groq LLM        : {'Llama-3.3-70B ✓' if self._groq and self._groq.is_ready else 'not configured'}")
         rl_states = len(self._rl.q_table) if self._rl else 0
         rl_eps    = round(self._rl.epsilon, 3) if self._rl else 0
         self._print(f"  RL Agent   : {rl_states} states | epsilon={rl_eps}")
@@ -152,27 +150,14 @@ class SentinelBrain:
 
     def _load_model(self):
         try:
-            from modules.ml_engine.sentinel_net import NeuralTrainer
-            nt = NeuralTrainer()
-            if nt.load():
-                return nt
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            oc = SentinelOctopus()
+            if oc.load():
+                return oc
         except (ImportError, AttributeError, FileNotFoundError) as e:
-            logger.debug(f"Model load error: {e}")
+            logger.debug(f"SentinelOctopus load error: {e}")
         except Exception as e:
-            logger.error(f"Unexpected model load error: {e}")
-        return None
-
-    def _load_seq2seq(self):
-        try:
-            from modules.ml_engine.sentinel_net import Seq2SeqInference
-            if Seq2SeqInference.is_available():
-                s2s = Seq2SeqInference()
-                s2s.load()
-                return s2s
-        except (ImportError, AttributeError, FileNotFoundError) as e:
-            logger.debug(f"Seq2Seq load error: {e}")
-        except Exception as e:
-            logger.error(f"Unexpected Seq2Seq load error: {e}")
+            logger.error(f"Unexpected SentinelOctopus load error: {e}")
         return None
 
     def _load_rl(self):
@@ -500,7 +485,7 @@ class SentinelBrain:
 
         context = ' '.join(context_parts)[:400]
 
-        if not self._model and not self._seq2seq:
+        if not self._model:
             return remaining[0]
 
         try:
@@ -535,12 +520,12 @@ class SentinelBrain:
                             self._print(f"  [Groq] next_tool={next_tool} → {mapped}")
                             return mapped
 
-            # ── Seq2Seq: fallback ─────────────────────────────────────────
-            elif self._seq2seq and results:
+            # ── SentinelOctopus: chain_gen fallback ───────────────────────
+            elif self._model and results:
                 last_action = list(results.keys())[-1]
                 last_result = results[last_action]
                 summary     = last_result.get('_agent_summary', '')
-                next_tool   = self._seq2seq.chain_gen(
+                next_tool   = self._model.chain_gen(
                     f'[CURRENT_TOOL] {last_action} [FINDING] {summary} [STATE] scan in progress'
                 )
                 if next_tool:
@@ -554,17 +539,17 @@ class SentinelBrain:
                     }
                     mapped = tool_to_action.get(next_tool, '')
                     if mapped and mapped in remaining:
-                        self._print(f"  [Seq2Seq] next_tool={next_tool} → {mapped}")
+                        self._print(f"  [SentinelOctopus] next_tool={next_tool} → {mapped}")
                         return mapped
 
-            # ── Classifier: label + action_hint + threat_type se decide ──────
+            # ── SentinelOctopus: classify + action_hint se decide ─────────
             if self._model:
                 pred        = self._model.predict(context)
                 label       = pred.get('label', 'LOW')
                 action_hint = pred.get('action_hint', '')
                 threat_type = pred.get('threat_type', '')
                 conf        = pred.get('confidence', 0)
-                self._print(f"  [ML] {label} | {threat_type} | {action_hint} | conf={conf:.0%}")
+                self._print(f"  [SentinelOctopus] {label} | {threat_type} | {action_hint} | conf={conf:.0%}")
 
                 hint_map = {
                     'patch_now':        'bugbounty',
@@ -757,9 +742,9 @@ class SentinelBrain:
             cmd = self._groq.cmd_gen(context, threat_level, threat_type)
             if cmd:
                 return cmd
-        # Seq2Seq fallback
-        if self._seq2seq:
-            cmd = self._seq2seq.cmd_gen(
+        # SentinelOctopus fallback
+        if self._model:
+            cmd = self._model.cmd_gen(
                 f'[SCAN_CONTEXT] {context} [THREAT] {threat_level} [TYPE] {threat_type}'
             )
             if cmd:
@@ -799,7 +784,7 @@ class SentinelBrain:
             if self._model:
                 text = f"nmap scan {' '.join(str(p['port']) for p in parsed['open_ports'])} {' '.join(p['service'] for p in parsed['open_ports'])}"
                 pred = self._model.predict(text)
-                self._print(f"\n[ML] label={pred['label']} type={pred['threat_type']} action={pred['action_hint']} conf={pred['confidence']:.0%}")
+                self._print(f"\n[SentinelOctopus] label={pred['label']} type={pred['threat_type']} action={pred['action_hint']} conf={pred['confidence']:.0%}")
 
         elif parsed.get('tool') == 'nuclei' and parsed.get('findings'):
             self._print(f"\n[Brain] Nuclei — {parsed['total']} findings:")

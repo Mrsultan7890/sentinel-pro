@@ -33,11 +33,17 @@ import config as _cfg
 DB_PATH = _cfg.BASE_DIR / 'data' / 'sentinel.db'
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-engine = create_engine(f'sqlite:///{DB_PATH}', echo=False,
-                       connect_args={
-                           'check_same_thread': False,
-                           'timeout': 30.0  # 30 second timeout for locks
-                       })
+from sqlalchemy.pool import NullPool
+
+def _creator():
+    import sqlite3 as _s
+    c = _s.connect(str(DB_PATH), timeout=60.0, check_same_thread=False)
+    c.execute('PRAGMA journal_mode=WAL')
+    c.execute('PRAGMA busy_timeout=60000')
+    c.execute('PRAGMA synchronous=NORMAL')
+    return c
+
+engine = create_engine('sqlite://', creator=_creator, echo=False, poolclass=NullPool)
 
 
 class Base(DeclarativeBase):
@@ -129,11 +135,7 @@ class ToolStat(Base):
 
 Base.metadata.create_all(engine)
 
-# Enable WAL mode for better concurrent access
-import sqlite3 as _sqlite3
-_wal_conn = _sqlite3.connect(str(DB_PATH))
-_wal_conn.execute('PRAGMA journal_mode=WAL')
-_wal_conn.close()
+# WAL mode is set per-connection via _creator()
 
 # Auto-migration: add missing columns to existing tables
 def _run_migrations():
@@ -172,20 +174,25 @@ class SentinelDB:
     @staticmethod
     def save_scan(target: str, scan_type: str, risk: str,
                   summary: dict, source: str = 'manual') -> int:
-        try:
-            with Session(engine) as s:
-                scan = Scan(
-                    target=target, scan_type=scan_type, risk=risk,
-                    summary=str(summary)[:500],
-                    raw_json=json.dumps(summary, default=str)[:10000],
-                    source=source
-                )
-                s.add(scan)
-                s.commit()
-                return scan.id
-        except Exception as e:
-            logger.error(f"Failed to save scan for {target}: {e}")
-            return -1
+        for attempt in range(3):
+            try:
+                with Session(engine) as s:
+                    scan = Scan(
+                        target=target, scan_type=scan_type, risk=risk,
+                        summary=str(summary)[:500],
+                        raw_json=json.dumps(summary, default=str)[:10000],
+                        source=source
+                    )
+                    s.add(scan)
+                    s.commit()
+                    return scan.id
+            except Exception as e:
+                if 'locked' in str(e).lower() and attempt < 2:
+                    time.sleep(1 + attempt)
+                    continue
+                logger.error(f"Failed to save scan for {target}: {e}")
+                return -1
+        return -1
 
     @staticmethod
     def get_target_history(target: str, limit: int = 10) -> list:
@@ -283,14 +290,20 @@ class SentinelDB:
     @staticmethod
     def remember(target: str, scan_type: str, risk: str,
                  summary: str, pattern: str = ''):
-        try:
-            with Session(engine) as s:
-                m = Memory(target=target, scan_type=scan_type, risk=risk,
-                           summary=summary[:500], pattern=pattern[:200])
-                s.add(m)
-                s.commit()
-        except Exception as e:
-            logger.error(f"Failed to save memory for {target}: {e}")
+        for attempt in range(3):
+            try:
+                with Session(engine) as s:
+                    m = Memory(target=target, scan_type=scan_type, risk=risk,
+                               summary=summary[:500], pattern=pattern[:200])
+                    s.add(m)
+                    s.commit()
+                return
+            except Exception as e:
+                if 'locked' in str(e).lower() and attempt < 2:
+                    time.sleep(1 + attempt)
+                    continue
+                logger.error(f"Failed to save memory for {target}: {e}")
+                return
 
     @staticmethod
     def recall(target: str, limit: int = 5) -> list:
