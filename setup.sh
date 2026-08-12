@@ -41,6 +41,8 @@ echo "🐍 Setting up Python virtual environment..."
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip -q
+# torch CPU-only install karo — GPU version 2GB+ hai, CPU version ~200MB
+pip install torch --index-url https://download.pytorch.org/whl/cpu -q
 pip install -r requirements.txt -q
 echo "✓ Python dependencies installed"
 

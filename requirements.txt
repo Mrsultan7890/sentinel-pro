@@ -82,7 +82,7 @@ weasyprint>=60.0
 # transformers>=4.35.0
 
 # ── Custom Neural Network (SentinelThreatNet) ─────────────────
-torch>=2.0.0  # CPU version: pip install torch --index-url https://download.pytorch.org/whl/cpu
+# torch CPU-only — setup.sh installs this separately via pytorch.org/whl/cpu
 
 # ── User Agent Rotation ───────────────────────────────────────
 fake-useragent>=1.4.0
