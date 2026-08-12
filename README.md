@@ -1,13 +1,8 @@
 # The Sentinel Pro v3.1
 
-```
-  ██████╗ ██████╗  ██████╗     ██╗   ██╗██████╗     ██╗
-  ██╔══██╗██╔══██╗██╔═══██╗    ██║   ██║╚════██╗   ███║
-  ██████╔╝██████╔╝██║   ██║    ██║   ██║ █████╔╝   ╚██║
-  ██╔═══╝ ██╔══██╗██║   ██║    ╚██╗ ██╔╝██╔═══╝     ██║
-  ██║     ██║  ██║╚██████╔╝     ╚████╔╝ ███████╗    ██║
-  ╚═╝     ╚═╝  ╚═╝ ╚═════╝       ╚═══╝  ╚══════╝    ╚═╝
-```
+<p align="center">
+  <img src="assets/banner.png" alt="The Sentinel Pro" width="100%">
+</p>
 
 > **Professional OSINT · Bug Bounty · Threat Intelligence · Autonomous AI Platform**
 > Multi-language: **Python** · **Go** · **Rust** · **Solidity**
