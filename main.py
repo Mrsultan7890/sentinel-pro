@@ -1510,7 +1510,10 @@ class TheSentinelPro:
             status = ModelTrainer.status()
             
             # SentinelOctopus
-            octopus_path = Path('models/sentineloctopus-0.5b/pytorch_model.bin')
+            from pathlib import Path as _Path
+            import config as _cfg
+            _base = _cfg.get_base_dir()
+            octopus_path = _base / 'models' / 'sentineloctopus-0.5b' / 'pytorch_model.bin'
             if octopus_path.exists():
                 size_mb = round(octopus_path.stat().st_size / 1024 / 1024, 1)
                 ml_table.add_row("SentinelOctopus-0.5B", "[green]✓ LOADED[/green]", f"v1.1 | {size_mb} MB | classify+cmd_gen+chain_gen")
@@ -1518,13 +1521,13 @@ class TheSentinelPro:
                 ml_table.add_row("SentinelOctopus-0.5B", "[yellow]✗ NOT FOUND[/yellow]", "models/sentineloctopus-0.5b/ missing")
             
             # RL Agent
-            if Path('models/ml_engine/rl_qtable.json').exists():
+            if (_base / 'models' / 'ml_engine' / 'rl_qtable.json').exists():
                 ml_table.add_row("RL Q-Learning", "[green]✓ LOADED[/green]", "171 states learned")
             else:
                 ml_table.add_row("RL Q-Learning", "[yellow]✗ NOT TRAINED[/yellow]", "Run: rl train")
             
             # Fake Detector
-            if Path('models/ml_engine/fake_detector.joblib').exists():
+            if (_base / 'models' / 'ml_engine' / 'fake_detector.joblib').exists():
                 ml_table.add_row("Fake Detector", "[green]✓ LOADED[/green]", "112K samples | 13.10 MB")
             else:
                 ml_table.add_row("Fake Detector", "[yellow]✗ NOT TRAINED[/yellow]", "Auto-trained")
