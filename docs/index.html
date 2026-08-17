@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Sentinel Pro — Autonomous AI Security Platform</title>
+  <meta name="description" content="Professional OSINT · Bug Bounty · Threat Intelligence · Autonomous AI Platform. 257 source files · 85K+ lines · SentinelOctopus-0.5B · 34,458 attack payloads." />
+  <meta property="og:title" content="The Sentinel Pro v3.1" />
+  <meta property="og:description" content="Autonomous AI Security Platform — OSINT · Bug Bounty · Threat Intelligence" />
+  <meta property="og:image" content="assets/banner.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <span class="nav-logo">⬡ Sentinel<span class="accent">Pro</span></span>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#modules">Modules</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/Mrsultan7890/sentinel-pro" target="_blank" class="btn-nav">GitHub ↗</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="grid-overlay"></div>
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
+    </div>
+    <div class="hero-inner">
+      <div class="badge-row">
+        <span class="badge badge-red">Kali Linux</span>
+        <span class="badge badge-orange">Python · Go · Rust</span>
+        <span class="badge badge-purple">MIT License</span>
+        <span class="badge badge-green">v3.1</span>
+      </div>
+      <h1 class="hero-title">The Sentinel <span class="accent">Pro</span></h1>
+      <p class="hero-sub">Autonomous AI Security Platform</p>
+      <p class="hero-desc">
+        Professional OSINT · Bug Bounty · Threat Intelligence<br/>
+        Built-in ReAct Loop · Q-Learning RL · SentinelOctopus-0.5B
+      </p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num">257</span><span class="stat-label">Source Files</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><span class="stat-num">85K+</span><span class="stat-label">Lines of Code</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><span class="stat-num">34,458</span><span class="stat-label">Attack Payloads</span></div>
+        <div class="stat-div"></div>
+        <div class="stat"><span class="stat-num">19</span><span class="stat-label">Autonomous Agents</span></div>
+      </div>
+      <div class="hero-actions">
+        <a href="#install" class="btn-primary">Quick Install ↓</a>
+        <a href="https://github.com/Mrsultan7890/sentinel-pro" target="_blank" class="btn-ghost">View on GitHub</a>
+      </div>
+      <div class="terminal-preview">
+        <div class="term-bar">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span class="term-title">sentinel-pro — terminal</span>
+        </div>
+        <div class="term-body">
+          <div class="term-line"><span class="term-prompt">sentinel-pro&gt;</span> <span class="term-cmd">brain investigate target.com</span></div>
+          <div class="term-line term-out"><span class="term-green">[+]</span> ReAct loop initialized — Groq llama-3.3-70b</div>
+          <div class="term-line term-out"><span class="term-cyan">[*]</span> Reason → nmap -sV -sC target.com</div>
+          <div class="term-line term-out"><span class="term-green">[+]</span> 3 open ports found — 80, 443, 8080</div>
+          <div class="term-line term-out"><span class="term-cyan">[*]</span> Act → nuclei -t cves/ -u target.com</div>
+          <div class="term-line term-out"><span class="term-red">[!]</span> CVE-2024-1234 — CRITICAL — RCE via log4j</div>
+          <div class="term-line term-out"><span class="term-cyan">[*]</span> Observe → chaining exploit_agent...</div>
+          <div class="term-line term-out"><span class="term-green">[+]</span> Report generated — findings: 7 · risk: HIGH</div>
+          <div class="term-line"><span class="term-prompt">sentinel-pro&gt;</span> <span class="term-cursor">█</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHAT MAKES IT DIFFERENT -->
+  <section class="section different">
+    <div class="container">
+      <h2 class="section-title">Not a Script Collection. <span class="accent">An AI Brain.</span></h2>
+      <p class="section-sub">Every component thinks, learns, and acts autonomously</p>
+      <div class="brain-grid">
+        <div class="brain-card">
+          <span class="brain-icon">🧠</span>
+          <h3>Thinks</h3>
+          <p>ReAct loop — Reason → Act → Observe → Reason again. Groq llama-3.3-70b as primary reasoning layer.</p>
+        </div>
+        <div class="brain-card">
+          <span class="brain-icon">📈</span>
+          <h3>Learns</h3>
+          <p>Q-Learning RL trains on your real targets. 171 states learned from 523 real episodes.</p>
+        </div>
+        <div class="brain-card">
+          <span class="brain-icon">🤖</span>
+          <h3>Acts</h3>
+          <p>SentinelOctopus-0.5B — Qwen2.5-Coder fine-tuned on security data. Threat classification + command generation.</p>
+        </div>
+        <div class="brain-card">
+          <span class="brain-icon">💾</span>
+          <h3>Remembers</h3>
+          <p>Long-term SQLite memory across sessions. 5 databases — scans, findings, IOCs, decisions, memory.</p>
+        </div>
+        <div class="brain-card">
+          <span class="brain-icon">📡</span>
+          <h3>Monitors</h3>
+          <p>24/7 background monitoring with Telegram alerts. Survives reboot as system service.</p>
+        </div>
+        <div class="brain-card">
+          <span class="brain-icon">⚡</span>
+          <h3>Intercepts</h3>
+          <p>SentinelProxy v2.0 — Rust core, 6.5MB binary, 200K req/sec. HTTP/2 · WebSocket · 34K payloads.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section class="section architecture" id="architecture">
+    <div class="container">
+      <h2 class="section-title">Architecture</h2>
+      <p class="section-sub">Four-layer autonomous pipeline</p>
+      <div class="arch-flow">
+        <div class="arch-block arch-brain">
+          <div class="arch-label">SENTINEL BRAIN v2.0</div>
+          <div class="arch-desc">ReAct Autonomous Loop</div>
+          <div class="arch-items">
+            <span>Groq llama-3.3-70b</span>
+            <span>SentinelOctopus-0.5B</span>
+            <span>Heuristic fallback</span>
+          </div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-block arch-kali">
+          <div class="arch-label">KALI CONTROLLER v2.0</div>
+          <div class="arch-desc">Real PTY Terminal — Full OS Control</div>
+          <div class="arch-items">
+            <span>nmap</span><span>nikto</span><span>sqlmap</span><span>nuclei</span><span>gobuster</span><span>+14 more</span>
+          </div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-block arch-ml">
+          <div class="arch-label">ADVANCED ML ENGINE</div>
+          <div class="arch-desc">9 algorithms working in parallel</div>
+          <div class="arch-items">
+            <span>GNN</span><span>Isolation Forest</span><span>DBSCAN</span><span>LightGBM</span><span>Genetic Algo</span><span>Q-Learning</span>
+          </div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-block arch-db">
+          <div class="arch-label">UNIFIED DATABASE</div>
+          <div class="arch-desc">SQLite — sentinel.db</div>
+          <div class="arch-items">
+            <span>scans</span><span>findings</span><span>iocs</span><span>memory</span><span>rl_episodes</span>
+          </div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-block arch-out">
+          <div class="arch-label">OUTPUT</div>
+          <div class="arch-items">
+            <span>📱 Telegram Alert</span><span>📄 PDF Report</span><span>🔗 MITRE ATT&CK Map</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section features" id="features">
+    <div class="container">
+      <h2 class="section-title">Everything You Need</h2>
+      <p class="section-sub">30+ scanners · 40+ OSINT platforms · 19 autonomous agents</p>
+      <div class="features-grid">
+
+        <div class="feat-card">
+          <div class="feat-icon">🕵️</div>
+          <h3>OSINT Engine</h3>
+          <p>40+ social platforms · Person, email, phone, image profiling · Digital footprint · Relation mapper · NLP analysis</p>
+          <div class="feat-tags"><span>Email</span><span>Phone</span><span>Person</span><span>Image</span></div>
+        </div>
+
+        <div class="feat-card">
+          <div class="feat-icon">🐛</div>
+          <h3>Bug Bounty</h3>
+          <p>30+ scanners — SQLi · XSS · SSRF · SSTI · CORS · JWT · OAuth · LFI · XXE · Prototype Pollution · Subdomain Takeover</p>
+          <div class="feat-tags"><span>SQLi</span><span>XSS</span><span>SSRF</span><span>JWT</span></div>
+        </div>
+
+        <div class="feat-card">
+          <div class="feat-icon">🔍</div>
+          <h3>Recon</h3>
+          <p>20 modules — WHOIS · DNS · Subdomains · Wayback · GitHub/Google dorking · ASN · Cloud assets · Cert Transparency</p>
+          <div class="feat-tags"><span>WHOIS</span><span>DNS</span><span>ASN</span><span>Certs</span></div>
+        </div>
+
+        <div class="feat-card">
+          <div class="feat-icon">🌐</div>
+          <h3>Sentinel Intel</h3>
+          <p>Maltego-style graph intelligence · 14 engines · 40+ transforms · PyQt6 GUI · AI auto-chaining · Shortest path finder</p>
+          <div class="feat-tags"><span>Graph</span><span>14 Engines</span><span>PyQt6</span></div>
+        </div>
+
+        <div class="feat-card">
+          <div class="feat-icon">🔒</div>
+          <h3>SentinelProxy v2.0</h3>
+          <p>Rust core · 6.5MB binary · 200K req/sec · HTTP/2 · WebSocket · Intercept · Match&Replace · 31 tabs · Extension plugins</p>
+          <div class="feat-tags"><span>Rust</span><span>200K/s</span><span>HTTP/2</span></div>
+        </div>
+
+        <div class="feat-card">
+          <div class="feat-icon">💥</div>
+          <h3>Breach Check</h3>
+          <p>HaveIBeenPwned · HudsonRock · LeakCheck · IntelX · Dehashed · Paste Monitor — full credential leak intelligence</p>
+          <div class="feat-tags"><span>HIBP</span><span>IntelX</span><span>Dehashed</span></div>
+        </div>
+
+        <div class="feat-card">
+          <div class="feat-icon">🕸️</div>
+          <h3>Dark Web</h3>
+          <p>Tor integration · .onion crawling · Stealth mode · New identity on demand · Full traffic routing</p>
+          <div class="feat-tags"><span>Tor</span><span>.onion</span><span>Stealth</span></div>
+        </div>
+
+        <div class="feat-card">
+          <div class="feat-icon">🗂️</div>
+          <h3>Octopus Vault</h3>
+          <p>Encrypted OSINT case management · AES-256 · Investigation board · Link graph · 12 modules · PDF/JSON/CSV export</p>
+          <div class="feat-tags"><span>AES-256</span><span>Cases</span><span>Board</span></div>
+        </div>
+
+        <div class="feat-card">
+          <div class="feat-icon">📊</div>
+          <h3>Report Builder</h3>
+          <p>Groq executive summary · MITRE ATT&CK mapping · SHA-256 evidence hash · HTML/PDF/JSON · Chain of custody</p>
+          <div class="feat-tags"><span>MITRE</span><span>PDF</span><span>AI Summary</span></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- MODULES TABS -->
+  <section class="section modules" id="modules">
+    <div class="container">
+      <h2 class="section-title">19 Autonomous Agents</h2>
+      <p class="section-sub">Working in parallel — each with a dedicated role</p>
+      <div class="agents-grid">
+        <div class="agent-pill">🔍 recon</div>
+        <div class="agent-pill">💥 exploit</div>
+        <div class="agent-pill">🕵️ osint</div>
+        <div class="agent-pill">💥 breach</div>
+        <div class="agent-pill">📄 report</div>
+        <div class="agent-pill">🕸️ darkweb</div>
+        <div class="agent-pill">🌐 network</div>
+        <div class="agent-pill">💻 terminal</div>
+        <div class="agent-pill">⏰ scheduler</div>
+        <div class="agent-pill">🔑 credential</div>
+        <div class="agent-pill">📡 system_monitor</div>
+        <div class="agent-pill">🔗 correlation</div>
+        <div class="agent-pill">📁 filesystem</div>
+        <div class="agent-pill">👁️ monitor</div>
+        <div class="agent-pill">🔔 notification</div>
+        <div class="agent-pill">🌍 browser</div>
+        <div class="agent-pill">⛓️ attack_chain</div>
+        <div class="agent-pill">🧠 threat_intel</div>
+        <div class="agent-pill">📈 behavioral</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ML ENGINE -->
+  <section class="section ml-section">
+    <div class="container">
+      <h2 class="section-title">Advanced ML Engine</h2>
+      <p class="section-sub">SentinelOctopus-0.5B + 9 specialized algorithms</p>
+      <div class="ml-grid">
+        <div class="ml-row">
+          <div class="ml-name">SentinelOctopus-0.5B</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:95%"></div></div>
+          <div class="ml-use">Threat classification · Command generation · Reports</div>
+        </div>
+        <div class="ml-row">
+          <div class="ml-name">Q-Learning RL</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:85%"></div></div>
+          <div class="ml-use">171 states · 19 tools · Autonomous tool selection</div>
+        </div>
+        <div class="ml-row">
+          <div class="ml-name">GNN</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:78%"></div></div>
+          <div class="ml-use">Entity relationship graph — domain→IP→subdomain</div>
+        </div>
+        <div class="ml-row">
+          <div class="ml-name">Isolation Forest</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:72%"></div></div>
+          <div class="ml-use">Anomaly detection — unusual ports, weird responses</div>
+        </div>
+        <div class="ml-row">
+          <div class="ml-name">DBSCAN</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:80%"></div></div>
+          <div class="ml-use">Username/IP clustering — same person across platforms</div>
+        </div>
+        <div class="ml-row">
+          <div class="ml-name">LightGBM</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:88%"></div></div>
+          <div class="ml-use">Log analysis — attack pattern detection</div>
+        </div>
+        <div class="ml-row">
+          <div class="ml-name">Genetic Algorithm</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:70%"></div></div>
+          <div class="ml-use">Tool sequence optimization — best scan order</div>
+        </div>
+        <div class="ml-row">
+          <div class="ml-name">Random Forest</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:92%"></div></div>
+          <div class="ml-use">Fake profile detector — 112,474 training samples</div>
+        </div>
+        <div class="ml-row">
+          <div class="ml-name">TF-IDF + LogReg</div>
+          <div class="ml-bar-wrap"><div class="ml-bar" style="width:83%"></div></div>
+          <div class="ml-use">Threat classifier — 9 security data sources</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section class="section install" id="install">
+    <div class="container">
+      <h2 class="section-title">Get Started in 60 Seconds</h2>
+      <p class="section-sub">Kali Linux recommended · Python 3.10+ · Go 1.21+ · Rust 1.70+</p>
+      <div class="install-steps">
+
+        <div class="install-step">
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <h3>Clone & Install</h3>
+            <div class="code-block">
+              <div class="code-bar">
+                <span>bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code>git clone https://github.com/Mrsultan7890/sentinel-pro.git
+cd sentinel-pro
+bash setup.sh</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="install-step">
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <h3>Build Rust Core (SentinelProxy)</h3>
+            <div class="code-block">
+              <div class="code-bar">
+                <span>bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code>cd sentinel_proxy/rust_core
+cargo build --release
+cd ../..</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="install-step">
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <h3>Launch</h3>
+            <div class="code-block">
+              <div class="code-bar">
+                <span>bash</span>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code>sentinel
+
+# Or direct commands
+sentinel --bugbounty example.com
+sentinel --recon example.com
+sentinel --breach user@example.com</code></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="quick-cmds">
+        <h3>Quick Commands</h3>
+        <div class="cmd-grid">
+          <div class="cmd-item"><code>brain investigate &lt;target&gt;</code><span>Full autonomous scan</span></div>
+          <div class="cmd-item"><code>bugbounty &lt;domain&gt;</code><span>30+ vulnerability scanners</span></div>
+          <div class="cmd-item"><code>recon &lt;domain&gt;</code><span>20 recon modules</span></div>
+          <div class="cmd-item"><code>osint &lt;target&gt;</code><span>Auto-detect + full OSINT</span></div>
+          <div class="cmd-item"><code>intel</code><span>Launch Sentinel Intel GUI</span></div>
+          <div class="cmd-item"><code>proxy start</code><span>SentinelProxy v2.0</span></div>
+          <div class="cmd-item"><code>attackchain &lt;target&gt;</code><span>Full recon→exploit→report</span></div>
+          <div class="cmd-item"><code>rl run &lt;target&gt;</code><span>Autonomous RL scan</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section class="section compare">
+    <div class="container">
+      <h2 class="section-title">Sentinel Intel vs <span class="accent">Maltego</span></h2>
+      <div class="table-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Maltego</th>
+              <th class="col-sentinel">Sentinel Intel v2.0</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Price</td><td class="bad">$999/year</td><td class="good">FREE ✅</td></tr>
+            <tr><td>AI/ML Integration</td><td class="bad">None</td><td class="good">10+ algorithms ✅</td></tr>
+            <tr><td>Transforms</td><td class="bad">~100 (paid)</td><td class="good">40+ (open source) ✅</td></tr>
+            <tr><td>Auto-Chain</td><td class="bad">Manual</td><td class="good">AI-powered ✅</td></tr>
+            <tr><td>Risk Visualization</td><td class="bad">None</td><td class="good">Color + Glow ✅</td></tr>
+            <tr><td>Blockchain Intel</td><td class="bad">Limited</td><td class="good">Full (5 sources) ✅</td></tr>
+            <tr><td>Malware Analysis</td><td class="bad">Basic</td><td class="good">Deep (6 sources) ✅</td></tr>
+            <tr><td>Open Source</td><td class="bad">No</td><td class="good">Yes ✅</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="nav-logo">⬡ Sentinel<span class="accent">Pro</span></span>
+          <p>Professional OSINT · Bug Bounty · Threat Intelligence<br/>Built by <a href="https://github.com/Mrsultan7890" target="_blank">@Mrsultan7890</a></p>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/Mrsultan7890/sentinel-pro" target="_blank">GitHub</a>
+          <a href="https://github.com/Mrsultan7890/sentinel-pro/blob/main/README.md" target="_blank">Docs</a>
+          <a href="https://github.com/Mrsultan7890/sentinel-pro/blob/main/LICENSE" target="_blank">MIT License</a>
+          <a href="https://github.com/Mrsultan7890/sentinel-pro/issues" target="_blank">Issues</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© 2026 @Mrsultan7890 · MIT License · For authorized security testing only</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
