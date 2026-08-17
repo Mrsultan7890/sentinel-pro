@@ -1,23 +1,104 @@
 #!/bin/bash
 set -e
 
-echo "🛡️  The Sentinel Pro v3.1 — Setup"
-echo "==================================="
+# ── Colors ────────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; YELLOW='\033[1;33m'; GREEN='\033[0;32m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
+ORG='\033[0;33m'
+
+p()  { echo -e "$1"; }
+ok() { p "  ${GREEN}✓${RESET}  $1"; }
+warn() { p "  ${YELLOW}⚠${RESET}  $1"; }
+fail() { p "  ${RED}✗${RESET}  $1"; }
+info() { p "  ${CYAN}→${RESET}  $1"; }
+
+clear
+
+# ── Banner ────────────────────────────────────────────────────────────────────
+p ""
+p "${ORG}${BOLD}  ███████╗███████╗███╗   ██╗████████╗██╗███╗   ██╗███████╗██╗     ${RESET}"
+p "${ORG}${BOLD}  ██╔════╝██╔════╝████╗  ██║╚══██╔══╝██║████╗  ██║██╔════╝██║     ${RESET}"
+p "${ORG}${BOLD}  ███████╗█████╗  ██╔██╗ ██║   ██║   ██║██╔██╗ ██║█████╗  ██║     ${RESET}"
+p "${ORG}${BOLD}  ╚════██║██╔══╝  ██║╚██╗██║   ██║   ██║██║╚██╗██║██╔══╝  ██║     ${RESET}"
+p "${ORG}${BOLD}  ███████║███████╗██║ ╚████║   ██║   ██║██║ ╚████║███████╗███████╗ ${RESET}"
+p "${ORG}${BOLD}  ╚══════╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝╚═╝  ╚═══╝╚══════╝╚══════╝ ${RESET}"
+p "${DIM}                    P R O   v 3 . 1   —   S e t u p${RESET}"
+p ""
+p "${DIM}  ─────────────────────────────────────────────────────────────────${RESET}"
+p "  ${CYAN}Professional OSINT · Bug Bounty · Threat Intelligence · AI Platform${RESET}"
+p "${DIM}  ─────────────────────────────────────────────────────────────────${RESET}"
+p ""
 
 # ── OS check ──────────────────────────────────────────────────────────────────
+p "${BOLD}  ▶  System Check${RESET}"
+p ""
 if [[ -f /etc/os-release ]]; then
     . /etc/os-release
     if [[ $ID == "kali" ]]; then
-        echo "✓ Kali Linux detected"
+        ok "OS: Kali Linux $VERSION_ID"
     else
-        echo "⚠  Not Kali Linux — some features may behave differently"
+        warn "OS: $PRETTY_NAME — Kali Linux recommended"
     fi
 fi
 
+# ── Requirements check ────────────────────────────────────────────────────────
+RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+RAM_GB=$(echo "scale=1; $RAM_KB/1048576" | bc)
+DISK_FREE=$(df -BG . | awk 'NR==2{print $4}' | tr -d 'G')
+CPU_CORES=$(nproc)
+
+RAM_OK=true; DISK_OK=true
+(( RAM_KB < 3145728 )) && RAM_OK=false
+(( DISK_FREE < 5 ))    && DISK_OK=false
+
+$RAM_OK  && ok  "RAM:  ${RAM_GB} GB available  (minimum 3 GB)" \
+         || warn "RAM:  ${RAM_GB} GB available  — minimum 3 GB recommended"
+$DISK_OK && ok  "Disk: ${DISK_FREE} GB free  (minimum 5 GB)" \
+         || warn "Disk: ${DISK_FREE} GB free  — minimum 5 GB required"
+ok "CPU:  ${CPU_CORES} cores"
+
+# ── Storage permission ────────────────────────────────────────────────────────
+p ""
+p "${BOLD}  ▶  Storage Allocation${RESET}"
+p ""
+p "  The tool will create the following on your system:"
+p ""
+p "  ${DIM}Location                   Size (approx)   Purpose${RESET}"
+p "  ${DIM}────────────────────────────────────────────────────────────${RESET}"
+p "  $(pwd)/venv              ~500 MB         Python dependencies"
+p "  $(pwd)/models/           ~450 MB         SentinelOctopus-0.5B model"
+p "  $(pwd)/data/             ~5 MB           SQLite databases"
+p "  $(pwd)/reports/          grows           Scan reports + PDFs"
+p "  ~/.local/bin/sentinel    <1 KB           Global command symlink"
+p ""
+p "  ${YELLOW}Total estimated: ~1 GB minimum  (grows with scan data)${RESET}"
+p ""
+
+if ! $DISK_OK; then
+    p "  ${RED}${BOLD}WARNING: Low disk space (${DISK_FREE} GB free) — minimum 5 GB required${RESET}"
+    p ""
+    read -rp "  Continue anyway? [y/N] " _disk_ans
+    [[ "$_disk_ans" =~ ^[Yy]$ ]] || { p "  Aborted."; exit 1; }
+fi
+
+read -rp "  Allow Sentinel Pro to use this storage? [Y/n] " _storage_ans
+[[ -z "$_storage_ans" || "$_storage_ans" =~ ^[Yy]$ ]] || { p "  Aborted."; exit 1; }
+
+if ! $RAM_OK; then
+    p ""
+    p "  ${YELLOW}${BOLD}WARNING: Low RAM (${RAM_GB} GB) — SentinelOctopus needs ~1.5 GB${RESET}"
+    p "  ${YELLOW}Tool will still work — falls back to Groq LLM when RAM is low.${RESET}"
+    p ""
+    read -rp "  Continue with limited RAM? [Y/n] " _ram_ans
+    [[ -z "$_ram_ans" || "$_ram_ans" =~ ^[Yy]$ ]] || { p "  Aborted."; exit 1; }
+fi
+
+p ""
+
 # ── System packages ───────────────────────────────────────────────────────────
-echo ""
-echo "📦 Installing system packages..."
-sudo apt-get update -qq
+p "${BOLD}  ▶  Installing system packages...${RESET}"
+p ""
+sudo apt-get update -qq 2>/dev/null
 sudo apt-get install -y \
     python3 python3-pip python3-venv \
     golang-go \
@@ -25,30 +106,37 @@ sudo apt-get install -y \
     tor \
     libssl-dev \
     2>/dev/null || true
+ok "System packages installed"
 
 # ── Rust ──────────────────────────────────────────────────────────────────────
 if ! command -v cargo &>/dev/null; then
-    echo "📦 Installing Rust..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    info "Installing Rust..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --quiet
     source "$HOME/.cargo/env"
+    ok "Rust installed"
 else
-    echo "✓ Rust $(cargo --version)"
+    ok "Rust $(cargo --version)"
 fi
 
 # ── Python venv ───────────────────────────────────────────────────────────────
-echo ""
-echo "🐍 Setting up Python virtual environment..."
+p ""
+p "${BOLD}  ▶  Python Environment${RESET}"
+p ""
+info "Creating virtual environment..."
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip -q
-# torch CPU-only install karo — GPU version 2GB+ hai, CPU version ~200MB
+info "Installing torch (CPU-only ~200MB)..."
 pip install torch --index-url https://download.pytorch.org/whl/cpu -q
+info "Installing Python dependencies..."
 pip install -r requirements.txt -q
-echo "✓ Python dependencies installed"
+ok "Python dependencies installed"
 
 # ── NLTK Data Download ────────────────────────────────────────────────────────
-echo ""
-echo "🧠 Downloading NLTK data for ML engine..."
+p ""
+p "${BOLD}  ▶  ML Data${RESET}"
+p ""
+info "Downloading NLTK data..."
 python3 -c "
 import nltk
 pkgs = ['punkt', 'punkt_tab', 'stopwords', 'averaged_perceptron_tagger',
@@ -60,28 +148,32 @@ for p in pkgs:
 " 2>/dev/null || echo "  ⚠ NLTK download failed — run manually: python3 -c \"import nltk; nltk.download('all')\""
 
 # ── spaCy Model Download ──────────────────────────────────────────────────────
-echo ""
-echo "🧠 Downloading spaCy model (better NER accuracy)..."
-python3 -m spacy download en_core_web_sm 2>/dev/null && echo "  ✓ spaCy en_core_web_sm" || echo "  ⚠ spaCy model download failed — NER will use NLTK fallback"
+info "Downloading spaCy model..."
+python3 -m spacy download en_core_web_sm -q 2>/dev/null && ok "spaCy en_core_web_sm" || warn "spaCy download failed — NER will use NLTK fallback"
 
 # ── .env file ─────────────────────────────────────────────────────────────────
+p ""
+p "${BOLD}  ▶  Configuration${RESET}"
+p ""
 if [[ ! -f .env ]]; then
     cp .env.example .env
-    echo "✓ Created .env from .env.example — edit it to add your API keys"
+    ok "Created .env from .env.example"
+    info "Edit .env to add your API keys before first run"
 else
-    echo "✓ .env already exists"
+    ok ".env already exists"
 fi
 
 # ── Go binaries ───────────────────────────────────────────────────────────────
-echo ""
-echo "🔨 Building Go binaries..."
+p ""
+p "${BOLD}  ▶  Building Go binaries${RESET}"
+p ""
 
 build_go() {
     local dir=$1
     if [[ -d "$dir" && -f "$dir/main.go" ]]; then
-        (cd "$dir" && go build -o "$(basename $dir)" .) && echo "  ✓ $dir" || echo "  ✗ $dir (build failed)"
+        (cd "$dir" && go build -o "$(basename $dir)" .) && ok "$dir" || fail "$dir (build failed)"
     else
-        echo "  - $dir (skipped — not found)"
+        p "  ${DIM}-  $dir (skipped)${RESET}"
     fi
 }
 
@@ -93,15 +185,16 @@ build_go smuggler
 build_go dirbuster
 
 # ── Rust binaries ─────────────────────────────────────────────────────────────
-echo ""
-echo "🔨 Building Rust binaries..."
+p ""
+p "${BOLD}  ▶  Building Rust binaries${RESET}"
+p ""
 
 build_rust() {
     local dir=$1
     if [[ -d "$dir" && -f "$dir/Cargo.toml" ]]; then
-        (cd "$dir" && cargo build --release -q) && echo "  ✓ $dir" || echo "  ✗ $dir (build failed)"
+        (cd "$dir" && cargo build --release -q 2>&1) && ok "$dir" || fail "$dir (build failed)"
     else
-        echo "  - $dir (skipped — not found)"
+        p "  ${DIM}-  $dir (skipped)${RESET}"
     fi
 }
 
@@ -112,20 +205,21 @@ build_rust sentinel_proxy/rust_core
 build_rust sentinel_proxy/rust_fuzzer
 
 # ── SentinelOctopus-0.5B Model ───────────────────────────────────────────────
-echo ""
-echo "🧠 Checking SentinelOctopus-0.5B model..."
+p ""
+p "${BOLD}  ▶  SentinelOctopus-0.5B Model${RESET}"
+p ""
 MODEL_DIR="models/sentineloctopus-0.5b"
 MODEL_BIN="$MODEL_DIR/pytorch_model.bin"
 
 if [[ -f "$MODEL_BIN" ]]; then
-    echo "  ✓ SentinelOctopus-0.5B already present"
+    ok "SentinelOctopus-0.5B already present"
 else
-    echo "  ⬇  Downloading SentinelOctopus-0.5B from GitHub Releases..."
+    info "Downloading SentinelOctopus-0.5B from GitHub Releases (~450MB)..."
     mkdir -p "$MODEL_DIR"
     ZIP_URL="https://github.com/Mrsultan7890/sentinel-pro/releases/download/v3.1/sentineloctopus-v1.1.zip"
     ZIP_TMP="/tmp/sentineloctopus-v1.1.zip"
     if curl -fL --progress-bar -o "$ZIP_TMP" "$ZIP_URL"; then
-        echo "  📦 Extracting..."
+        info "Extracting model..."
         unzip -q -o "$ZIP_TMP" -d "$MODEL_DIR"
         INNER=$(find "$MODEL_DIR" -name "pytorch_model.bin" ! -path "$MODEL_BIN" 2>/dev/null | head -1)
         if [[ -n "$INNER" ]]; then
@@ -133,35 +227,37 @@ else
             rmdir "$(dirname $INNER)" 2>/dev/null || true
         fi
         rm -f "$ZIP_TMP"
-        echo "  ✓ SentinelOctopus-0.5B ready"
+        ok "SentinelOctopus-0.5B ready"
     else
-        echo "  ✗ Download failed — check internet or GitHub Release v3.1"
-        echo "  ⚠  Tool will still work — falls back to Groq LLM"
+        fail "Download failed — check internet or GitHub Release v3.1"
+        warn "Tool will still work — falls back to Groq LLM"
         rm -f "$ZIP_TMP"
     fi
 fi
 
 # ── Chromium check ────────────────────────────────────────────────────────────
-echo ""
+p ""
+p "${BOLD}  ▶  Optional Tools${RESET}"
+p ""
 CHROMIUM_BIN=$(command -v chromium || command -v chromium-browser || echo "")
 if [[ -n "$CHROMIUM_BIN" ]]; then
-    echo "✓ Chromium found: $CHROMIUM_BIN"
+    ok "Chromium: $CHROMIUM_BIN"
 else
-    echo "⚠  Chromium not found — screenshot feature will be disabled"
-    echo "   Install with: sudo apt install chromium"
+    warn "Chromium not found — screenshot feature disabled"
+    info "Install: sudo apt install chromium"
 fi
 
 # ── Directory structure ───────────────────────────────────────────────────────
-echo ""
-echo "📁 Creating directories..."
+p ""
+p "${BOLD}  ▶  Directories & Databases${RESET}"
+p ""
 mkdir -p reports screenshots investigations evidence logs models models/ml_engine config data
 chmod +x main.py setup.sh 2>/dev/null || true
-
-echo ""
-echo "🗄️  Initializing databases..."
+ok "Directories created"
+info "Initializing databases..."
 python3 - <<'PYEOF'
 import sqlite3, os
-base = os.path.join(os.path.dirname(os.path.abspath('setup.sh')), 'data')
+base = os.path.join(os.getcwd(), 'data')
 
 conn = sqlite3.connect(f'{base}/sentinel.db')
 conn.execute('CREATE TABLE IF NOT EXISTS scans (id INTEGER PRIMARY KEY, target TEXT, scan_type TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
@@ -179,14 +275,15 @@ conn.execute('CREATE TABLE IF NOT EXISTS responses (id INTEGER PRIMARY KEY, requ
 conn.execute('CREATE TABLE IF NOT EXISTS findings (id INTEGER PRIMARY KEY, url TEXT, vuln_type TEXT, severity TEXT, detail TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP)')
 conn.commit(); conn.close()
 
-print('   ✓ sentinel.db')
-print('   ✓ sentinel_memory.db')
-print('   ✓ sentinel_proxy.db')
+print('  \033[0;32m✓\033[0m  sentinel.db')
+print('  \033[0;32m✓\033[0m  sentinel_memory.db')
+print('  \033[0;32m✓\033[0m  sentinel_proxy.db')
 PYEOF
 
 # ── Global sentinel command ──────────────────────────────────────────────────────
-echo ""
-echo "🔗 Setting up 'sentinel' command..."
+p ""
+p "${BOLD}  ▶  Global Command${RESET}"
+p ""
 mkdir -p "$HOME/.local/bin"
 ln -sf "$(pwd)/sentinel" "$HOME/.local/bin/sentinel"
 if ! grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null; then
@@ -195,8 +292,8 @@ fi
 if ! grep -q '.local/bin' "$HOME/.zshrc" 2>/dev/null; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc" 2>/dev/null || true
 fi
-echo "  ✓ 'sentinel' command installed"
-echo "  Run: source ~/.bashrc  (or open new terminal)"
+ok "'sentinel' command installed → ~/.local/bin/sentinel"
+info "Run: source ~/.bashrc  (or open new terminal)"
 
 # ── Config files ──────────────────────────────────────────────────────────────
 cat > config/stealth_config.json << 'EOF'
@@ -223,41 +320,30 @@ EOF
 sudo systemctl enable tor 2>/dev/null || true
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-echo ""
-echo "╔══════════════════════════════════════════════════════╗"
-echo "║  ✅  The Sentinel Pro — Setup Complete               ║"
-echo "╚══════════════════════════════════════════════════════╝"
-echo ""
-echo "🚀 Quick Start:"
-echo "   source venv/bin/activate"
-echo "   python3 main.py"
-echo ""
-echo "🔒 SentinelProxy v2.0 (Rust Core):"
-echo "   python3 sentinel_proxy/main.py"
-echo "   Or from CLI: sentinel-pro> proxy start"
-echo "   Browser proxy: 127.0.0.1:8082"
-echo "   CA cert: ~/.mitmproxy/sentinel-ca-cert.pem"
-echo ""
-echo "⚡ Direct CLI:"
-echo "   python3 main.py --bugbounty example.com"
-echo "   python3 main.py --recon example.com"
-echo "   python3 main.py --breach user@example.com"
-echo "   python3 main.py --email user@example.com"
-echo "   python3 main.py --scan-all example.com"
-echo "   python3 main.py --help"
-echo ""
-echo "🔑 API Keys (optional — edit .env):"
-echo "   SHODAN_API_KEY        → Shodan host intelligence"
-echo "   GITHUB_TOKEN          → GitHub code dorking"
-echo "   SERPAPI_KEY           → Google dork auto-execute"
-echo "   SECURITYTRAILS_API_KEY → DNS history"
-echo "   NVD_API_KEY           → CVE lookup (higher rate limit)"
-echo ""
-echo "🧠 ML Engine (no API key needed):"
-echo "   person <name>         → Entity matching + DBSCAN clustering"
-echo "   nlp <text>            → NLP profiling + writing fingerprint"
-echo "   nlp session           → Analyze collected session data"
-echo ""
-echo "📄 See README.md for full documentation"
-echo ""
-echo "⚠️  IMPORTANT: Edit .env and add your API keys before first run"
+p ""
+p "${DIM}  ─────────────────────────────────────────────────────────────────${RESET}"
+p ""
+p "${GREEN}${BOLD}  █████████████████████████████████████████████████████████${RESET}"
+p "${GREEN}${BOLD}  ██╔════════════════════════════════════════════════════════║${RESET}"
+p "${GREEN}${BOLD}  ██║   ✅  Setup Complete — The Sentinel Pro v3.1          ██║${RESET}"
+p "${GREEN}${BOLD}  ██╚════════════════════════════════════════════════════════╝${RESET}"
+p ""
+p "  ${BOLD}Quick Start:${RESET}"
+p "  ${CYAN}source venv/bin/activate${RESET}"
+p "  ${CYAN}python3 main.py${RESET}"
+p ""
+p "  ${BOLD}SentinelProxy v2.0:${RESET}"
+p "  ${CYAN}python3 sentinel_proxy/main.py${RESET}   ${DIM}# or: sentinel-pro> proxy start${RESET}"
+p "  ${DIM}Browser proxy → 127.0.0.1:8082${RESET}"
+p ""
+p "  ${BOLD}Direct CLI:${RESET}"
+p "  ${CYAN}python3 main.py --bugbounty example.com${RESET}"
+p "  ${CYAN}python3 main.py --recon    example.com${RESET}"
+p "  ${CYAN}python3 main.py --breach   user@example.com${RESET}"
+p ""
+p "  ${BOLD}API Keys ${DIM}(optional — edit .env):${RESET}"
+p "  ${DIM}SHODAN_API_KEY · GITHUB_TOKEN · SERPAPI_KEY · NVD_API_KEY${RESET}"
+p ""
+p "  ${YELLOW}⚠  Edit .env and add your API keys before first run${RESET}"
+p "  ${DIM}See README.md for full documentation${RESET}"
+p ""
