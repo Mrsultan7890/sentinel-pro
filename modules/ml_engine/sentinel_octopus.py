@@ -44,17 +44,34 @@ class SentinelOctopus:
         if not MODEL_PATH.exists():
             logger.warning(f'SentinelOctopus model not found: {MODEL_PATH}')
             return False
+        # Check at least one weight file exists
+        has_weights = (
+            (MODEL_PATH / 'pytorch_model.bin').exists() or
+            (MODEL_PATH / 'model.safetensors').exists()
+        )
+        if not has_weights:
+            logger.warning('SentinelOctopus: no weight file found')
+            return False
         try:
             logger.info('Loading SentinelOctopus-0.5B...')
             self.tokenizer = AutoTokenizer.from_pretrained(
                 str(MODEL_PATH), trust_remote_code=True
             )
+            # CPU-safe load — float16 not supported on CPU, use float32
+            load_kwargs = {
+                'trust_remote_code': True,
+                'low_cpu_mem_usage': True,
+            }
+            if self.device == 'cuda':
+                load_kwargs['torch_dtype'] = torch.float16
+                load_kwargs['device_map']  = 'auto'
+            else:
+                load_kwargs['torch_dtype'] = torch.float32
             self.model = AutoModelForCausalLM.from_pretrained(
-                str(MODEL_PATH),
-                dtype=torch.float16,
-                device_map=self.device,
-                trust_remote_code=True,
+                str(MODEL_PATH), **load_kwargs
             )
+            if self.device == 'cpu':
+                self.model = self.model.to('cpu')
             self.model.eval()
             self._loaded = True
             logger.info(f'SentinelOctopus-0.5B loaded on {self.device}')
@@ -182,7 +199,13 @@ class SentinelOctopus:
 
     @staticmethod
     def is_available() -> bool:
-        return MODEL_PATH.exists() and (MODEL_PATH / 'model.safetensors').exists()
+        if not MODEL_PATH.exists():
+            return False
+        # Support both safetensors and pytorch bin format
+        return (
+            (MODEL_PATH / 'model.safetensors').exists() or
+            (MODEL_PATH / 'pytorch_model.bin').exists()
+        )
 
     @staticmethod
     def model_info() -> dict:

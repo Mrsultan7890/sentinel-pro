@@ -14,7 +14,11 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = Path('/home/kali/osints/data/sentinel_memory.db')
+try:
+    from config import SentinelConfig
+    DB_PATH = SentinelConfig().get_base_dir() / 'data' / 'sentinel_memory.db'
+except Exception:
+    DB_PATH = Path(__file__).resolve().parent.parent / 'data' / 'sentinel_memory.db'
 
 
 class Memory:

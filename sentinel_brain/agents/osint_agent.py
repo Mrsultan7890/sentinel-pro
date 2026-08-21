@@ -9,10 +9,17 @@ Author: @who_is_the_black_hat
 
 import re
 import logging
+import shutil
 from sentinel_brain.kali_controller import KaliController
 from sentinel_brain.memory import Memory
 
 logger = logging.getLogger(__name__)
+
+
+def _tool_available(name: str) -> bool:
+    """Check if a CLI tool is installed."""
+    return shutil.which(name) is not None
+
 
 class OsintAgent:
     NAME = 'osint_agent'
@@ -86,50 +93,64 @@ class OsintAgent:
         return 'person'
 
     def _build_plan(self, target: str, target_type: str) -> dict:
-        # Strict defaults per type — never use network tools for person/username
-        defaults = {
-            'person':   ['sherlock', 'maigret'],
+        # Strict defaults per type — only use tools that are actually installed
+        candidates = {
+            'person':   ['maigret', 'sherlock'],
             'username': ['sherlock', 'maigret'],
             'email':    ['holehe', 'mx'],
             'phone':    ['phoneinfoga'],
             'image':    ['exiftool'],
         }
-        return {'steps': defaults.get(target_type, ['sherlock']), 'reason': 'OSINT chain'}
+        all_steps = candidates.get(target_type, ['sherlock'])
+        # Filter to only installed tools
+        available = [t for t in all_steps if _tool_available(t) or t == 'mx']
+        if not available:
+            logger.warning(f'[OsintAgent] No tools available for {target_type} — tried: {all_steps}')
+            available = ['web_search']  # fallback: passive web search
+        return {'steps': available, 'reason': f'OSINT chain for {target_type}'}
 
     def _execute_chain(self, target: str, plan: dict, target_type: str) -> dict:
         results = {}
         steps   = plan.get('steps', [])
-
-        domain = target.split('@')[-1] if target_type == 'email' else ''
+        domain  = target.split('@')[-1] if target_type == 'email' else ''
 
         TOOL_CMDS = {
-            'sherlock':    f'sherlock {target} --timeout 5 --print-found 2>/dev/null | head -50',
-            'maigret':     f'maigret {target} --print-found --no-color 2>/dev/null | head -50',
-            'holehe':      f'holehe {target} 2>/dev/null | head -50',
+            'sherlock':    f'sherlock {target} --timeout 10 --print-found 2>/dev/null | head -80',
+            'maigret':     f'maigret {target} --print-found --no-color 2>/dev/null | head -80',
+            'holehe':      f'holehe {target} 2>/dev/null | head -80',
             'mx':          f'dig +short MX {domain}',
-            'phoneinfoga': f'phoneinfoga scan -n {target} 2>/dev/null | head -50',
+            'phoneinfoga': f'phoneinfoga scan -n "{target}" 2>/dev/null | head -80',
+            'exiftool':    f'exiftool "{target}" 2>/dev/null',
         }
 
         for step in steps[:6]:
-            if isinstance(step, dict):
-                tool_name = step.get('tool', '')
-                cmd = step.get('command', TOOL_CMDS.get(tool_name))
-            else:
-                tool_name = step
-                cmd = TOOL_CMDS.get(tool_name)
+            tool_name = step.get('tool', '') if isinstance(step, dict) else step
+            cmd       = step.get('command', TOOL_CMDS.get(tool_name)) if isinstance(step, dict) else TOOL_CMDS.get(tool_name)
+
+            # web_search fallback — passive Groq-based search
+            if tool_name == 'web_search':
+                results['web_search'] = self._groq_web_search(target, target_type)
+                continue
 
             if not tool_name or not cmd:
                 continue
-            
-            logger.info(f"[OsintAgent] Running: {tool_name} with command: {cmd}")
-            r = self.kali.run(cmd, timeout=90)
+
+            # Skip if tool not installed
+            if not _tool_available(tool_name) and tool_name not in ('mx',):
+                logger.warning(f'[OsintAgent] {tool_name} not installed — skipping')
+                results[tool_name] = {'stdout': '', 'success': False,
+                                      'error': f'{tool_name} not installed'}
+                continue
+
+            logger.info(f'[OsintAgent] Running: {tool_name}')
+            r = self.kali.run(cmd, timeout=120)
             results[tool_name] = {
                 'stdout':  r['stdout'][:4000],
                 'parsed':  r.get('parsed', {}),
-                'success': r['success']
+                'success': r['success'],
             }
 
-            if self._groq and r['stdout']:
+            if self._groq and r['stdout'] and r['success']:
                 analysis = self._groq.analyze_output(tool_name, r['stdout'], target)
                 results[tool_name]['analysis'] = analysis
                 next_tool = analysis.get('next_tool', '')
@@ -145,6 +166,24 @@ class OsintAgent:
                         logger.info(f"[OsintAgent] Groq added step: {next_tool}")
 
         return results
+
+    def _groq_web_search(self, target: str, target_type: str) -> dict:
+        """Passive OSINT via Groq when no tools available."""
+        if not self._groq:
+            return {'stdout': '', 'success': False, 'error': 'Groq not available'}
+        try:
+            prompt = (
+                f'You are an OSINT analyst. Target: "{target}" (type: {target_type}).\n'
+                f'Based on your knowledge, provide:\n'
+                f'1. Likely social media platforms where this username/person may exist\n'
+                f'2. Any known public information\n'
+                f'3. Recommended manual search queries\n'
+                f'Be factual only. If unknown, say so.'
+            )
+            resp = self._groq.ask(prompt, max_tokens=400)
+            return {'stdout': resp, 'success': True, 'source': 'groq_passive'}
+        except Exception as e:
+            return {'stdout': '', 'success': False, 'error': str(e)}
 
     def _aggregate_results(self, chain_results: dict, target_type: str) -> dict:
         results = {'target_type': target_type, 'social_profiles': [], 'risk_level': 'LOW'}
@@ -162,8 +201,13 @@ class OsintAgent:
                         profiles.append({'platform': platform, 'url': url})
                 results['social_profiles'].extend(profiles)
                 results['sherlock_raw'] = stdout
-            
             elif tool == 'maigret':
+                # Parse maigret found lines
+                profiles = []
+                for line in stdout.splitlines():
+                    if '[+]' in line or 'Found' in line:
+                        profiles.append({'platform': line.strip(), 'url': ''})
+                results['social_profiles'].extend(profiles)
                 results['maigret_raw'] = stdout
             elif tool == 'holehe':
                 results['holehe_raw'] = stdout
@@ -171,8 +215,16 @@ class OsintAgent:
                 results['mx'] = parsed
             elif tool == 'phoneinfoga':
                 results['phoneinfoga_raw'] = stdout
+            elif tool == 'web_search':
+                results['passive_intel'] = stdout
+                if stdout:
+                    results['risk_level'] = 'LOW'
+            elif data.get('error'):
+                results[f'{tool}_error'] = data['error']
 
         if results['social_profiles']:
             results['risk_level'] = 'MEDIUM'
-            
+        if len(results['social_profiles']) > 5:
+            results['risk_level'] = 'HIGH'
+
         return results

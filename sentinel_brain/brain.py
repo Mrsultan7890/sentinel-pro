@@ -247,7 +247,7 @@ class SentinelBrain:
             return result
 
         # ReAct loop
-        all_results = self._react_loop(target, mode)
+        all_results = self._react_loop(target, mode, task)
 
         # Screenshot — web target ka
         if mode in ('full', 'bugbounty', 'recon'):
@@ -339,7 +339,7 @@ class SentinelBrain:
 
     # ── ReAct Loop ────────────────────────────────────────────────────────────
 
-    def _react_loop(self, target: str, mode: str) -> dict:
+    def _react_loop(self, target: str, mode: str, original_task: str = '') -> dict:
         """
         Real ReAct: Reason → Act → Observe → Reason again
         Findings ke hisaab se next step khud decide karta hai
@@ -354,13 +354,13 @@ class SentinelBrain:
 
         # Initial plan
         plan = self._make_plan(target, mode)
-        self._print(f"[ReAct] Plan: {' → '.join(plan)}\n")
+        self._print(f"[ReAct] Plan: {' \u2192 '.join(plan)}\n")
 
         while not done and step < MAX_REACT_STEPS:
             step += 1
 
             # ── REASON ────────────────────────────────────────────────────────
-            next_action = self._reason(target, plan, results, step)
+            next_action = self._reason(target, plan, results, step, original_task)
             if not next_action or next_action == 'done':
                 self._print(f"[ReAct] Step {step}: Done\n")
                 break
@@ -494,113 +494,80 @@ class SentinelBrain:
         self._print(f"  [Genetic] Optimal order: {' → '.join(optimal[:4])}")
         return ['kali_recon', 'network', 'recon', 'threat_intel', 'bugbounty', 'kali_exploit', 'osint', 'breach', 'darkweb']
 
-    def _reason(self, target: str, plan: list, results: dict, step: int) -> str:
-        """Model dekhta hai kya hua, khud decide karta hai next step"""
+    def _reason(self, target: str, plan: list, results: dict, step: int, original_task: str = '') -> str:
+        """Model decides next step based on what happened so far."""
         remaining = [p for p in plan if p not in results]
         if not remaining:
             return 'done'
 
-        # Abhi tak kya mila — model ko ACCURATE context do (no hallucination)
-        context_parts = [f"target={target}"]
+        # Build accurate context — no hallucination
+        context_parts = [f'task="{original_task or target}"', f'target={target}']
         for action, result in results.items():
             summary = result.get('_agent_summary', '')
             if summary:
-                # Clean summary - actual numbers only
-                context_parts.append(f"{action}: {summary}")
+                context_parts.append(f'{action}: {summary}')
+        context = ' | '.join(context_parts)[:500]
 
-        context = ' '.join(context_parts)[:400]
-
-        if not self._model:
+        if not self._model and not self._groq:
             return remaining[0]
 
         try:
-            # ── Groq LLM: best reasoning ──────────────────────────────────
-            if self._groq and self._groq.is_ready and results:
-                last_action = list(results.keys())[-1]
-                last_result = results[last_action]
-                summary     = last_result.get('_agent_summary', '')
-                
-                # Validate summary has actual findings before asking Groq
-                has_findings = any([
-                    'found' in summary.lower(),
-                    'detected' in summary.lower(),
-                    'vulnerable' in summary.lower(),
-                    any(str(num) in summary for num in range(1, 100) if f'{num} ' in summary or f'={num}' in summary)
-                ])
-                
-                # Only use Groq if there are actual findings to reason about
-                if has_findings:
-                    next_tool = self._groq.chain_gen(last_action, summary)
-                    if next_tool:
-                        tool_to_action = {
-                            'nmap': 'kali_recon', 'subfinder': 'kali_recon',
-                            'amass': 'kali_recon', 'theHarvester': 'kali_recon',
-                            'nikto': 'kali_exploit', 'nuclei': 'kali_exploit',
-                            'gobuster': 'kali_exploit', 'ffuf': 'kali_exploit',
-                            'sqlmap': 'bugbounty', 'commix': 'bugbounty',
-                            'wpscan': 'bugbounty', 'hydra': 'kali_exploit',
-                        }
-                        mapped = tool_to_action.get(next_tool, '')
-                        if mapped and mapped in remaining:
-                            self._print(f"  [Groq] next_tool={next_tool} → {mapped}")
-                            return mapped
-
-            # ── SentinelOctopus: chain_gen fallback ───────────────────────
-            elif self._model and results:
-                last_action = list(results.keys())[-1]
-                last_result = results[last_action]
-                summary     = last_result.get('_agent_summary', '')
-                next_tool   = self._model.chain_gen(
-                    f'[CURRENT_TOOL] {last_action} [FINDING] {summary} [STATE] scan in progress'
+            # ── Groq: direct reasoning with full task context ─────────────
+            if self._groq and self._groq.is_ready:
+                prompt = (
+                    f'You are a security AI orchestrator.\n'
+                    f'Original task: "{original_task or target}"\n'
+                    f'Context so far: {context}\n'
+                    f'Remaining steps: {remaining}\n\n'
+                    f'Which step should run next? Reply with ONLY the step name from the remaining list. No explanation.'
                 )
+                resp = self._groq.ask(prompt, max_tokens=20).strip().lower()
+                for r in remaining:
+                    if r in resp or resp in r:
+                        self._print(f'  [Groq] next={r}')
+                        return r
+
+            # ── SentinelOctopus fallback ──────────────────────────────────
+            if self._model and results:
+                last_action = list(results.keys())[-1]
+                summary     = results[last_action].get('_agent_summary', '')
+                next_tool   = self._model.chain_gen(
+                    f'[TASK] {original_task or target} [LAST] {last_action} [FINDING] {summary} [REMAINING] {",".join(remaining)}'
+                )
+                tool_to_action = {
+                    'nmap': 'kali_recon', 'subfinder': 'kali_recon',
+                    'amass': 'kali_recon', 'theHarvester': 'kali_recon',
+                    'nikto': 'kali_exploit', 'nuclei': 'kali_exploit',
+                    'gobuster': 'kali_exploit', 'ffuf': 'kali_exploit',
+                    'sqlmap': 'bugbounty', 'wpscan': 'bugbounty',
+                    'hydra': 'kali_exploit',
+                }
                 if next_tool:
-                    tool_to_action = {
-                        'nmap': 'kali_recon', 'subfinder': 'kali_recon',
-                        'amass': 'kali_recon', 'theHarvester': 'kali_recon',
-                        'nikto': 'kali_exploit', 'nuclei': 'kali_exploit',
-                        'gobuster': 'kali_exploit', 'ffuf': 'kali_exploit',
-                        'sqlmap': 'bugbounty', 'commix': 'bugbounty',
-                        'wpscan': 'bugbounty', 'hydra': 'kali_exploit',
-                    }
-                    mapped = tool_to_action.get(next_tool, '')
-                    if mapped and mapped in remaining:
-                        self._print(f"  [SentinelOctopus] next_tool={next_tool} → {mapped}")
+                    mapped = tool_to_action.get(next_tool, next_tool)
+                    if mapped in remaining:
+                        self._print(f'  [SentinelOctopus] next={mapped}')
                         return mapped
 
-            # ── SentinelOctopus: classify + action_hint se decide ─────────
+            # ── SentinelOctopus classify ──────────────────────────────────
             if self._model:
                 pred        = self._model.predict(context)
                 label       = pred.get('label', 'LOW')
                 action_hint = pred.get('action_hint', '')
-                threat_type = pred.get('threat_type', '')
                 conf        = pred.get('confidence', 0)
-                self._print(f"  [SentinelOctopus] {label} | {threat_type} | {action_hint} | conf={conf:.0%}")
-
+                self._print(f'  [SentinelOctopus] {label} | {action_hint} | conf={conf:.0%}')
                 hint_map = {
-                    'patch_now':        'bugbounty',
-                    'escalate':         'breach',
-                    'investigate':      'osint',
-                    'block_ip':         'kali_exploit',
-                    'collect_evidence': 'kali_recon',
-                    'notify_team':      'bugbounty',
-                    'monitor':          remaining[0],
+                    'patch_now': 'bugbounty', 'escalate': 'breach',
+                    'investigate': 'osint', 'block_ip': 'kali_exploit',
+                    'collect_evidence': 'kali_recon', 'monitor': remaining[0],
                 }
                 if label == 'CRITICAL' and 'bugbounty' in remaining:
                     return 'bugbounty'
-                if label == 'CRITICAL' and 'kali_exploit' in remaining:
-                    return 'kali_exploit'
                 suggested = hint_map.get(action_hint, '')
                 if suggested and suggested in remaining:
                     return suggested
-                if threat_type == 'breach' and 'breach' in remaining:
-                    return 'breach'
-                if threat_type in ('web_vuln', 'exploit') and 'bugbounty' in remaining:
-                    return 'bugbounty'
-                if threat_type == 'recon' and 'kali_recon' in remaining:
-                    return 'kali_recon'
 
         except Exception as e:
-            logger.debug(f"_reason model error: {e}")
+            logger.debug(f'_reason error: {e}')
 
         return remaining[0]
 
