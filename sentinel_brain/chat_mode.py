@@ -215,7 +215,7 @@ class ChatMode:
                         'Return ONLY a JSON array of agents from: recon, bugbounty, osint, breach, threat_intel, network, darkweb, report\n'
                         'Example: ["recon", "bugbounty", "report"]'
                     )
-                    resp = self._octopus.generate(prompt)
+                    resp = self._octopus.ask(prompt)
                     m = re.search(r'\[.*?\]', resp, re.DOTALL)
                     if m:
                         steps = json.loads(m.group(0))
@@ -430,7 +430,7 @@ class ChatMode:
             # Fallback: SentinelOctopus local model
             if self._octopus:
                 try:
-                    resp = self._octopus.generate(user_input)
+                    resp = self._octopus.ask(user_input)
                     if resp:
                         self._reply(resp)
                         return
