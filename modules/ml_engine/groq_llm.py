@@ -57,8 +57,8 @@ class GroqLLM:
         ans  = llm.ask('example.com ke ports scan karo')
     """
 
-    MODEL    = 'llama-3.3-70b-versatile'
-    FALLBACK = 'llama-3.1-8b-instant'
+    MODEL    = 'qwen/qwen3.6-27b'
+    FALLBACK = 'openai/gpt-oss-20b'
 
     def __init__(self):
         self._client  = None
@@ -110,7 +110,14 @@ class GroqLLM:
                     temperature=temperature,
                 )
                 if resp and resp.choices and len(resp.choices) > 0:
-                    return resp.choices[0].message.content.strip()
+                    text = resp.choices[0].message.content.strip()
+                    # strip <think>...</think> blocks (reasoning models like qwen)
+                    text = re.sub(r'<think>.*?</think>\s*', '', text, flags=re.DOTALL).strip()
+                    # if think block was not closed (truncated), take text after last </think>
+                    if '<think>' in text:
+                        parts = text.split('</think>')
+                        text = parts[-1].strip() if len(parts) > 1 else text
+                    return text
                 return ''
             except (ConnectionError, TimeoutError) as e:
                 logger.error(f'Network error on {model}: {e}')
@@ -139,7 +146,7 @@ class GroqLLM:
             logger.debug(f'SentinelOctopus fallback failed: {e}')
         return ''
 
-    def ask(self, prompt: str, max_tokens: int = 300) -> str:
+    def ask(self, prompt: str, max_tokens: int = 1024) -> str:
         """General purpose — any language prompt."""
         if not prompt or not isinstance(prompt, str):
             logger.error('Invalid prompt')
