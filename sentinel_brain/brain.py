@@ -52,36 +52,61 @@ def parse_task(task: str) -> dict:
     task_lower = task.lower()
     target = ''
 
+    # Email
     m = re.search(r'[\w.+-]+@[\w-]+\.[a-z]{2,}', task)
     if m:
         target = m.group(0)
+
+    # Phone
     if not target:
         m = re.search(r'\+?\d{10,15}', task.replace(' ', ''))
         if m:
             target = m.group(0)
+
+    # Domain/URL
     if not target:
         m = re.search(r'(?:https?://)?([a-zA-Z0-9][-a-zA-Z0-9.]+\.[a-zA-Z]{2,})', task)
         if m:
             target = m.group(1)
+
+    # Quoted string
     if not target:
         m = re.search(r'["\']([^"\']+)["\']', task)
         if m:
             target = m.group(1)
-    if not target:
-        words = task.split()
-        target = words[-1] if words else task
 
+    # Username pattern — @handle or word with underscores/hyphens (osint/person context)
+    if not target:
+        osint_ctx = any(w in task_lower for w in ['username', 'user', 'handle', 'osint', 'find', 'person', 'profile', 'social', 'victim', 'target'])
+        if osint_ctx:
+            # @username
+            m = re.search(r'@([\w._-]+)', task)
+            if m:
+                target = m.group(1)
+            # word_with_underscores (likely a username)
+            if not target:
+                m = re.search(r'\b([a-zA-Z][\w._-]{3,}(?:[_-][\w]+)+)\b', task)
+                if m:
+                    target = m.group(1)
+
+    # Fallback — last meaningful word (skip common verbs/prepositions)
+    if not target:
+        skip = {'find', 'him', 'her', 'using', 'osint', 'scan', 'check', 'run',
+                'investigate', 'the', 'a', 'an', 'this', 'is', 'name', 'victim'}
+        words = [w for w in task.split() if w.lower() not in skip]
+        target = words[-1] if words else task.split()[-1]
+
+    # Mode detection
     if any(w in task_lower for w in ['breach', 'leak', 'password', 'credential']):
         mode = 'breach'
     elif any(w in task_lower for w in ['recon', 'subdomain', 'dns', 'whois']):
         mode = 'recon'
     elif any(w in task_lower for w in ['bug', 'vuln', 'exploit', 'scan', 'pentest', 'hack']):
         mode = 'bugbounty'
-    elif any(w in task_lower for w in ['person', 'osint', 'profile', 'social', 'email', 'phone']):
+    elif any(w in task_lower for w in ['person', 'osint', 'profile', 'social', 'email', 'phone',
+                                        'username', 'find', 'victim', 'user', 'handle']):
         mode = 'osint'
     elif any(w in task_lower for w in ['nmap', 'nikto', 'sqlmap', 'nuclei', 'gobuster']):
-        mode = 'tool'
-        # Direct tool command extract karo
         return {'target': target, 'mode': 'tool', 'raw': task, 'tool_cmd': task}
     else:
         mode = 'full'

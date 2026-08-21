@@ -80,21 +80,21 @@ class OsintAgent:
             return 'image'
         if re.match(r'^[a-zA-Z0-9][-a-zA-Z0-9.]+\.[a-zA-Z]{2,}$', target):
             return 'domain'
+        # username — has underscores/hyphens, no spaces, no dots suggesting domain
+        if re.match(r'^[a-zA-Z][\w._-]{2,}$', target) and '.' not in target:
+            return 'username'
         return 'person'
 
     def _build_plan(self, target: str, target_type: str) -> dict:
-        if self._groq:
-            objective = f"Target: {target} | Type: {target_type} | Need OSINT intelligence."
-            plan = self._groq.plan(target, objective)
-            if plan.get('steps'):
-                return plan
-        
-        default_steps = []
-        if target_type == 'person': default_steps = ['sherlock', 'maigret']
-        elif target_type == 'email': default_steps = ['holehe', 'mx']
-        elif target_type == 'phone': default_steps = ['phoneinfoga']
-
-        return {'steps': default_steps, 'reason': 'Default OSINT chain'}
+        # Strict defaults per type — never use network tools for person/username
+        defaults = {
+            'person':   ['sherlock', 'maigret'],
+            'username': ['sherlock', 'maigret'],
+            'email':    ['holehe', 'mx'],
+            'phone':    ['phoneinfoga'],
+            'image':    ['exiftool'],
+        }
+        return {'steps': defaults.get(target_type, ['sherlock']), 'reason': 'OSINT chain'}
 
     def _execute_chain(self, target: str, plan: dict, target_type: str) -> dict:
         results = {}
