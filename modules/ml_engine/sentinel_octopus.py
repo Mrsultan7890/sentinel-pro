@@ -63,10 +63,10 @@ class SentinelOctopus:
                 'low_cpu_mem_usage': True,
             }
             if self.device == 'cuda':
-                load_kwargs['torch_dtype'] = torch.float16
-                load_kwargs['device_map']  = 'auto'
+                load_kwargs['dtype'] = torch.float16
+                load_kwargs['device_map'] = 'auto'
             else:
-                load_kwargs['torch_dtype'] = torch.float32
+                load_kwargs['dtype'] = torch.float32
             self.model = AutoModelForCausalLM.from_pretrained(
                 str(MODEL_PATH), **load_kwargs
             )
