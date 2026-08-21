@@ -47,6 +47,7 @@ class ChatMode:
         self.sentinel   = sentinel
         self._brain     = None
         self._groq      = None
+        self._octopus   = None
         self._paused    = threading.Event()
         self._cancelled = threading.Event()
         self._paused.set()
@@ -54,6 +55,7 @@ class ChatMode:
         self._task_running    = False
         self._load_brain()
         self._load_groq()
+        self._load_octopus()
 
     # ── Loaders ───────────────────────────────────────────────────────────────
 
@@ -76,6 +78,18 @@ class ChatMode:
                 self._groq = g if g.is_ready else None
         except Exception as e:
             logger.debug(f'Groq: {e}')
+
+    def _load_octopus(self):
+        try:
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            if SentinelOctopus.is_available():
+                oc = SentinelOctopus()
+                if oc.load():
+                    self._octopus = oc
+                    return
+        except Exception as e:
+            logger.debug(f'SentinelOctopus: {e}')
+        self._octopus = None
 
     # ── Main Loop ─────────────────────────────────────────────────────────────
 
@@ -192,6 +206,23 @@ class ChatMode:
                             return steps
                 except Exception as e:
                     logger.debug(f'Plan: {e}')
+
+            # SentinelOctopus fallback for planning
+            if self._octopus:
+                try:
+                    prompt = (
+                        f'User request: "{user_input}"\n'
+                        'Return ONLY a JSON array of agents from: recon, bugbounty, osint, breach, threat_intel, network, darkweb, report\n'
+                        'Example: ["recon", "bugbounty", "report"]'
+                    )
+                    resp = self._octopus.generate(prompt)
+                    m = re.search(r'\[.*?\]', resp, re.DOTALL)
+                    if m:
+                        steps = json.loads(m.group(0))
+                        if isinstance(steps, list) and steps:
+                            return steps
+                except Exception as e:
+                    logger.debug(f'Octopus plan: {e}')
 
         # Heuristic fallback
         lower = user_input.lower()
@@ -381,6 +412,7 @@ class ChatMode:
 
     def _chat(self, user_input: str):
         with self.console.status('  [dim]...[/dim]', spinner='dots'):
+            # Try Groq first
             if self._groq:
                 try:
                     resp = self._groq.ask(
@@ -390,6 +422,15 @@ class ChatMode:
                         f'User: {user_input}',
                         max_tokens=512,
                     )
+                    if resp:
+                        self._reply(resp)
+                        return
+                except Exception:
+                    pass
+            # Fallback: SentinelOctopus local model
+            if self._octopus:
+                try:
+                    resp = self._octopus.generate(user_input)
                     if resp:
                         self._reply(resp)
                         return
