@@ -463,6 +463,8 @@ class TheSentinelPro:
                     self._handle_fake_profile_detection()
                 elif command.startswith('rl'):
                     self._handle_rl(command)
+                elif command.startswith('chat'):
+                    self._handle_chat()
                 elif command.startswith('brain'):
                     self._handle_brain(command)
                 elif command.startswith('osint'):
@@ -651,6 +653,7 @@ class TheSentinelPro:
 [green]darkweb <target>[/green]     - Deep/dark web investigation
 
 [bold cyan]BUG BOUNTY & RECON COMMANDS[/bold cyan]  [bold yellow]🆕[/bold yellow]
+[bold orange1]chat[/bold orange1]                 - 💬 Sentinel Chat Mode — baat karo, brain plan banaye, agents real-time chalein
 [green]brain <task>[/green]         - 🧠 Autonomous brain: ReAct loop, full Kali control
 [green]rl train <episodes>[/green]  - Train RL agent (Q-Learning on real targets)
 [green]rl run <target>[/green]      - Autonomous RL scan
@@ -4206,6 +4209,16 @@ class TheSentinelPro:
             self.console.print(f"  Epsilon        : {s['epsilon']} (0=exploit, 1=explore)")
             self.console.print(f"  Avg reward     : {s['avg_reward']}")
             self.console.print("[dim]Commands: rl train [episodes] | rl run <target> | rl status[/dim]")
+
+    def _handle_chat(self):
+        """Sentinel Chat Mode — conversational AI with real-time agent execution"""
+        try:
+            from sentinel_brain.chat_mode import ChatMode
+            chat = ChatMode(sentinel=self)
+            chat.run()
+        except Exception as e:
+            self.console.print(f"[red]Chat mode error: {e}[/red]")
+            logger.exception("Chat mode error")
 
     def _handle_brain(self, command: str):
         """Autonomous brain — ReAct loop, full Kali control"""
