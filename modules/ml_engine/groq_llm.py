@@ -57,8 +57,8 @@ class GroqLLM:
         ans  = llm.ask('example.com ke ports scan karo')
     """
 
-    MODEL    = 'qwen/qwen3.6-27b'
-    FALLBACK = 'openai/gpt-oss-20b'
+    MODEL    = 'openai/gpt-oss-20b'
+    FALLBACK = 'qwen/qwen3.6-27b'
 
     def __init__(self):
         self._client  = None
@@ -113,10 +113,14 @@ class GroqLLM:
                     text = resp.choices[0].message.content.strip()
                     # strip <think>...</think> blocks (reasoning models like qwen)
                     text = re.sub(r'<think>.*?</think>\s*', '', text, flags=re.DOTALL).strip()
-                    # if think block was not closed (truncated), take text after last </think>
+                    # if think block was not closed (truncated output), discard it entirely
                     if '<think>' in text:
-                        parts = text.split('</think>')
-                        text = parts[-1].strip() if len(parts) > 1 else text
+                        after = text.split('</think>')
+                        if len(after) > 1:
+                            text = after[-1].strip()
+                        else:
+                            # think block never closed — no useful content
+                            text = ''
                     return text
                 return ''
             except (ConnectionError, TimeoutError) as e:

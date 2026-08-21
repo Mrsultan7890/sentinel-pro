@@ -109,25 +109,39 @@ class ChatMode:
 
     def _prompt(self) -> str:
         self.console.print()
-        self.console.print('  [bold white]you[/bold white]  [dim]›[/dim]  ', end='')
-        return input()
+        self.console.print('  [bold white]you[/bold white]  [dim]›[/dim]  ', end='', highlight=False)
+        try:
+            return input()
+        except UnicodeDecodeError:
+            return ''
 
     # ── Intent ────────────────────────────────────────────────────────────────
 
     def _is_task(self, text: str) -> bool:
-        keywords = [
-            'scan', 'recon', 'hack', 'exploit', 'osint', 'breach', 'check',
-            'investigate', 'find', 'analyze', 'audit', 'test', 'run', 'start',
-            'nmap', 'sqlmap', 'nikto', 'nuclei', 'gobuster', 'subfinder',
-            'vulnerability', 'vuln', 'cve', 'darkweb', 'tor', 'report', 'search',
+        # Questions are never tasks
+        question_words = ('what', 'how', 'why', 'when', 'who', 'which', 'explain',
+                          'tell me', 'describe', 'define', 'what is', 'what are')
+        lower = text.lower().strip()
+        if any(lower.startswith(q) for q in question_words):
+            return False
+        if lower.endswith('?'):
+            return False
+
+        action_keywords = [
+            'scan', 'recon', 'hack', 'exploit', 'osint', 'breach',
+            'investigate', 'audit', 'test', 'run', 'start', 'check',
+            'sqlmap', 'nikto', 'nuclei', 'gobuster', 'subfinder',
+            'vulnerability', 'vuln', 'cve', 'darkweb', 'report',
         ]
-        lower = text.lower()
         has_target = bool(re.search(
-            r'[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[\w.+-]+@[\w-]+\.\w+|\d{1,3}(\.\d{1,3}){3}',
+            r'(?:https?://)?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/\S*)?'
+            r'|[\w.+-]+@[\w-]+\.\w+'
+            r'|\d{1,3}(\.\d{1,3}){3}',
             text
         ))
-        has_keyword = any(k in lower for k in keywords)
-        return has_keyword or has_target
+        has_action = any(k in lower for k in action_keywords)
+        # Need both a target AND an action keyword, or a strong action alone
+        return (has_target and has_action) or has_action
 
     # ── Task Flow ─────────────────────────────────────────────────────────────
 
@@ -371,9 +385,10 @@ class ChatMode:
                 try:
                     resp = self._groq.ask(
                         f'You are Sentinel, an AI security assistant. '
-                        f'User: "{user_input}". '
-                        f'Reply concisely in the same language. Max 2 sentences.',
-                        max_tokens=200,
+                        f'Answer this concisely in the same language the user used. '
+                        f'Max 2 sentences. No thinking tags, no preamble.\n\n'
+                        f'User: {user_input}',
+                        max_tokens=512,
                     )
                     if resp:
                         self._reply(resp)
