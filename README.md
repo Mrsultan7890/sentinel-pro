@@ -1,4 +1,4 @@
-# The Sentinel Pro v3.1
+# The Sentinel Pro v3.1 lite version
 
 <p align="center">
   <img src="assets/banner.png" alt="The Sentinel Pro" width="100%">
