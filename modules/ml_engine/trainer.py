@@ -1403,7 +1403,7 @@ class ModelTrainer:
             'version':        '1.0',
             'author':         'who_is_the_black_hat',
             'github':         'https://github.com/Mrsultan7890/osints',
-            'license':        'MIT',
+            'license':        'CC BY-NC-ND 4.0',
             'trained_at':     time.strftime('%Y-%m-%d %H:%M:%S'),
             'models':         list(saved.keys()),
             'threat_samples': len(self._threat_data),

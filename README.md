@@ -12,7 +12,7 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)](https://rust-lang.org)
 [![Go](https://img.shields.io/badge/go-1.21%2B-cyan)](https://go.dev)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0-blue)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Kali%20Linux-red)](https://kali.org)
 [![SentinelOctopus](https://img.shields.io/badge/SentinelOctopus-0.5B%20Qwen2.5--Coder-orange)](models/sentineloctopus-0.5b/)
 [![RL](https://img.shields.io/badge/RL-Q--Learning%20171%20states-purple)](sentinel_brain/)

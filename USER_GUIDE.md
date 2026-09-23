@@ -819,7 +819,7 @@ cd fuzzer && cargo build --release && cd ..
 
 ### Q1: Is Sentinel Pro free?
 
-**A:** Yes! Sentinel Pro is free and open source under the MIT license.
+**A:** Yes! Sentinel Pro is free to use for personal, non-commercial purposes under the CC BY-NC-ND 4.0 License.
 
 ---
 
@@ -945,7 +945,7 @@ bash setup.sh
 
 ## License
 
-This software is open source under the MIT License.
+This software is licensed under the CC BY-NC-ND 4.0 License. You may use it for personal, non-commercial purposes. You may not modify, redistribute, or sell it.
 
 **Copyright © 2026 @who_is_the_black_hat. All rights reserved.**
 

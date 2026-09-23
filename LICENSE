@@ -1,21 +1,68 @@
-MIT License
+Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International Public License
+
+BY EXERCISING ANY RIGHTS TO THE MATERIAL PROVIDED HERE, YOU ACCEPT AND AGREE TO BE BOUND BY THE TERMS AND CONDITIONS OF THIS LICENSE.
+
+1. Definitions
+
+   a. "Adapted Material" means material derived from or based upon the Material and in which the Material is translated, modified, arranged, transformed, or otherwise changed in a manner requiring permission under copyright law.
+
+   b. "Copyright and Similar Rights" means copyright and/or similar rights that are equivalent to copyright under applicable law, including without limitation performance rights, neighboring rights, sui generis database rights, and other comparable rights.
+
+   c. "Licensor" means the individual or entity offering the Material under this License.
+
+   d. "Material" means the creative work included in this License, including but not limited to the source code, documentation, images, and other content provided by the Licensor.
+
+   e. "You" means an individual or entity exercising rights under this License who has not previously breached the terms of this License or who has received express written permission from the Licensor to exercise rights otherwise prohibited under this License.
+
+2. License Grants
+
+   a. **Use Rights.** Licensor hereby grants You a worldwide, royalty-free, non-sublicensable, non-transferable, non-exclusive license to Use the Material solely for Your own personal, non-commercial purposes. "Use" means to run, execute, or otherwise make use of the Material in its original, unmodified form.
+
+   b. **No Modification Rights.** You may not modify, adapt, translate, reverse-engineer, decompile, or create Derivative Works from the Material. You may not copy, merge, publish, distribute, sublicense, or sell copies of the Material.
+
+   c. **No Commercial Use.** You may not use the Material for any commercial purpose, including but not limited to selling, renting, leasing, lending, or otherwise redistributing the Material or any copies thereof for monetary consideration or any commercial advantage.
+
+3. Attribution
+
+   You must give appropriate credit to the Licensor, provide a link to the Licensor's work, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the Licensor endorses You or Your use.
+
+4. No Derivative Works
+
+   You may not produce, publish, or distribute Adapted Material or any Derivative Works based upon the Material. The Material must remain in its original, unchanged form in all circumstances.
+
+5. Restrictions
+
+   a. You may not apply any technical protection measures or digital rights management to the Material.
+
+   b. You may not remove, obscure, or alter any copyright notices, license notices, or other proprietary notices contained in the Material.
+
+6. Termination
+
+   This License is effective until terminated. Your rights under this License will terminate automatically if You breach any term of this License. Upon termination, You must immediately stop using the Material and destroy all copies thereof.
+
+7. Disclaimer of Warranties
+
+   THE MATERIAL IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIAL OR THE USE OR OTHER DEALINGS IN THE MATERIAL.
+
+8. Limitation of Liability
+
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION LOSS OF PROFITS, REVENUE, DATA, OR USE, INCURRED BY YOU OR ANY THIRD PARTY, WHETHER IN AN ACTION IN CONTRACT, TORT OR OTHERWISE, EVEN IF THE LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+9. Governing Law
+
+   This License shall be governed by and construed in accordance with the laws applicable in the jurisdiction where the Licensor is based.
+
+10. Miscellaneous
+
+   a. This License constitutes the entire agreement between the parties with respect to the Material and supersedes all prior agreements and understandings.
+
+   b. If any provision of this License is held to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.
+
+   c. No waiver of any term or condition of this License shall be effective unless made in writing and signed by the Licensor.
+
+---
+
+**Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International Public License**
+Full text: https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
 
 Copyright (c) 2026 @who_is_the_black_hat
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.

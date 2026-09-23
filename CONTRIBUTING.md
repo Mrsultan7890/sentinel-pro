@@ -124,7 +124,7 @@ Open an issue with `[Feature]` in the title and describe:
 
 ## Legal
 
-By contributing you agree that your contributions will be licensed under the [MIT License](LICENSE).
+By contributing you agree that your contributions will be licensed under the [CC BY-NC-ND 4.0 License](LICENSE).
 
 Only contribute code you have the right to contribute. Do not add code that enables illegal activity beyond authorized security testing.
 
