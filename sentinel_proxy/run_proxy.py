@@ -19,8 +19,9 @@ import sys
 import asyncio
 import subprocess
 import os
+from pathlib import Path
 
-sys.path.insert(0, '/home/kali/osints')
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Kill stale
 try:

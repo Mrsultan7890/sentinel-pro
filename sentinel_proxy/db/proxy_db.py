@@ -19,7 +19,9 @@ import threading
 import fnmatch
 from pathlib import Path
 
-DB_PATH = Path('/home/kali/osints/data/sentinel_proxy.db')
+# Project root = sentinel_proxy/db/proxy_db.py ke 2 level up — hardcoded path
+# se stale/foreign DB khulne aur non-portable hone ka bug fix
+DB_PATH = Path(__file__).resolve().parents[2] / 'data' / 'sentinel_proxy.db'
 
 
 class ProxyDB:

@@ -24,6 +24,23 @@ HOST = '127.0.0.1'
 PORT = 8082
 count = [0]
 
+def _force_connection_close(data: bytes) -> bytes:
+    """HTTP/1.1 keep-alive pe response loop server ke close hone ka wait karta hai
+    aur browser hang hota hai — Connection: close force karo."""
+    head, sep, rest = data.partition(b'\r\n\r\n')
+    lines = []
+    replaced = False
+    for line in head.split(b'\r\n'):
+        if line.lower().startswith(b'connection:'):
+            lines.append(b'Connection: close')
+            replaced = True
+        else:
+            lines.append(line)
+    if not replaced and len(lines) > 1:
+        lines.insert(1, b'Connection: close')
+    return b'\r\n'.join(lines) + sep + rest
+
+
 def handle_client(client_sock):
     try:
         data = client_sock.recv(65536)
@@ -35,14 +52,15 @@ def handle_client(client_sock):
         method = first_line.split(' ')[0]
 
         if method == 'CONNECT':
-            # HTTPS tunnel
+            # HTTPS tunnel — rsplit use kiya taaki IPv6 literals ([::1]:443) na tootein
             host_port = first_line.split(' ')[1]
-            host, port = host_port.split(':')
+            host, port = host_port.rsplit(':', 1)
+            host = host.strip('[]')
             port = int(port)
 
             try:
                 remote = socket.create_connection((host, port), timeout=10)
-                client_sock.send(b'HTTP/1.1 200 Connection Established\r\n\r\n')
+                client_sock.sendall(b'HTTP/1.1 200 Connection Established\r\n\r\n')
                 count[0] += 1
                 print(f'[{count[0]}] HTTPS TUNNEL {host}:{port}', flush=True)
                 # Bidirectional tunnel
@@ -52,7 +70,7 @@ def handle_client(client_sock):
                             d = src.recv(65536)
                             if not d:
                                 break
-                            dst.send(d)
+                            dst.sendall(d)
                     except:
                         pass
                     finally:
@@ -88,7 +106,7 @@ def handle_client(client_sock):
                     return
 
                 remote = socket.create_connection((host, port), timeout=10)
-                remote.send(data)
+                remote.sendall(_force_connection_close(data))
                 count[0] += 1
                 print(f'[{count[0]}] HTTP {method} http://{host}', flush=True)
 

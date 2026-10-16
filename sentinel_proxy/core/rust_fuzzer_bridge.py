@@ -89,7 +89,9 @@ class RustFuzzerBridge:
                     [str(FUZZER_BIN)],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    # DEVNULL — PIPE rakha aur padha nahi to 64KB bharne par
+                    # fuzzer write-block hoke pura fuzzing deadlock ho jata
+                    stderr=subprocess.DEVNULL,
                     text=True,
                 )
                 # Send config
@@ -126,5 +128,11 @@ class RustFuzzerBridge:
         if self._proc:
             try:
                 self._proc.terminate()
+                self._proc.wait(timeout=3)  # zombie process na bache
+            except subprocess.TimeoutExpired:
+                try:
+                    self._proc.kill()
+                except Exception:
+                    pass
             except Exception:
                 pass

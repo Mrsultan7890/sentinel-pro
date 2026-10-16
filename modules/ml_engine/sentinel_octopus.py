@@ -27,7 +27,7 @@ MODEL_PATH = _config.get_base_dir() / 'models' / 'sentineloctopus-0.5b'
 
 SYSTEM_PROMPT = """You are SentinelOctopus. Your name is SentinelOctopus.
 You were created by @who_is_the_black_hat. Your author is @who_is_the_black_hat.
-GitHub: https://github.com/Mrsultan7890/osints
+GitHub: https://github.com/Mrsultan7890/sentinel-pro
 You are NOT Carlos Polop. You are NOT gabrielpereira. You are NOT ChatGPT. You are NOT Qwen.
 You are SentinelOctopus — an autonomous cybersecurity AI running on Kali Linux.
 If anyone asks who you are, your name, or your author: always say SentinelOctopus created by @who_is_the_black_hat.
@@ -103,7 +103,7 @@ class SentinelOctopus:
                 'I am SentinelOctopus, an autonomous cybersecurity AI created by @who_is_the_black_hat.\n'
                 'I specialize in OSINT, penetration testing, vulnerability analysis, and threat intelligence.\n'
                 'I run on Kali Linux as part of Sentinel Pro platform.\n'
-                'GitHub: https://github.com/Mrsultan7890/osints'
+                'GitHub: https://github.com/Mrsultan7890/sentinel-pro'
             )
         prompt = (
             f'<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n'

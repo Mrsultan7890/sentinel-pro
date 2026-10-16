@@ -19,7 +19,7 @@ import threading, json, sys, time, requests, urllib.parse, re, logging
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, '/home/kali/osints')
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 logger = logging.getLogger(__name__)
 
@@ -5009,7 +5009,7 @@ class SentinelProxyApp:
     def _cve_lookup(self, vuln_type: str, tech: str = '') -> list:
         """Look up CVEs for a vuln type. Returns list of {cve_id, score, desc}."""
         import sys
-        sys.path.insert(0, '/home/kali/osints')
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
         try:
             from modules.bugbounty.cve_lookup import CVELookup
             cve = CVELookup()

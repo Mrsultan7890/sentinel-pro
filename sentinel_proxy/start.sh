@@ -4,5 +4,5 @@ echo "[*] Killing stale proxy processes..."
 kill -9 $(lsof -t -i:8082) 2>/dev/null
 sleep 0.5
 echo "[*] Starting SentinelProxy..."
-cd /home/kali/osints/sentinel_proxy
+cd "$(dirname "$(realpath "$0")")"
 python3 main.py

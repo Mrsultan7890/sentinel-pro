@@ -152,7 +152,7 @@ class SmugglerTab:
         if not binary:
             self._append(
                 '[ERROR] smuggler binary not found.\n'
-                'Build it: cd /home/kali/osints/smuggler && go build -o smuggler .\n'
+                'Build it: cd sentinel_proxy/smuggler && go build -o smuggler .\n'
             )
             return
 

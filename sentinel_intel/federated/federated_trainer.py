@@ -145,8 +145,9 @@ class FederatedClient:
         """Load global model weights"""
         if self.local_model is None:
             # Initialize local model with same architecture
-            from modules.ml_engine.sentinel_net import SentinelThreatNet
-            self.local_model = SentinelThreatNet()
+            # (SentinelThreatNet naam ki class exist nahi karti — asli class SentinelNet hai)
+            from modules.ml_engine.sentinel_net import SentinelNet
+            self.local_model = SentinelNet()
         
         self.local_model.load_state_dict(weights)
     

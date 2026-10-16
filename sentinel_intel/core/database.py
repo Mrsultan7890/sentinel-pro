@@ -26,6 +26,9 @@ class GraphDatabase:
     
     def __init__(self):
         self.db_path = config.BASE_DIR / 'data' / 'sentinel.db'
+        # data/ dir missing thi to sqlite3.connect OperationalError deta tha —
+        # fresh install pe pura Sentinel Intel start hi nahi hota tha
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = None
         self._local = threading.local()
         self._init_db()

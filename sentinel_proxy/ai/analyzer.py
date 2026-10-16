@@ -20,8 +20,12 @@ import re
 import json
 import logging
 import threading
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Project root — hardcoded /home/kali/osints ki jagah relative path
+_ROOT = str(Path(__file__).resolve().parents[2])
 
 # Payload patterns from training data
 VULN_PATTERNS = {
@@ -94,26 +98,29 @@ class AIAnalyzer:
     VULN_PATTERNS = VULN_PATTERNS  # expose as class attribute
 
     def __init__(self):
-        self._sentinel = self._load_sentinel()
+        # Lazy model load — 450MB SentinelOctopus UI startup pe nahi,
+        # pehle analyze() call pe load hota hai
+        self._sentinel       = None
+        self._sentinel_tried = False
         self._lock      = threading.Lock()
         # Groq singleton — proxy mein deep vuln analysis ke liye
         try:
             import sys as _sys
-            if '/home/kali/osints' not in _sys.path:
-                _sys.path.insert(0, '/home/kali/osints')
+            if _ROOT not in _sys.path:
+                _sys.path.insert(0, _ROOT)
             from modules.ml_engine.groq_llm import get_groq
             self._groq = get_groq()
         except Exception:
             self._groq = None
-        
+
         # Behavioral Intelligence Engine — AI attack detection
         self._behavioral = self._load_behavioral()
-    
+
     def _load_behavioral(self):
         try:
             import sys
-            if '/home/kali/osints' not in sys.path:
-                sys.path.insert(0, '/home/kali/osints')
+            if _ROOT not in sys.path:
+                sys.path.insert(0, _ROOT)
             from sentinel_brain.engines import BehavioralEngine
             logger.info("[AIAnalyzer] BehavioralEngine loaded")
             return BehavioralEngine()
@@ -122,23 +129,27 @@ class AIAnalyzer:
         return None
 
     def _load_sentinel(self):
+        """SentinelOctopus-0.5B — yahi real model hai (purana SentinelNet
+        .pt model project se hata diya gaya, uska loader dead tha)."""
         try:
             import sys
-            sys.path.insert(0, '/home/kali/osints')
-            from modules.ml_engine.sentinel_net import NeuralTrainer
-            nt = NeuralTrainer()
-            if nt.load():
-                logger.info("[AIAnalyzer] SentinelNet loaded")
-                return nt
+            if _ROOT not in sys.path:
+                sys.path.insert(0, _ROOT)
+            from modules.ml_engine.sentinel_octopus import SentinelOctopus
+            oc = SentinelOctopus()
+            if oc.load():
+                logger.info("[AIAnalyzer] SentinelOctopus-0.5B loaded")
+                return oc
         except Exception as e:
-            logger.debug(f"SentinelNet load: {e}")
+            logger.debug(f"SentinelOctopus load: {e}")
         return None
 
     def _load_groq(self):
         """Legacy — use get_groq() singleton instead."""
         try:
             import sys
-            sys.path.insert(0, '/home/kali/osints')
+            if _ROOT not in sys.path:
+                sys.path.insert(0, _ROOT)
             from modules.ml_engine.groq_llm import get_groq
             return get_groq()
         except Exception as e:
@@ -196,7 +207,7 @@ class AIAnalyzer:
         # Build text to analyze - ONLY request data, NOT response body
         text_parts = [
             flow.get('url', ''),
-            flow.get('body', ''),
+            flow.get('body') or '',
             json.dumps(flow.get('params', {})),
             # NOTE: resp_body intentionally excluded - causes false positives
             # Response body scan only for sensitive data leakage, not vuln detection
@@ -207,25 +218,35 @@ class AIAnalyzer:
         vulns = self._pattern_scan(full_text, flow)
         result['vulns'] = vulns
 
-        # 2. SentinelNet classification
-        if self._sentinel and full_text.strip():
-            try:
-                pred = self._sentinel.predict(full_text[:1000])
-                result['confidence'] = pred.get('confidence', 0)
-                ml_risk = pred.get('label', 'LOW')
-                if ml_risk in ('CRITICAL', 'HIGH'):
-                    if not vulns:
-                        result['vulns'].append({
-                            'type': pred.get('threat_type', 'unknown'),
-                            'severity': ml_risk,
-                            'detail': f"SentinelNet: {pred.get('action_hint','')}",
-                        })
-            except Exception:
-                pass
-
-        # 3. Overall risk
+        # 2. SentinelOctopus classification — sirf pattern-flagged flows pe.
+        # 0.5B LLM CPU pe ~2 min/request generate karta hai — har request pe
+        # chalana proxy analysis jam kar deta. Clean requests pe model load
+        # hi nahi hota (RAM bhi bachta hai). Lock se ek waqt mein ek generate.
         if vulns:
-            sevs = [SEV_MAP.get(v['type'], 'MEDIUM') for v in vulns]
+            if not self._sentinel_tried:
+                self._sentinel_tried = True
+                self._sentinel = self._load_sentinel()
+            if self._sentinel:
+                try:
+                    with self._lock:
+                        pred = self._sentinel.predict(full_text[:500])
+                    result['confidence'] = pred.get('confidence', 0)
+                    ml_risk = pred.get('label', 'LOW')
+                    if ml_risk in ('CRITICAL', 'HIGH'):
+                        ml_type = pred.get('threat_type', 'unknown')
+                        if not any(v.get('type') == ml_type for v in vulns):
+                            result['vulns'].append({
+                                'type': ml_type,
+                                'severity': ml_risk,
+                                'detail': f"SentinelOctopus: {pred.get('action_hint','')}",
+                            })
+                except Exception:
+                    pass
+
+        # 3. Overall risk — vuln ki apni severity use karo, warna 'AI Attack'
+        # (SEV_MAP mein nahi) CRITICAL se MEDIUM down-grade ho jata hai
+        if vulns:
+            sevs = [v.get('severity') or SEV_MAP.get(v['type'], 'MEDIUM') for v in vulns]
             if 'CRITICAL' in sevs: result['risk'] = 'CRITICAL'
             elif 'HIGH' in sevs:   result['risk'] = 'HIGH'
             else:                  result['risk'] = 'MEDIUM'
@@ -304,7 +325,7 @@ class AIAnalyzer:
         """
         # Skip scan if no user-supplied input (params/body empty)
         has_params = bool(flow.get('params'))
-        has_body = bool(flow.get('body', '').strip())
+        has_body = bool((flow.get('body') or '').strip())
         url = flow.get('url', '')
         if not has_params and not has_body and '?' not in url:
             return []

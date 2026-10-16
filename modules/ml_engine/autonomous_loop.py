@@ -170,7 +170,7 @@ class AutonomousLearningLoop:
             # Best available data load karo
             import json as _json
             from pathlib import Path as _Path
-            DATA_DIR_PATH = _Path('/home/kali/osints/models/ml_engine/training_data')
+            DATA_DIR_PATH = _Path(__file__).resolve().parents[2] / 'models' / 'ml_engine' / 'training_data'
             LABEL_MAP = {'CRITICAL':'CRITICAL','HIGH':'HIGH','MEDIUM':'MEDIUM',
                          'MODERATE':'MEDIUM','LOW':'LOW'}
 
