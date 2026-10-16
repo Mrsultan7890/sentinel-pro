@@ -157,6 +157,11 @@ TOR_ENABLED = os.getenv('TOR_ENABLED', 'false').lower() == 'true'
 # Database encryption (QRCE integration)
 DB_ENCRYPTION = os.getenv('DB_ENCRYPTION', 'true').lower() == 'true'
 
+# Autonomous exploitation gate — brain automatically runs sqlmap/commix/enum4linux
+# on discovered weaknesses. OFF by default: bina written authorization ke illegal ho
+# sakta hai. Sirf apne lab / authorized scope mein AUTO_ATTACK=1 karo.
+AUTO_ATTACK = os.getenv('AUTO_ATTACK', 'false').lower() == 'true'
+
 # Runtime toggle — changed via 'tor on/off' command without restart
 _tor_active = False
 

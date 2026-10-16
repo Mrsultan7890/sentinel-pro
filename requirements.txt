@@ -78,8 +78,10 @@ ddgs>=6.0.0
 # ── PDF Export ────────────────────────────────────────────────
 weasyprint>=60.0
 
-# ── Fake Profile Detection (optional HuggingFace model) ───────
-# transformers>=4.35.0
+# ── SentinelOctopus-0.5B (local AI model) + Fake Profile Detection ────────────
+# Required by modules/ml_engine/sentinel_octopus.py — bina iske brain sirf
+# heuristic fallback pe chalega. Pinned 4.56+ because inference uses `dtype` kwarg.
+transformers>=4.56.0
 
 # ── Custom Neural Network (SentinelThreatNet) ─────────────────
 # torch CPU-only — setup.sh installs this separately via pytorch.org/whl/cpu

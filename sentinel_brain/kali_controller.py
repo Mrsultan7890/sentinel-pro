@@ -12,13 +12,19 @@ Author: @who_is_the_black_hat
 
 import os
 import re
-import pty
-import select
 import subprocess
 import time
 import logging
 import threading
 from pathlib import Path
+
+# pty/select Unix-only hain — Windows pe import crash na kare, pipe fallback use hota hai
+try:
+    import pty
+    import select
+    HAS_PTY = True
+except ImportError:
+    HAS_PTY = False
 
 logger = logging.getLogger(__name__)
 
@@ -167,53 +173,65 @@ class KaliController:
         logger.info(f"[KaliCtrl] $ {command}")
 
         try:
-            master_fd, slave_fd = pty.openpty()
-            proc = subprocess.Popen(
-                command, shell=True,
-                stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
-                cwd=cwd, close_fds=True,
-                env={**os.environ, 'TERM': 'xterm', 'COLUMNS': '220',
-                     'DEBIAN_FRONTEND': 'noninteractive'}
-            )
-            os.close(slave_fd)
+            if HAS_PTY:
+                master_fd, slave_fd = pty.openpty()
+                proc = subprocess.Popen(
+                    command, shell=True,
+                    stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+                    cwd=cwd, close_fds=True,
+                    env={**os.environ, 'TERM': 'xterm', 'COLUMNS': '220',
+                         'DEBIAN_FRONTEND': 'noninteractive'}
+                )
+                os.close(slave_fd)
 
-            chunks = []
-            deadline = time.time() + timeout
+                chunks = []
+                deadline = time.time() + timeout
 
-            while True:
-                remaining = deadline - time.time()
-                if remaining <= 0:
-                    proc.kill()
-                    chunks.append('\n[TIMEOUT]')
-                    break
-                ready, _, _ = select.select([master_fd], [], [], min(remaining, 0.5))
-                if ready:
-                    try:
-                        chunk = os.read(master_fd, 8192).decode('utf-8', errors='replace')
-                        chunks.append(chunk)
-                    except OSError:
+                while True:
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        proc.kill()
+                        chunks.append('\n[TIMEOUT]')
                         break
-                elif proc.poll() is not None:
-                    try:
-                        while True:
-                            r2, _, _ = select.select([master_fd], [], [], 0.1)
-                            if not r2:
-                                break
+                    ready, _, _ = select.select([master_fd], [], [], min(remaining, 0.5))
+                    if ready:
+                        try:
                             chunk = os.read(master_fd, 8192).decode('utf-8', errors='replace')
                             chunks.append(chunk)
-                    except OSError:
-                        pass
-                    break
+                        except OSError:
+                            break
+                    elif proc.poll() is not None:
+                        try:
+                            while True:
+                                r2, _, _ = select.select([master_fd], [], [], 0.1)
+                                if not r2:
+                                    break
+                                chunk = os.read(master_fd, 8192).decode('utf-8', errors='replace')
+                                chunks.append(chunk)
+                        except OSError:
+                            pass
+                        break
 
-            os.close(master_fd)
+                os.close(master_fd)
+            else:
+                # No-PTY fallback (Windows/unsupported) — plain pipe execution
+                done = subprocess.run(
+                    command, shell=True, cwd=cwd, timeout=timeout,
+                    capture_output=True,
+                    env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'}
+                )
+                proc = done
+                chunks = [done.stdout.decode('utf-8', errors='replace'),
+                          done.stderr.decode('utf-8', errors='replace')]
 
         except Exception as e:
             logger.exception(f"KaliCtrl error: {command}")
             return self._result(command, False, '', str(e), -1)
-        
+
         # Get return code
         try:
-            proc.wait(timeout=1)
+            if hasattr(proc, 'wait'):
+                proc.wait(timeout=1)
         except subprocess.TimeoutExpired:
             proc.kill()
         

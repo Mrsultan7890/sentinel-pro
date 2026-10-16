@@ -7,9 +7,20 @@ Author: @who_is_the_black_hat
 import logging
 import torch
 from pathlib import Path
+import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 logger = logging.getLogger(__name__)
+
+# transformers renamed torch_dtype → dtype in v4.56; older versions reject `dtype`
+def _dtype_kw() -> str:
+    try:
+        parts = transformers.__version__.split('.')[:2]
+        if tuple(int(x) for x in parts) >= (4, 56):
+            return 'dtype'
+    except Exception:
+        pass
+    return 'torch_dtype'
 
 import config as _config
 MODEL_PATH = _config.get_base_dir() / 'models' / 'sentineloctopus-0.5b'
@@ -61,12 +72,10 @@ class SentinelOctopus:
             load_kwargs = {
                 'trust_remote_code': True,
                 'low_cpu_mem_usage': True,
+                _dtype_kw(): torch.float16 if self.device == 'cuda' else torch.float32,
             }
             if self.device == 'cuda':
-                load_kwargs['dtype'] = torch.float16
                 load_kwargs['device_map'] = 'auto'
-            else:
-                load_kwargs['dtype'] = torch.float32
             self.model = AutoModelForCausalLM.from_pretrained(
                 str(MODEL_PATH), **load_kwargs
             )

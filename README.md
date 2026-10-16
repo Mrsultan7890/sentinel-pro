@@ -16,7 +16,7 @@
 [![Platform](https://img.shields.io/badge/platform-Kali%20Linux-red)](https://kali.org)
 [![SentinelOctopus](https://img.shields.io/badge/SentinelOctopus-0.5B%20Qwen2.5--Coder-orange)](models/sentineloctopus-0.5b/)
 [![RL](https://img.shields.io/badge/RL-Q--Learning%20171%20states-purple)](sentinel_brain/)
-[![Groq](https://img.shields.io/badge/Groq-llama--3.3--70b-green)](modules/ml_engine/)
+[![Groq](https://img.shields.io/badge/Groq-gpt--oss--20b-green)](modules/ml_engine/)
 [![SentinelProxy](https://img.shields.io/badge/SentinelProxy-v2.0%20Rust%206.5MB-red)](sentinel_proxy/)
 [![Agents](https://img.shields.io/badge/Agents-19%20Autonomous-cyan)](sentinel_brain/agents/)
 [![Payloads](https://img.shields.io/badge/Payloads-34K%2B%20Vectors-magenta)](sentinel_proxy/payloads/)
@@ -30,7 +30,7 @@ This is **not** a script collection. This is a fully autonomous AI security plat
 - The AI **thinks** — ReAct loop: Reason → Act → Observe → Reason again
 - The AI **learns** — Q-Learning RL trains on your real targets (171 states learned)
 - The AI **thinks & acts** — SentinelOctopus-0.5B (Qwen2.5-Coder fine-tuned on security data)
-- The AI **reasons** — Groq llama-3.3-70b as primary reasoning layer
+- The AI **reasons** — Groq gpt-oss-20b as primary reasoning layer
 - The AI **remembers** — Long-term SQLite memory across sessions (5 databases)
 - The AI **monitors** — 24/7 background monitoring with Telegram alerts
 - The AI **intercepts** — SentinelProxy v2.0 Rust core — 200K req/sec (6.5MB binary)
@@ -50,7 +50,7 @@ sentinel-pro> brain investigate target.com
 │           SENTINEL BRAIN v2.0               │
 │         ReAct Autonomous Loop               │
 │                                             │
-│  Groq llama-3.3-70b  ← Primary reasoning   │
+│  Groq gpt-oss-20b    ← Primary reasoning   │
 │  SentinelOctopus-0.5B ← Threat + commands  │
 │  Heuristic            ← Final fallback      │
 │                                             │
@@ -102,7 +102,7 @@ sentinel-pro> brain investigate target.com
 | **Sentinel Intel** | Maltego-style graph intelligence platform · 14 engines (Email, Phone, IP, Domain, Person, Username, Hash, Cryptocurrency, CVE, Breach, Company, Malware, URL, Database) · 40+ transforms · PyQt6 GUI · AI-powered auto-chaining · Risk visualization · Federated learning support · **SUB-ENTITY creation** (Maltego-style nested entities) · **Shortest Path Finder** · **Graph Diff / Snapshot Compare** |
 | **RL Agent** | Q-Learning, 19 tools, 171 states learned, epsilon-greedy |
 | **SentinelOctopus-0.5B** | Qwen2.5-Coder-0.5B fine-tuned on security data · replaces SentinelNet + Seq2Seq + SentinelLM · threat classification · command generation · report generation |
-| **Groq LLM** | llama-3.3-70b-versatile, primary reasoning + fallback llama-3.1-8b |
+| **Groq LLM** | gpt-oss-20b, primary reasoning + fallback qwen3.6-27b |
 | **Advanced ML** | GNN, Isolation Forest, DBSCAN, LightGBM, Genetic Algorithm, EntityMatcher, UsernameClusterer, IdentityScorer, NLPAnalyzer, TimelineAnalyzer, WritingFingerprinter |
 | **OSINT** | 40+ social platforms, person/email/phone/image profiling · digital footprint · relation mapper |
 | **Bug Bounty** | 30+ scanners — SSL/TLS · Headers · Ports · SQLi/XSS/SSRF · Blind SQLi · DOM XSS · LFI/RFI · XXE · SSTI · CORS · OAuth · JWT · Prototype Pollution · Subdomain Takeover · Shodan · CVE Lookup · HTTP Smuggling · DirBuster · Nuclei · Cookie Analyzer · DNS Zone Transfer · Rust Fuzzer · Tech Fingerprint · Auth Bypass · API Scanner · Clickjacking · Open Redirect · Endpoint Scanner · JS Analyzer |
@@ -951,7 +951,7 @@ Unauthorized copying or redistribution is prohibited.
 ## Groq LLM Integration
 
 ```
-Primary model  : llama-3.3-70b-versatile
+Primary model  : gpt-oss-20b
 Fallback model : llama-3.1-8b-instant
 
 Used for:
@@ -1462,7 +1462,7 @@ sentinel-pro> cred validate                # Validate all keys
 
 | Key | Service | Used In | Get It From |
 |-----|---------|---------|-------------|
-| `GROQ_API_KEY` | Groq LLM (llama-3.3-70b) | Brain, SentinelProxy, Reports, Intel | [groq.com](https://console.groq.com) |
+| `GROQ_API_KEY` | Groq LLM (gpt-oss-20b) | Brain, SentinelProxy, Reports, Intel | [groq.com](https://console.groq.com) |
 | `TELEGRAM_BOT_TOKEN` | Telegram Bot | Notifications, Monitor, Alerts | [@BotFather](https://t.me/botfather) |
 | `TELEGRAM_CHAT_ID` | Telegram Chat | Notifications, Monitor, Alerts | Send `/start` to bot, check updates |
 
@@ -1577,7 +1577,7 @@ nano .env
 
 | Key | Service |
 |-----|---------|
-| `GROQ_API_KEY` | Groq LLM — llama-3.3-70b (primary brain) |
+| `GROQ_API_KEY` | Groq LLM — gpt-oss-20b (primary brain) |
 | `SHODAN_API_KEY` | Shodan host intelligence |
 | `GITHUB_TOKEN` | GitHub dorking |
 | `SERPAPI_KEY` | Google dorking |
@@ -1789,7 +1789,7 @@ osints/
 
 ### Completed ✅
 - [x] SentinelOctopus-0.5B — Qwen2.5-Coder fine-tuned on security data (replaces SentinelNet + Seq2Seq + SentinelLM)
-- [x] Groq integration — llama-3.3-70b as primary brain
+- [x] Groq integration — gpt-oss-20b as primary brain
 - [x] 3-round curriculum training — 119K+ samples
 - [x] SentinelProxy v2.0 — Rust core (tokio+hyper+rustls)
 - [x] HTTP/2 support — ALPN negotiation

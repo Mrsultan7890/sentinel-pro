@@ -235,6 +235,24 @@ else
     fi
 fi
 
+# ── AI Stack Verification ─────────────────────────────────────────────────────
+# Honest diagnostics — silently falling back se better hai ki user ko pata ho
+p ""
+p "${BOLD}  ▶  AI Stack Check${RESET}"
+p ""
+if python3 -c "import torch, transformers" 2>/dev/null; then
+    TF_VER=$(python3 -c "import transformers; print(transformers.__version__)")
+    ok "torch + transformers $TF_VER"
+else
+    warn "transformers missing — SentinelOctopus load NAHI hoga (heuristic fallback chalega)"
+    warn "Fix: pip install 'transformers>=4.56.0'"
+fi
+if [[ -f "$MODEL_BIN" ]] || [[ -f "$MODEL_DIR/model.safetensors" ]]; then
+    ok "SentinelOctopus weights present"
+else
+    warn "Model weights missing — SentinelOctopus disabled rehega (Groq ya heuristic chalega)"
+fi
+
 # ── Chromium check ────────────────────────────────────────────────────────────
 p ""
 p "${BOLD}  ▶  Optional Tools${RESET}"

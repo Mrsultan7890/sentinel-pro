@@ -13,6 +13,7 @@ Author: @who_is_the_black_hat
 import json
 import logging
 import re
+import shlex
 import time
 from datetime import datetime
 from pathlib import Path
@@ -114,6 +115,21 @@ def parse_task(task: str) -> dict:
     return {'target': target, 'mode': mode, 'raw': task}
 
 
+# Characters that make a target unsafe to embed in a shell command
+_UNSAFE_TARGET_RE = re.compile(r'[^a-zA-Z0-9._@+:-]')
+
+
+def sanitize_target(target: str) -> str:
+    """Target ko shell-safe banao — sirf domain/IP/email/username chars rakho.
+
+    parse_task ka quoted-string fallback koi bhi character le aata hai
+    (`"; rm -rf ~ #` bhi) — wo seedha shell=True commands mein jata hai.
+    """
+    if not target:
+        return target
+    return _UNSAFE_TARGET_RE.sub('', target)
+
+
 class SentinelBrain:
     """
     Master autonomous brain v2.0
@@ -163,7 +179,8 @@ class SentinelBrain:
         self._print(f"\n{'='*60}")
         self._print(f"  SENTINEL BRAIN v{self.VERSION} — ReAct Autonomous")
         self._print(f"  SentinelOctopus : {'v1.0 loaded ✓' if self._model else 'heuristic fallback'}")
-        self._print(f"  Groq LLM        : {'Llama-3.3-70B ✓' if self._groq and self._groq.is_ready else 'not configured'}")
+        groq_name = getattr(type(self._groq), 'MODEL', 'groq') if (self._groq and self._groq.is_ready) else None
+        self._print(f"  Groq LLM        : {groq_name + ' ✓' if groq_name else 'not configured'}")
         rl_states = len(self._rl.q_table) if self._rl else 0
         rl_eps    = round(self._rl.epsilon, 3) if self._rl else 0
         self._print(f"  RL Agent   : {rl_states} states | epsilon={rl_eps}")
@@ -221,10 +238,18 @@ class SentinelBrain:
         
         target = parsed.get('target', '')
         mode   = parsed.get('mode', 'full')
-        
+
         if not target:
             logger.error("No target extracted from task")
             return {'error': 'No target found', 'success': False}
+
+        clean = sanitize_target(target)
+        if clean != target:
+            logger.warning(f"Target sanitized for shell safety: {target!r} → {clean!r}")
+            target = clean
+        if not target:
+            logger.error("Target contained no usable characters after sanitization")
+            return {'error': 'Invalid target', 'success': False}
 
         self._print(f"[Brain] Task   : {task}")
         self._print(f"[Brain] Target : {target}")
@@ -351,6 +376,7 @@ class SentinelBrain:
 
         # RL state init
         rl_state = ScanState(target) if self._rl else None
+        rl_start = len(self._rl.episode_rewards) if self._rl else 0
 
         # Initial plan
         plan = self._make_plan(target, mode)
@@ -467,7 +493,7 @@ class SentinelBrain:
                     SentinelDB.save_rl_episode(
                         target=target, episode=len(self._rl.episode_rewards)+1,
                         tools_used=list(rl_state.tools_used),
-                        total_reward=sum(self._rl.episode_rewards[-1:] or [0]),
+                        total_reward=sum(self._rl.episode_rewards[rl_start:]),
                         findings=len(rl_state.findings),
                         risk=rl_state.risk_level,
                         epsilon=self._rl.epsilon
@@ -489,10 +515,33 @@ class SentinelBrain:
         }
         if mode in base_plans:
             return base_plans[mode]
-        # Full mode — kali_recon pehle, phir baaki
-        optimal = self.adv_ml.get_optimal_scan_order()
-        self._print(f"  [Genetic] Optimal order: {' → '.join(optimal[:4])}")
-        return ['kali_recon', 'network', 'recon', 'threat_intel', 'bugbounty', 'kali_exploit', 'osint', 'breach', 'darkweb']
+        # Full mode — genetic optimizer ka order use karo, coverage guarantee ke saath
+        default_full = ['kali_recon', 'network', 'recon', 'threat_intel',
+                        'bugbounty', 'kali_exploit', 'osint', 'breach', 'darkweb']
+        tool_to_action = {
+            'nmap': 'kali_recon', 'subfinder': 'kali_recon', 'amass': 'kali_recon',
+            'theHarvester': 'kali_recon', 'nikto': 'kali_exploit', 'nuclei': 'kali_exploit',
+            'gobuster': 'kali_exploit', 'ffuf': 'kali_exploit', 'hydra': 'kali_exploit',
+            'searchsploit': 'kali_exploit', 'sqlmap': 'bugbounty', 'wpscan': 'bugbounty',
+            'osint': 'osint', 'breach': 'breach',
+        }
+        try:
+            optimal_tools = self.adv_ml.get_optimal_scan_order() or []
+        except Exception:
+            optimal_tools = []
+        mapped = []
+        for tool in optimal_tools:
+            action = tool_to_action.get(tool, tool if tool in default_full else None)
+            if action and action not in mapped:
+                mapped.append(action)
+        # recon pehle chahiye hi, aur koi step miss na ho
+        if 'kali_recon' not in mapped:
+            mapped = ['kali_recon'] + mapped
+        for step in default_full:
+            if step not in mapped:
+                mapped.append(step)
+        self._print(f"  [Genetic] Optimal order: {' → '.join(mapped[:4])}")
+        return mapped
 
     def _reason(self, target: str, plan: list, results: dict, step: int, original_task: str = '') -> str:
         """Model decides next step based on what happened so far."""
@@ -532,7 +581,8 @@ class SentinelBrain:
                 last_action = list(results.keys())[-1]
                 summary     = results[last_action].get('_agent_summary', '')
                 next_tool   = self._model.chain_gen(
-                    f'[TASK] {original_task or target} [LAST] {last_action} [FINDING] {summary} [REMAINING] {",".join(remaining)}'
+                    last_action,
+                    f'{summary} [REMAINING: {",".join(remaining)}]'
                 )
                 tool_to_action = {
                     'nmap': 'kali_recon', 'subfinder': 'kali_recon',
@@ -687,29 +737,45 @@ class SentinelBrain:
             logger.debug(f"DecisionEngine error: {e}")
 
         # Nmap mein DB ports mile → sqlmap
+        # Auto-exploitation sirf tab jab AUTO_ATTACK=1 — warna sirf suggest karo
+        auto_attack = False
+        try:
+            import config as _cfg
+            auto_attack = bool(getattr(_cfg, 'AUTO_ATTACK', False))
+        except Exception:
+            pass
         nmap = last_result.get('nmap', {})
         for p in nmap.get('open_ports', []):
             port = p.get('port')
             svc  = p.get('service', '')
             if port in (3306, 1433, 5432):
-                cmd = f'kali_cmd:sqlmap -u "http://{target}" --batch --dbs 2>/dev/null | tail -20'
-                if cmd not in plan:
-                    new_steps.append(cmd)
-                    self._print(f"  [Adapt] DB port {port} open → sqlmap")
+                cmd = f'kali_cmd:sqlmap -u {shlex.quote(f"http://{target}")} --batch 2>/dev/null | tail -20'
+                if auto_attack:
+                    if cmd not in plan:
+                        new_steps.append(cmd)
+                        self._print(f"  [Adapt] DB port {port} open → sqlmap")
+                elif cmd not in plan:
+                    self._print(f"  [Adapt] DB port {port} open — sqlmap available: `brain {cmd.split(':', 1)[1]}` (AUTO_ATTACK=1 se auto)")
             if port == 445:
-                cmd = f'kali_cmd:enum4linux -a {target} 2>/dev/null | tail -30'
-                if cmd not in plan:
-                    new_steps.append(cmd)
-                    self._print(f"  [Adapt] SMB port open → enum4linux")
+                cmd = f'kali_cmd:enum4linux -a {shlex.quote(target)} 2>/dev/null | tail -30'
+                if auto_attack:
+                    if cmd not in plan:
+                        new_steps.append(cmd)
+                        self._print(f"  [Adapt] SMB port open → enum4linux")
+                elif cmd not in plan:
+                    self._print(f"  [Adapt] SMB port {port} open — enum4linux available (AUTO_ATTACK=1 se auto)")
 
         # SSTI/LFI mila → commix
         ssti = last_result.get('ssti', {}).get('total', 0)
         lfi  = last_result.get('lfi', {}).get('total', 0)
         if ssti > 0 or lfi > 0:
-            cmd = f'kali_cmd:commix --url="http://{target}" --batch 2>/dev/null | tail -20'
-            if cmd not in plan:
-                new_steps.append(cmd)
-                self._print(f"  [Adapt] SSTI/LFI found → commix")
+            cmd = f'kali_cmd:commix --url={shlex.quote(f"http://{target}")} --batch 2>/dev/null | tail -20'
+            if auto_attack:
+                if cmd not in plan:
+                    new_steps.append(cmd)
+                    self._print(f"  [Adapt] SSTI/LFI found → commix")
+            elif cmd not in plan:
+                self._print(f"  [Adapt] SSTI/LFI found — commix available (AUTO_ATTACK=1 se auto)")
 
         # GitHub secrets → breach
         from modules.safe_data import has_findings

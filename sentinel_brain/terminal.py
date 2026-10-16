@@ -7,13 +7,19 @@ Author: @who_is_the_black_hat
 """
 
 import os
-import pty
-import select
 import subprocess
 import threading
 import time
 import logging
 from pathlib import Path
+
+# pty/select Unix-only hain — Windows pe import crash na ho, pipe fallback
+try:
+    import pty
+    import select
+    HAS_PTY = True
+except ImportError:
+    HAS_PTY = False
 
 logger = logging.getLogger(__name__)
 
@@ -49,44 +55,55 @@ class Terminal:
         logger.info(f"Terminal: {command}")
 
         try:
-            master_fd, slave_fd = pty.openpty()
-            proc = subprocess.Popen(
-                command, shell=True,
-                stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
-                cwd=self.cwd, close_fds=True,
-                env={**os.environ, 'TERM': 'xterm', 'COLUMNS': '200'}
-            )
-            os.close(slave_fd)
+            if HAS_PTY:
+                master_fd, slave_fd = pty.openpty()
+                proc = subprocess.Popen(
+                    command, shell=True,
+                    stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+                    cwd=self.cwd, close_fds=True,
+                    env={**os.environ, 'TERM': 'xterm', 'COLUMNS': '200'}
+                )
+                os.close(slave_fd)
 
-            output_chunks = []
-            deadline = time.time() + timeout
+                output_chunks = []
+                deadline = time.time() + timeout
 
-            while True:
-                remaining = deadline - time.time()
-                if remaining <= 0:
-                    proc.kill()
-                    break
-                ready, _, _ = select.select([master_fd], [], [], min(remaining, 0.5))
-                if ready:
-                    try:
-                        chunk = os.read(master_fd, 4096).decode('utf-8', errors='replace')
-                        output_chunks.append(chunk)
-                    except OSError:
+                while True:
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        proc.kill()
                         break
-                elif proc.poll() is not None:
-                    # Drain remaining output
-                    try:
-                        while True:
-                            ready2, _, _ = select.select([master_fd], [], [], 0.1)
-                            if not ready2: break
+                    ready, _, _ = select.select([master_fd], [], [], min(remaining, 0.5))
+                    if ready:
+                        try:
                             chunk = os.read(master_fd, 4096).decode('utf-8', errors='replace')
                             output_chunks.append(chunk)
-                    except OSError:
-                        pass
-                    break
+                        except OSError:
+                            break
+                    elif proc.poll() is not None:
+                        # Drain remaining output
+                        try:
+                            while True:
+                                ready2, _, _ = select.select([master_fd], [], [], 0.1)
+                                if not ready2: break
+                                chunk = os.read(master_fd, 4096).decode('utf-8', errors='replace')
+                                output_chunks.append(chunk)
+                        except OSError:
+                            pass
+                        break
 
-            os.close(master_fd)
-            proc.wait(timeout=5)
+                os.close(master_fd)
+                proc.wait(timeout=5)
+                rc = proc.returncode
+            else:
+                # No-PTY fallback (Windows/unsupported) — plain pipe execution
+                done = subprocess.run(
+                    command, shell=True, cwd=self.cwd, timeout=timeout,
+                    capture_output=True
+                )
+                output_chunks = [done.stdout.decode('utf-8', errors='replace'),
+                                 done.stderr.decode('utf-8', errors='replace')]
+                rc = done.returncode
 
             output = ''.join(output_chunks).strip()
             # ANSI escape codes clean karo
@@ -94,8 +111,8 @@ class Terminal:
             output = re.sub(r'\x1b\[[0-9;]*[mGKHF]', '', output)
             output = re.sub(r'\x1b\[\?[0-9;]*[hl]', '', output)
 
-            result = self._result(command, proc.returncode == 0,
-                                  output[:8000], '', proc.returncode)
+            result = self._result(command, rc == 0,
+                                  output[:8000], '', rc)
             self._history.append(result)
             return result
 
